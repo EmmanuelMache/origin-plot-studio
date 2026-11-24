@@ -99,8 +99,11 @@ check("a file that cannot be drawn as that workbook type gives a tile that says 
 pg.extra_files = [f for f in pg.extra_files if f != str(junk)]
 pg.remove_files() if False else None; pg.extra_files = [f for f in pg.extra_files if f != wbf]; pg.refresh_files(); set_checked(pg.grid, range(pg.grid.count()), False); set_checked(pg.files, range(pg.files.count()), True)
 # the classes: by instrument / technique and by graph type
-tops = [pg.classes.topLevelItem(i).text(0) for i in range(pg.classes.topLevelItemCount())]; inst = pg.classes.topLevelItem(1); kids = [inst.child(i).text(0) for i in range(inst.childCount())]
-check("the templates are in classes: by instrument / technique and by graph type, with counts", tops[0].startswith("All templates") and tops[1].startswith("By instrument / technique") and tops[2].startswith("By graph type") and any(k.startswith("XRD  (") for k in kids) and any(k.startswith("TGA, DTG, DSC") for k in kids) and any(k.startswith("Calorimetry") for k in kids), tops)
+tops = [pg.classes.topLevelItem(i).text(0) for i in range(pg.classes.topLevelItemCount())]
+pg._class_clicked(pg.classes.topLevelItem(1)); app.processEvents(); hv = [pg.grid.item(i).data(Qt.UserRole + 1)["source"] for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()]
+check("'House figures' at the top of the classes shows the house figure layouts in one click", tops[1].startswith("House figures") and tops[2].startswith("My templates") and len(hv) >= 18 and set(hv) == {"house"}, (tops[:3], len(hv)))
+pg._class_clicked(pg.classes.topLevelItem(0)); app.processEvents(); inst = pg.classes.topLevelItem(3); kids = [inst.child(i).text(0) for i in range(inst.childCount())]
+check("the templates are in classes: by instrument / technique and by graph type, with counts", tops[0].startswith("All templates") and tops[3].startswith("By instrument / technique") and tops[4].startswith("By graph type") and any(k.startswith("XRD  (") for k in kids) and any(k.startswith("TGA, DTG, DSC") for k in kids) and any(k.startswith("Calorimetry") for k in kids), tops)
 xr = next(inst.child(i) for i in range(inst.childCount()) if inst.child(i).text(0).startswith("XRD")); pg._class_clicked(xr); app.processEvents()
 vis = [pg.grid.item(i).data(Qt.UserRole + 1)["section"] for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()]
 check("clicking a class shows only its templates", 6 <= len(vis) <= 19 and all(v.startswith("I. XRD") for v in vis), (len(vis), set(vis)))

@@ -2,6 +2,10 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.54.1
+
+* **House figures** is the second entry of the classes in *Analysis ▸ Graphs and templates*: one click shows the house figure layouts (stacked XRD with zoom, fit with tick rows, TG–DTG panels, calorimetry, particle size …). **My templates** is right below it. Nothing has to be installed for these: they come with the app, in the house style, which is the default.
+
 ## 5.54.0
 
 * **One place for graphs: the gallery is inside Analysis.** The top bar has four sections: Workspace · Analysis · Assistant · Settings. *Graph gallery* is no longer a section of its own.

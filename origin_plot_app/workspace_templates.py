@@ -391,11 +391,18 @@ class TemplatePage(QWidget):
             for x in secs:
                 c = QTreeWidgetItem([f"{_clean(x)}  ({n(x)})"]); c.setData(0, Qt.UserRole, x); c.setToolTip(0, f"{re.sub(r'^[A-Z][.] *', '', x)}: {n(x)} template(s) can be drawn now; {tot(x)} graph types of this class are in the catalogue"); g.addChild(c)
             g.setExpanded(True)
-        mine = bold(QTreeWidgetItem([f"My templates  ({n('My templates')})"])); mine.setData(0, Qt.UserRole, "My templates"); self.classes.addTopLevelItem(mine)
+        nh = sum(1 for r in self.catalogue if r["source"] == "house")
+        hs = bold(QTreeWidgetItem([f"House figures  ({nh})"])); hs.setData(0, Qt.UserRole, "__house"); hs.setToolTip(0, "The figure layouts of the house style: stacked XRD with zoom, fit with tick rows, TG-DTG panels, calorimetry, particle size … Click to see only these")
+        self.classes.insertTopLevelItem(1, hs)
+        mine = bold(QTreeWidgetItem([f"My templates  ({n('My templates')})"])); mine.setData(0, Qt.UserRole, "My templates"); mine.setToolTip(0, "Templates you added with '+ Add template'"); self.classes.insertTopLevelItem(2, mine)
         self.filter_templates()
 
     def _class_clicked(self, it, _col=0):
-        i = self.field.findData(it.data(0, Qt.UserRole)); self.field.setCurrentIndex(max(0, i))
+        key = it.data(0, Qt.UserRole)
+        if key == "__house":                              # the house figure layouts, whatever their technique
+            self.source.blockSignals(True); self.source.setCurrentText("House figures"); self.source.blockSignals(False); self.field.blockSignals(True); self.field.setCurrentIndex(0); self.field.blockSignals(False); self.filter_templates(); return
+        if self.source.currentText() == "House figures": self.source.blockSignals(True); self.source.setCurrentIndex(0); self.source.blockSignals(False)
+        i = self.field.findData(key); self.field.setCurrentIndex(max(0, i)); self.filter_templates()
 
     def _marks(self):
         """A ticked thumbnail says so: a tick before its name (and the blue frame of the highlight)."""
