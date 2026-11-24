@@ -1,3 +1,44 @@
+VERSION 5.52.0  -  TEMPLATES (MULTIPLE SELECTION), THE SAME GRAPH IN ORIGIN, SESSION BASICS, TGA / DTG MODULE
+  TEMPLATES (new section, between Graph gallery and Assistant)
+    Graph = template x style x your data. Six panels you can move, float, close and reopen: Files, Columns, Templates,
+    Styles, Previews, Variants.
+    - Multiple selection, the same in every list: click = one, Ctrl+click = add / remove, Shift+click = a range,
+      Ctrl+A = all; a tick box on every row; "Select all in this category", "Clear selection"; the count on top says
+      e.g. "3 files · 4 templates · 2 styles selected -> 24 previews".
+    - Previews: every ticked combination is drawn from YOUR files. Double click a tile to enlarge and edit it; tick the
+      ones to keep. Drawing many previews shows a progress bar and can be cancelled.
+    - Columns: the first ticked numeric column is x, the others are series; untick or drag to reorder. The choice is
+      remembered for files with the same headers. Nothing is written to your files.
+    - Templates: 118 graph types can be drawn; the other rows of the catalogue are listed as "coming". Search, field
+      (graph families / domain packs), source, and "Works with the ticked files" (best fit first, top 3 marked).
+    - Styles: house style, Elsevier, Nature, Springer/RILEM, RSC, ACS, slides, greyscale, colour-blind safe. Export
+      warns when text or lines fall below the minimum of the chosen preset.
+    - Batch actions on the kept previews: Open all in editor; Draw all in Origin like this (Ctrl+Shift+O); Export all
+      (Ctrl+Shift+E: PNG, TIFF-LZW, PDF, SVG, EPS, JPG at single / 1.5 / double column or your own width); data of all
+      in one Excel workbook (one sheet per file + the list of graphs); apply one style to all; Combine into one figure
+      (Ctrl+Shift+G: 1x2, 2x2, 2x3, stacked, your own grid; panel letters in the format of the style).
+    - Draw in Origin like this: the drawn figure is rebuilt in Origin - one layer per panel or inset at the same place on
+      a page of the same size, the same ranges, scales and reversals, curves with colour, width, dash and marker, bars,
+      shaded zones, texts, legend, sizes in points; your data in worksheets; saved as {sample}_{template}.opju with the
+      complete LabTalk script (.ogs) beside it. What Origin cannot match is said in one line (opstudio/origin/DIFFERENCES.md).
+      More > "Build Origin templates (.otpu)" stores the Origin graph templates on a computer with Origin.
+    - My templates: Save as my template (JSON + preview + Origin script in your private folder), export / import .opst.
+  COMMAND AREA AND SESSIONS
+    - File is the left-most command, then Save, Undo, Redo (one Undo / Redo for the whole app), then the sections.
+    - Ctrl+Q: command search - type a part of a command's name and press Enter. (Exit: Alt+F4 or File > Exit.)
+    - File > Clear / Start afresh: Clear graph, Clear all graphs, Remove ticked graphs, Start afresh (keep settings and
+      layout, or reset the layout), Reset layout, Recover last session. Each asks with a one-line summary and can be
+      undone with Ctrl+Z. File > Save (Ctrl+S, to the session file in use), Save session as (Ctrl+Shift+S), Recent sessions.
+    - The session is saved by itself every 5 minutes ("autosave_min" in the settings) and when the app closes; after a
+      crash the app offers to bring it back.
+    - Every button has a tooltip: name, shortcut, what it does, and what enables it when it is disabled.
+  TGA / DTG MODULE (Tools > TGA / DTG analysis)
+    TG and DTG in one graph (DTG at its natural sign), DTG peaks with extrapolated onset and endset, zones you can drag
+    on the graph (add, split, merge, delete), mass loss per zone by the stepwise and the tangent method side by side,
+    Ca(OH)2 / CaCO3 / Mg(OH)2 from zones YOU confirmed, ignited or binder basis, bound water, replicates.
+    Zone names are suggestions with "?" until you confirm them; unconfirmed names are never exported. Confirmed names are
+    remembered per material. Export results -> Excel (Data, Peaks, Zones, Summary, Chart), Copy table, Draw in Origin.
+
 VERSION 5.51.0  -  YOUR PRIVATE FOLDER, NEUTRAL EXAMPLES, THE TEMPLATE ENGINE
   - Your private folder: %APPDATA%\OriginPlotStudio\my_templates (or the folder named by OPS_PRIVATE_DIR). The app reads from
     it at start: phase files (*.csv), your style presets (styles\*.json), your graph templates (templates\*.json) and your

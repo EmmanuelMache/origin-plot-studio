@@ -209,13 +209,13 @@ def install(w):
         elif path: _remember(w, path) if os.path.isfile(str(path)) and w.singles else None
         return p
     w.save_session, w.open_session = save_session, open_session
-    for name, method in (("save_view", "export_all"), ):
-        old = getattr(w, name, None)
-        if old is not None:
-            setattr(w, name, (lambda old=old, method=method: getattr(w.templates_page, method)() if (getattr(w, "templates_page", None) is not None and w.pages.currentWidget() is w.templates_page and hasattr(w.templates_page, method)) else old()))
+    def on_templates(): return getattr(w, "templates_page", None) is not None and w.pages.currentWidget() is w.templates_page
+    old_view = getattr(w, "save_view", None)
+    if old_view is not None:                                # Ctrl+Shift+E on the Templates page: Export all
+        w.save_view = lambda *a, **k: w.templates_page.export_all() if (on_templates() and not a and not k and hasattr(w.templates_page, "export_all")) else old_view(*a, **k)
     oldg = getattr(w, "group_ticked", None)
-    if oldg is not None:
-        w.group_ticked = lambda how="stack": w.templates_page.combine() if (how == "overlay" and getattr(w, "templates_page", None) is not None and w.pages.currentWidget() is w.templates_page and hasattr(w.templates_page, "combine")) else oldg(how)
+    if oldg is not None:                                    # Ctrl+Shift+G on the Templates page: Combine into one figure
+        w.group_ticked = lambda how="stack", *a, **k: w.templates_page.combine() if (how == "overlay" and on_templates() and hasattr(w.templates_page, "combine")) else oldg(how, *a, **k)
     # one Undo / Redo for the app
     for a in w.findChildren(QAction):
         if a.shortcut().toString() in ("Ctrl+Z", "Ctrl+Y"): a.setShortcut(QKeySequence())
@@ -232,6 +232,9 @@ def install(w):
         a.setToolTip("TG + DTG in one graph, zones you can drag, stepwise and tangent mass loss side by side, Ca(OH)₂ / CaCO₃ from zones you confirmed, export to Excel"); a.setStatusTip(a.toolTip())
         tm.insertAction(tm.actions()[0] if tm.actions() else None, a); tm.setToolTipsVisible(True); w.tga_action = a
     except Exception: pass
+    try: w.buttons_without_tooltip = tooltips(w)
+    except Exception: w.buttons_without_tooltip = []
+    w.pages.currentChanged.connect(lambda _i: QTimer.singleShot(0, lambda: tooltips(w)))      # parts that are built when a section is opened
     # autosave every few minutes; a flag that says the app is running (a crash leaves it behind)
     mins = float(WQ.load_cfg().get("autosave_min") or 5)
     w._autosave_timer = QTimer(w); w._autosave_timer.setInterval(int(max(1.0, mins) * 60000)); w._autosave_timer.timeout.connect(lambda: autosave_now(w)); w._autosave_timer.start()
@@ -242,6 +245,46 @@ def install(w):
         if w.crashed_last_time:
             QTimer.singleShot(800, lambda: (recover_last(w) if QMessageBox.question(w, "Recover last session", "The app was not closed properly last time. Bring back the session that was saved by itself?") == QMessageBox.Yes else None))
     return w
+
+
+TIPS = {  # buttons that had no tooltip: name (shortcut) – what it does. Disabled: what enables it.
+    "View ▾": "View – Show, hide and arrange the panels; reset the layout; the formatting ribbon",
+    "Tools ▾": "Tools – Draw in Origin, the analyses (TGA / DTG, calorimetry, XRD tools …) and the XRD scan tools",
+    "Help ▾": "Help – Keyboard shortcuts (F1), what is new, check for updates, system check, about",
+    "Draw the ticked XRD graphs": "Draw the ticked XRD graphs – Draws them in Origin with the settings of this page. Disabled: no XRD graph is ticked in Workspace",
+    "New chat": "New chat – Start an empty conversation; the earlier ones stay in the history",
+    "Send": "Send (Ctrl+Enter) – Send your message to the assistant. Disabled: the message box is empty or no AI is connected (Settings)",
+    "Apply to my graphs": "Apply to my graphs – Use these settings for the graphs in Workspace and draw them again",
+    "Connect and save": "Connect and save – Test the key with the chosen AI and keep it safely on this computer (never in the project or a log)",
+    "Edit my instructions": "Edit my instructions – Your lasting rules for the assistant, in a text file on this computer",
+    "Get a key…": "Get a key… – Opens the provider's page where you create an API key",
+    "Remove this AI's key": "Remove this AI's key – Deletes the stored key of the chosen AI from this computer",
+    "What it has learned": "What it has learned – The notes the assistant keeps about your preferences; you can delete them",
+    "+ Add data files": "Add data files (Ctrl+O) – Excel, CSV, text and instrument files; they are only read, never changed. You can also drop them on the window",
+    "Apply": "Apply – Use the settings of this panel for the graph on show",
+    "Export ▾": "Export (Ctrl+E) – Save this graph as PNG 600 dpi, TIFF, PDF or SVG, or copy it as a picture. Disabled: no graph yet",
+    "Pan": "Pan (P) – Drag the graph to move the view. Middle mouse button does the same in any mode",
+    "Zoom": "Zoom (Z) – Drag a box on the graph to enlarge it; the wheel zooms around the cursor",
+    "Select range": "Select range (S) – Drag over an x range for integration, mass loss or a zoom panel. Esc clears it",
+    "Reset axes": "Reset axes (Ctrl+R) – Back to the full range of the data",
+    "▾  Files": "Files – Fold or unfold where results are saved and how files are named",
+    "▾  Graph settings": "Graph settings – Fold or unfold the settings of the graph on show",
+    "▾  Paper set": "Paper set – Fold or unfold which samples go into the main figures",
+    "▾  Size and look": "Size and look – Fold or unfold journal size, fonts, line weights and colours"}
+
+
+def tooltips(w):
+    """Every button says its name, shortcut and what it does; the same text is the status tip. Returns the buttons still without one."""
+    left = []
+    for b in w.findChildren(QAbstractButton):
+        if not isinstance(b, (QPushButton, QToolButton)): continue
+        t = b.text().strip()
+        if not b.toolTip().strip():
+            tip = TIPS.get(t) or TIPS.get(t.replace("▸", "▾")) or {"ScrollLeftButton": "Show the tabs further left", "ScrollRightButton": "Show the tabs further right"}.get(b.objectName())
+            if tip: b.setToolTip(tip)
+            elif t: left.append(t)
+        if b.toolTip() and not b.statusTip(): b.setStatusTip(b.toolTip().split("\n")[0])
+    return left
 
 
 def closed_properly(w=None):
@@ -261,6 +304,8 @@ def _header(w):
                                  ("↷", "Redo", "Redo (Ctrl+Y) – Do again what Undo took back", lambda: w.redo_any())):
         b = QPushButton(glyph, objectName="menu"); b.setFixedWidth(36); b.setToolTip(tip); b.setStatusTip(tip); b.setAccessibleName(name); b.clicked.connect(fn); tb.insertWidget(k, b); k += 1; w.quick.append(b)
     tb.insertSpacing(k, 10)
+    qb = getattr(getattr(w, "ribbon", None), "quick_bar", None)
+    if qb is not None: qb.hide()                            # one visible Save / Undo / Redo in the whole app: the one beside File
     w.cmd = QLineEdit(placeholderText="Search commands…  (Ctrl+Q)"); w.cmd.setObjectName("cmdsearch"); w.cmd.setMinimumWidth(170); w.cmd.setMaximumWidth(240); w.cmd.setClearButtonEnabled(True)
     w.cmd.setToolTip("Command search (Ctrl+Q) – Type a part of a command's name and press Enter to run it: 'export', 'origin', 'reset layout', 'clear all graphs' …")
     w.cmd.setStyleSheet("QLineEdit#cmdsearch { background: #24486B; color: white; border: 1px solid #3A6088; border-radius: 6px; padding: 5px 8px; }")

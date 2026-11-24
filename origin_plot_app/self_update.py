@@ -42,6 +42,13 @@ def vkey(v): return tuple(int(x) for x in re.findall(r"\d+", str(v))[:4]) or (0,
 
 def newer(a, b): return vkey(a) > vkey(b)
 
+def incomplete(app_dir):
+    """True when a part of the program is missing here (a folder added by a newer version that an older updater did not copy).
+    Then the same version is fetched once more and installed completely."""
+    need = (os.path.join("opstudio", "__init__.py"), os.path.join("opstudio", "catalog.json"))
+    return any(not os.path.isfile(os.path.join(app_dir, f)) for f in need)
+
+
 def program_files(folder):
     """The files that are the program (relative paths). Your settings, sessions and results are not among them."""
     out = []

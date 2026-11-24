@@ -673,7 +673,8 @@ def check_updates(self, source=None, wait=False):
     emit = self.pipe.msg.emit
     def worker():
         try:
-            info = self.upd_known if (self.upd_known and not source) else su.find_update(src, sp.VERSION)
+            part = su.incomplete(str(HERE))                    # a folder of this version is missing here: fetch the same version again, completely
+            info = self.upd_known if (self.upd_known and not source) else su.find_update(src, "0.0.0" if part else sp.VERSION)
             if not info:
                 emit(("none",))
                 return
@@ -682,7 +683,7 @@ def check_updates(self, source=None, wait=False):
             shutil.rmtree(work, ignore_errors=True)
             trial = su.fetch_and_unpack(info, work)
             ver = su.version_of(trial) or ver
-            if not su.newer(ver, sp.VERSION):
+            if not su.newer(ver, sp.VERSION) and not part:
                 emit(("none",))
                 return
             emit(("checking", ver))

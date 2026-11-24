@@ -29,3 +29,20 @@ fig = pg.combine(layout=(2, 3, False))
 from workspace_templates import save_combined
 save_combined(fig, str(OUT / "combined_2x3.png"), dpi=130)
 print("written", sorted(p.name for p in OUT.glob("*.png")))
+
+# ---- the other screens of the report
+from workspace_templates import Editor
+w.go(0); app.processEvents(); w.grab().save(str(OUT / "start_screen_file_far_left.png"))
+EX = ROOT / "origin_plot_app" / "examples_synthetic"
+w.load([str(EX / "xrd_raw.csv"), str(EX / "calorimetry.csv"), str(EX / "tga.xlsx")])
+for _ in range(6000):
+    app.processEvents()
+    if w.job_thread is None and getattr(w, "loader", None) is None: break
+w.list.setCurrentRow(0); app.processEvents(); w.grab().save(str(OUT / "workspace_panels.png"))
+w.file_btn.menu().popup(w.file_btn.mapToGlobal(w.file_btn.rect().bottomLeft())); app.processEvents(); w.file_btn.menu().grab().save(str(OUT / "file_menu_clear_start_afresh.png")); w.file_btn.menu().hide()
+T = np.linspace(30, 1000, 2400); m = 100 - 6 / (1 + np.exp(-(T - 120) / 18)) - 3 / (1 + np.exp(-(T - 460) / 9)) - 2 / (1 + np.exp(-(T - 720) / 14)) - 0.002 * (T - 30)
+f = TMP / "TGA_run.csv"; pd.DataFrame({"Temperature (°C)": T, "Mass (%)": m}).to_csv(f, index=False)
+d = w.tga_analysis(str(f)); d.resize(1500, 880); app.processEvents(); d.table.item(1, 0).setCheckState(Qt.Checked); app.processEvents(); d.grab().save(str(OUT / "tga_zones_confirm_labels.png")); d.close()
+w.go(5); app.processEvents(); ed = Editor(pg, pg.kept()[:3]); ed.resize(1300, 800); ed.show(); app.processEvents(); ed.grab().save(str(OUT / "template_editor.png")); ed.close()
+w.go(1); app.processEvents(); w.grab().save(str(OUT / "analysis_panels.png"))
+print("written", sorted(p.name for p in OUT.glob("*.png")))

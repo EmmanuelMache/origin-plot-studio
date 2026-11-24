@@ -35,6 +35,22 @@ fm = [a.text().split("\t")[0] for a in w.file_btn.menu().actions() if a.text()]
 check("File menu: Save, Recent sessions, Clear / Start afresh first, then the rest", fm[:3] == ["Save", "Recent sessions", "Clear / Start afresh"] and "Save session as…" in fm and "Exit" in fm, fm[:8])
 sub = [a.text() for a in w.session_menu.actions()]
 check("Clear / Start afresh: Clear graph, Clear all graphs, Remove ticked graphs, Start afresh, Reset layout, Recover last session", sub == ["Clear graph", "Clear all graphs", "Remove ticked graphs", "Start afresh…", "Reset layout", "Recover last session"], sub)
+from PySide6.QtWidgets import QAbstractButton
+tot = 0; miss = []
+for i in range(w.pages.count()):
+    w.go(i)
+    for _ in range(6): app.processEvents()
+    for b in w.findChildren(QAbstractButton):
+        if isinstance(b, (QPushButton, QToolButton)) and b.isVisible():
+            tot += 1
+            if not b.toolTip().strip(): miss.append((W.SECTIONS[i][1], b.text(), b.objectName(), type(b.parent()).__name__))
+check(f"check 2: every visible button in every section has a tooltip ({tot} checked)", tot > 120 and not miss, sorted(set(miss)))
+import re as _re
+named = [b for b in w.findChildren(QAbstractButton) if isinstance(b, (QPushButton, QToolButton)) and len(b.toolTip()) > 20]
+check("spot check of the tooltips: more than 30 describe the command, at least 20 name a shortcut, at least 6 say what enables a disabled command",
+      len(named) >= 30 and sum(1 for b in named if "Disabled:" in b.toolTip()) >= 6 and sum(1 for b in named if _re.search(r"\((Ctrl|Shift|F\d|[A-Z]\))", b.toolTip())) >= 20,
+      (len(named), sum(1 for b in named if "Disabled:" in b.toolTip()), sum(1 for b in named if _re.search(r"\((Ctrl|Shift|F\d|[A-Z]\))", b.toolTip()))))
+w.go(0)
 # ---- load, then clear / remove / start afresh, each undoable
 w.load([str(EX / "xrd_raw.csv"), str(EX / "calorimetry.csv"), str(EX / "strength.csv")]); wait(w)
 n0 = len(w.singles); check("three files loaded", n0 >= 3, n0)

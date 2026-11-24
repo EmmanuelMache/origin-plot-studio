@@ -200,7 +200,7 @@ class Ribbon(QWidget):
                    _big("⟲", "Automatic", "The app's colours and weights again", lambda: self.set_fmt(lines=None))),
         ])
         # ------------------------------------------------------------ quick access (left) and the ribbon's own buttons (right)
-        qa = QWidget(); qh = QHBoxLayout(qa); qh.setContentsMargins(4, 0, 8, 0); qh.setSpacing(0)
+        qa = QWidget(); qh = QHBoxLayout(qa); qh.setContentsMargins(4, 0, 8, 0); qh.setSpacing(0); self.quick_bar = qa
         for g_, tip, fn in (("💾", "Save the session (Ctrl+S)", lambda: w.save_session()), ("↶", "Undo (Ctrl+Z)", self.undo), ("↷", "Redo (Ctrl+Y)", self.redo)):
             qh.addWidget(_small(g_, "", tip, fn))
 
