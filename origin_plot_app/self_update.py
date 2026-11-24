@@ -22,7 +22,7 @@ copies the current program into a backup folder, so "Undo the last update or fix
 import os, re, sys, json, shutil, zipfile, tempfile, subprocess, datetime, difflib
 
 PROGRAM_EXT = (".py", ".pyw", ".bat", ".vbs", ".ico")
-PROGRAM_FILES = ("app.png", "WHATS_NEW.txt", "HOW_TO_INSTALL.txt", "README.txt", "UI_REFRESH_NOTES.txt", "XRD_workbook_template.xlsx", "phase_amounts_template.csv")
+PROGRAM_FILES = ("app.png", "WHATS_NEW.txt", "HOW_TO_INSTALL.txt", "README.txt", "UI_REFRESH_NOTES.txt", "XRD_workbook_template.xlsx", "phase_amounts_template.csv", "xrd_phase_library.csv")
 PROGRAM_DIRS = ("figure_recipes", "phase_library", "examples_synthetic", "gallery", "opstudio")
 NEVER = ("settings.json", "settings_modern.json", "last_session.json", "last_run_log.txt", "console_output.txt", "startup_error.txt")           # yours: never replaced, never put into a backup
 

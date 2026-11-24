@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.54.1"
+VERSION = "5.54.2"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -220,7 +220,7 @@ def library_table(opt):
     for c in dict.fromkeys(lib["Code"]):
         g = lib[lib["Code"] == c]; src = str(g["Source"].iloc[0]); o = old[old["Code"].astype(str) == str(c)]
         if src == f and len(o): kind, origin, added, rem = "stored", str(o["Origin"].iloc[0]), str(o["Added"].iloc[0]), True
-        elif src == "xrd_phase_library.csv": kind, origin, added, rem = "built in", "built-in library (your private folder)", "", False
+        elif src == "xrd_phase_library.csv": kind, origin, added, rem = "built in", "built-in phase library (delivered with the app)", "", False
         else: kind, origin, added, rem = "your file", os.path.basename(src) + (" (next to the app)" if os.sep not in src else ""), "", False
         rows.append({"Code": str(c), "Phase": str(g["Phase"].iloc[0]), "Lines": len(g), "Kind": kind, "Origin": origin, "Added": added, "Removable": rem})
     return rows

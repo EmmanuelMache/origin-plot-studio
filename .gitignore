@@ -18,7 +18,6 @@ sample_data/
 screenshots/
 my_templates/
 ops_private/
-origin_plot_app/xrd_phase_library.csv
 *.opju
 *.opj
 *.xlsx

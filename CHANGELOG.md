@@ -2,6 +2,10 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.54.2
+
+* **The phase library is built in again**: 19 phases with 1889 reflections (clinker phases, feldspars, micas, carbonates, quartz, gypsum and others). Every reference to samples was removed from it; the positions and intensities are unchanged. Nothing has to be installed by hand. Phase files in your private folder still come first.
+
 ## 5.54.1
 
 * **House figures** is the second entry of the classes in *Analysis ▸ Graphs and templates*: one click shows the house figure layouts (stacked XRD with zoom, fit with tick rows, TG–DTG panels, calorimetry, particle size …). **My templates** is right below it. Nothing has to be installed for these: they come with the app, in the house style, which is the default.
