@@ -1,3 +1,8 @@
+VERSION 5.54.3  -  FAILED COMMANDS ARE NO LONGER SILENT
+  Without a console window, a command that failed used to leave no trace: Qt swallowed the error and the button looked
+  like it did nothing. Now every such error is written to error_log.txt (next to the app), shown in the status bar, and
+  included in Help > Problem report. Help > Open the error log... opens it directly.
+
 VERSION 5.54.0  -  THE GRAPH GALLERY IS INSIDE ANALYSIS
   Top bar: Workspace, Analysis, Assistant, Settings. Analysis opens "Graphs and templates" (the picture gallery: tick your
   files and the pictures, press "Draw my data like this"); the switch at its top shows "Calculations" (the analysis tools).
