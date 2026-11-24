@@ -55,7 +55,7 @@ XRD_DRAW = [        # drawing comes first; correcting and generating scans is it
 ]
 
 
-def analysis_tree():
+def _analysis_tree_core():
     """(group, [(name, what it does, where it is in the current window, action)]) - your techniques first, then the 44 tools."""
     out, general = [], []
     try:
@@ -180,6 +180,14 @@ GALLERY_GROUPS = [("XRD", ["G01", "G02", "G03", "G09", "G24"]), ("NMR", ["G04", 
                  ("Particle size", ["G20"]), ("General plots", ["G13", "G14", "G16", "G17", "G18", "G19"])]
 
 
+def analysis_tree():
+    """Everything that works on your loaded graphs, once: the analyses, and the figures from several graphs (stack / overlay)."""
+    out = [(g, list(rows)) for g, rows in _analysis_tree_core()]
+    for g, rows in out:
+        if g == "FTIR": rows[0:0] = FIGURE_STYLES[0][1]                       # FTIR: the stacked / overlaid figures first
+    return out + [("Figures from several graphs", list(FIGURE_STYLES[1][1]))]
+
+
 def figtype_tree():
     try:
         import gallery_graphs as tg
@@ -188,8 +196,7 @@ def figtype_tree():
         return []
     th = [(g, [(f"{c}  {types[c][1]}", f"{c} ({types[c][0]}): {types[c][1]}.", "File > Make a gallery graph template",
                 {"do": "figtype", "type": c}) for c in codes if c in types]) for g, codes in GALLERY_GROUPS]
-    th = [(g, (XRD_DRAW if g == "XRD" else []) + rows + (psd_rows()[2:] if g == "Particle size" else [])) for g, rows in th]      # XRD: drawing first
-    return th[:1] + [FIGURE_STYLES[0]] + th[1:] + [MODELLING, FIGURE_STYLES[1]]          # FTIR after XRD; the general figure styles last
+    return [(g, rows) for g, rows in th if rows]          # only the 26 workbook graph types here: the analyses (XRD drawing, FTIR, particle size, modelling ...) are in Analysis, once
 
 
 # ---------------------------------------------------------------------------------------------- the page

@@ -9,6 +9,9 @@ What changed for the user, newest first. Versions are those of the app (Help ▸
 * **Dragging a panel moves it.** Drag the title strip and drop the panel on another side, or on another panel to make tabs. Before, a panel turned into a separate window the moment it was dragged and could not be dropped anywhere. *View ▸ … as its own window* still makes a normal window with minimise and maximise.
 * **View ▸ Side bar** shows the side bar again.
 
+### Analysis and Graph gallery no longer repeat each other
+* The list under *Graph gallery ▸ Workbook graph types* now holds only the 26 workbook graph types. The analyses that were listed there a second time (XRD drawing, FTIR, particle size, thermodynamic modelling) are in **Analysis**, once. The FTIR stacked / overlaid figures and *Stack / Overlay the ticked graphs* moved to Analysis (FTIR, and *Figures from several graphs*).
+
 ### Graph gallery
 * **Draw my data like this** (the blue button): your ticked files are drawn in every ticked template picture. With no file ticked it ticks your files, or asks for them. Right-click a picture: *Draw my data like this (only this template)*.
 * **+ Add template**: from a graph you made here, as a copy of a ticked template, or from a template file. It appears under *My templates* and is drawn like any other.

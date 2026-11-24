@@ -45,8 +45,8 @@ SUCCESS, WARNING, ERROR = "#15803D", "#A16207", "#B91C1C"
 SECTIONS = [("workspace", "Workspace", None),
             ("analysis", "Analysis", "Every analysis in one place: XRD, TGA, calorimetry and composition first, then the 44 data-analysis tools. "
                                      "Click one, set it, press Run: it works on the graphs ticked in Your graphs (or the one on show)."),
-            ("figtype", "Graph gallery", "All 26 gallery graph types, grouped by technique. Draw ticked workbooks as a type, or make a template "
-                                        "in that layout from a raw file."),
+            ("figtype", "Graph gallery", "The 26 graph types that are drawn from a filled-in workbook, grouped by technique. Draw ticked workbooks as a type, or make a "
+                                        "workbook template in that layout from a raw file. (The analyses are in Analysis.)"),
             ("assistant", "Assistant", ""),
             ("settings", "Settings", ""),
             ("templates", "Templates", "Graph = template × style × your data. Tick files, templates and styles: every combination is drawn; keep the ones you want, "

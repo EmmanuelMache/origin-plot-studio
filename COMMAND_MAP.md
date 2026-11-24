@@ -31,6 +31,10 @@ Part 2 is the full inventory of the running window, written by `tools/command_in
 | Save as my template… | – (new) | Templates ▸ More ▾; right-click a preview; editor | – | Template + style + variants as your own template, in your private folder |
 | Export / Import a template (.opst) | – (new) | Templates ▸ More ▾ | – | One file with the JSON, the preview and the Origin script |
 | Build Origin templates (.otpu) | – (new) | Templates ▸ More ▾ | – | Needs Origin: stores each ticked template as an Origin graph template |
+| FTIR spectra stacked / overlaid; Stack / Overlay the ticked graphs; XRD drawing, particle size and modelling entries | Graph gallery list (and Analysis) | **Analysis only** (FTIR; Figures from several graphs; XRD; Particle size; Thermodynamic modelling) | – | listed once |
+| Panel: Fold / Float / Close | (close button hidden) | title strip of every panel: ▾ ⧉ ✕ | – | Fold away, float, close; View ▸ Panels reopens |
+| Draw my data like this | – (new) | Graph gallery ▸ Templates, blue button; right-click a picture | – | Draw the ticked files in the ticked template pictures |
+| + Add template | – (new) | Graph gallery ▸ Templates | – | From my graph, as a copy of a ticked template, from a .opst file |
 | TGA / DTG analysis | Analysis ▸ TGA (mass loss in intervals stays) | Tools ▸ TGA / DTG analysis… | – | Zones, stepwise and tangent mass loss, Ca(OH)₂ / CaCO₃, Excel |
 | Open a saved session | Ctrl+Shift+O everywhere | Ctrl+Shift+O everywhere except on Templates (there: Draw all in Origin) | Ctrl+Shift+O | File ▸ Open session… works in every section |
 

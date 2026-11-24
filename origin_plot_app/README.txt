@@ -6,6 +6,8 @@ VERSION 5.53.0  -  PANELS YOU CAN CLOSE AND MOVE, DRAW MY DATA LIKE THIS, NEW FI
   - New layouts: particle size 2 x 2 with d-value tables; heat flow with inset + cumulative heat with group brackets;
     TG-DTG panels with total mass loss, your reference lines and notes with arrows; a flow diagram from a table of steps.
   - Zoom / inset can be switched off (XRD fit, stacked XRD, calorimetry). Cumulative heat of your files is in J/g.
+  - Analysis and Graph gallery no longer list the same entries twice: the analyses are in Analysis; Graph gallery >
+    Workbook graph types holds the 26 workbook types only.
 
 VERSION 5.52.3  -  CLICK TO TICK, PREVIEW AT ONCE, TEMPLATES IN CLASSES
   Graph gallery > Templates: a click on a template, a file or a style ticks it (a tick before the name and a blue frame);

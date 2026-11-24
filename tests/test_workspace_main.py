@@ -166,8 +166,8 @@ p0 = ps[0]
 check("a PSD is drawn the usual way: one graph, log size axis, distribution left, cumulative passing right, D10/D50/D90 marked",
       len(p0.spec["panels"]) == 1 and p0.spec.get("xlog") and p0.spec["panels"][0]["y2"]["yname"] == "Cumulative passing (%)" and len(p0.spec["panels"][0]["vlines"]) == 3)
 pa = w.pages.widget(1); pt = w.pages.widget(2)
-check("Analysis and Graph gallery have a Particle size group", pa.find_entry("Characteristic sizes") is not None and pa.find_entry("RRSB fit") is not None
-      and pt.find_entry("Draw as: distribution and cumulative in one graph") is not None and pt.find_entry("G20") is not None)
+check("Particle size: the analyses and 'Draw as' are in Analysis (once); the gallery keeps the workbook type G20", pa.find_entry("Characteristic sizes") is not None and pa.find_entry("RRSB fit") is not None
+      and pa.find_entry("Draw as: distribution and cumulative in one graph") is not None and pt.find_entry("Draw as: distribution and cumulative in one graph") is None and pt.find_entry("G20") is not None)
 w._tick_only([p0]); w.tools.psd_style(sp.PSD_STYLES[1], pa)
 check("Draw as: two panels", len(p0.spec["panels"]) == 2 and not p0.spec["panels"][0].get("y2"))
 w.tools.psd_style(sp.PSD_STYLES[2], pa); check("Draw as: cumulative only", len(p0.spec["panels"]) == 1 and p0.spec["panels"][0]["yname"].startswith("Cumulative"))
