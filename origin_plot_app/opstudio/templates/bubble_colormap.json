@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "bubble_colormap",
+ "name": "Bubble chart with colour map (4 variables)",
+ "category": "Basic 2D & layout",
+ "use_case": "x, y, bubble size and colour show four variables at once; size legend included.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "x",
+  "y": "y",
+  "s": "size column",
+  "z": "colour column"
+ },
+ "default_params": {
+  "cmap": "viridis"
+ },
+ "origin_hint": "Origin: Plot > Basic 2D > Bubble + Color Mapped.",
+ "recommended_for": [
+  "multi-variable comparison"
+ ],
+ "calculations": [],
+ "preview": "previews/bubble_colormap.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/bubble_colormap.ogs",
+  "otpu": "origin/bubble_colormap.otpu"
+ }
+}

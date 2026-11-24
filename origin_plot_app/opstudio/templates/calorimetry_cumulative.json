@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "calorimetry_cumulative",
+ "name": "Cumulative heat with regime brackets",
+ "category": "Isothermal calorimetry",
+ "use_case": "Cumulative heat; right-hand brackets group samples into user-named regimes.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "time",
+  "series": "cumulative heat per sample",
+  "regimes": "user-defined groups"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Line plot + bracket via Insert > Line objects.",
+ "recommended_for": [
+  "calorimetry"
+ ],
+ "calculations": [
+  "∫ heat flow dt"
+ ],
+ "preview": "previews/calorimetry_cumulative.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/calorimetry_cumulative.ogs",
+  "otpu": "origin/calorimetry_cumulative.otpu"
+ }
+}

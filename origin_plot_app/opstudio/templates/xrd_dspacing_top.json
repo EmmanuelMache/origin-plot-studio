@@ -1,0 +1,29 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_dspacing_top",
+ "name": "Secondary top axis (e.g. d-spacing over 2θ, K over °C)",
+ "category": "XRD & Rietveld",
+ "use_case": "Second, transformed x scale on top: d = λ / (2 sin θ); same mechanism for K↔°C, √t↔t, energy↔wavelength.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "x",
+  "y": "y",
+  "transform": "user-chosen function + inverse"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Axis dialog > Top: Tick Labels with formula.",
+ "recommended_for": [
+  "XRD",
+  "any unit pair"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_dspacing_top.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrd_dspacing_top.ogs",
+  "otpu": "origin/xrd_dspacing_top.otpu"
+ }
+}

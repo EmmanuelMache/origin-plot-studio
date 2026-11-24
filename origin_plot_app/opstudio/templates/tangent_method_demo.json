@@ -1,0 +1,34 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "tangent_method_demo",
+ "name": "Tangent (step) method view for one decomposition step",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Analysis view: TG with tangents before/after the step and the read-off Δm; shows exactly what was integrated.",
+ "source": "generic",
+ "data_kind": "thermal",
+ "data_roles": {
+  "samples": "one sample",
+  "window": "user-confirmed onset/endset"
+ },
+ "default_params": {
+  "window": [
+   400,
+   550
+  ]
+ },
+ "origin_hint": "Origin: Line plot + two fitted straight lines + vertical Δm bracket.",
+ "recommended_for": [
+  "TGA"
+ ],
+ "calculations": [
+  "tangent method Δm at T_peak(DTG)"
+ ],
+ "preview": "previews/tangent_method_demo.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/tangent_method_demo.ogs",
+  "otpu": "origin/tangent_method_demo.otpu"
+ }
+}

@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "setting_time_bar",
+ "name": "Setting time as floating bars (initial → final)",
+ "category": "Cement & concrete engineering",
+ "use_case": "Each bar spans initial to final set (Vicat); compact and readable.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "mix",
+  "groups": "initial, final"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Floating Column (Plot > Column > Floating Column).",
+ "recommended_for": [
+  "Vicat"
+ ],
+ "calculations": [],
+ "preview": "previews/setting_time_bar.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/setting_time_bar.ogs",
+  "otpu": "origin/setting_time_bar.otpu"
+ }
+}

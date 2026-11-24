@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "qpa_stacked_bar_100",
+ "name": "Phase assemblage – stacked bars",
+ "category": "Phase & chemical composition",
+ "use_case": "Rietveld QPA (incl. amorphous) per sample as stacked bars summing to 100 wt.%.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "samples (column 1)",
+  "groups": "phases (one column each)"
+ },
+ "default_params": {
+  "show_values": false,
+  "horizontal": false
+ },
+ "origin_hint": "Origin: Column > Stacked Column.",
+ "recommended_for": [
+  "Rietveld QPA"
+ ],
+ "calculations": [],
+ "preview": "previews/qpa_stacked_bar_100.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/qpa_stacked_bar_100.ogs",
+  "otpu": "origin/qpa_stacked_bar_100.otpu"
+ }
+}

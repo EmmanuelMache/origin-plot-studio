@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "correlation_heatmap",
+ "name": "Correlation matrix heatmap",
+ "category": "General scientific & statistics",
+ "use_case": "Pearson r between variables; values printed in cells.",
+ "source": "generic",
+ "data_kind": "matrix",
+ "data_roles": {
+  "table": "samples × variables"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Statistics > Correlation Coefficient → Heatmap.",
+ "recommended_for": [
+  "statistics"
+ ],
+ "calculations": [
+  "Pearson / Spearman r"
+ ],
+ "preview": "previews/correlation_heatmap.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/correlation_heatmap.ogs",
+  "otpu": "origin/correlation_heatmap.otpu"
+ }
+}

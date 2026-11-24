@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "depth_profile",
+ "name": "Depth profiles (depth downward, shared y)",
+ "category": "Environment & geoscience",
+ "use_case": "Several variables against depth in side-by-side panels; depth axis reversed.",
+ "source": "generic",
+ "data_kind": "profile",
+ "data_roles": {
+  "depth": "depth column",
+  "vars": "one column per variable"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Multi-panel horizontal, Y reversed.",
+ "recommended_for": [
+  "soil",
+  "sediment",
+  "concrete cores",
+  "oceanography"
+ ],
+ "calculations": [],
+ "preview": "previews/depth_profile.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/depth_profile.ogs",
+  "otpu": "origin/depth_profile.otpu"
+ }
+}

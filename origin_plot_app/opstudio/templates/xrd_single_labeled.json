@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_single_labeled",
+ "name": "XRD pattern with phase labels",
+ "category": "XRD & Rietveld",
+ "use_case": "One diffractogram; phase letters above confirmed peaks; letter key below the graph.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "2θ column",
+  "y": "intensity column",
+  "labels": "peak list from user's HighScore file (x, phase)"
+ },
+ "default_params": {
+  "label_offset_frac": 0.04,
+  "show_key": true
+ },
+ "origin_hint": "Origin: Line plot; labels via Text objects at peak x; key as legend text block.",
+ "recommended_for": [
+  "XRD"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_single_labeled.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrd_single_labeled.ogs",
+  "otpu": "origin/xrd_single_labeled.otpu"
+ }
+}

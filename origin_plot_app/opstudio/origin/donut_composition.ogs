@@ -1,0 +1,42 @@
+// Template donut_composition: layout commands (illustrative data)
+// Written by Origin Plot Studio: the same commands the app sends to Origin.
+[Main]
+win -t plot line d1a;
+win -a d1a;
+page.width=3.543*page.resx; page.height=2.531*page.resy;
+win -a d1a;
+page.active=1;
+layer.unit=1;
+layer.left=23.750; layer.top=12.000; layer.width=55.000; layer.height=77.000;
+win -a d1a;
+page.active=1;
+layer.x.type=1;
+layer.y.type=1;
+layer.x.from=-1.25; layer.x.to=1.25;
+layer.y.from=-1.25; layer.y.to=1.25;
+layer.x.showAxes=3;
+layer.y.showAxes=3;
+layer.x.ticks=5;
+layer.y.ticks=5;
+layer.x2.ticks=5;
+layer.y2.ticks=5;
+layer.x2.showLabels=0;
+layer.y2.showLabels=0;
+layer.x.showLabels=0;
+layer.y.showLabels=0;
+layer.x.label.pt=8; layer.y.label.pt=8;
+layer.y2.label.pt=8;
+layer.x.thickness=0.8;
+layer.y.thickness=0.8;
+layer.x2.thickness=0.8;
+layer.y2.thickness=0.8;
+label -r legend;
+xb.show=0;
+yl.show=0;
+label -a 0 0 -n T1 x;
+T1.text$="\b(Sample B)";
+T1.fsize=8;
+T1.color=color(0,0,0);
+T1.attach=2;
+T1.x=0;
+T1.y=0+T1.dy/2;

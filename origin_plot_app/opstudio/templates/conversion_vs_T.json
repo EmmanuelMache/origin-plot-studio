@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "conversion_vs_T",
+ "name": "Conversion α vs T at several heating rates",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "S-curves from multi-rate TG/DSC; input for isoconversional kinetics.",
+ "source": "generic",
+ "data_kind": "kinetics",
+ "data_roles": {
+  "curves": "one TG/DSC run per heating rate (β from file or user)"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: line plot, colour-mapped by β.",
+ "recommended_for": [
+  "thermal kinetics"
+ ],
+ "calculations": [
+  "α = (m0 − m)/(m0 − m∞)"
+ ],
+ "preview": "previews/conversion_vs_T.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/conversion_vs_T.ogs",
+  "otpu": "origin/conversion_vs_T.otpu"
+ }
+}

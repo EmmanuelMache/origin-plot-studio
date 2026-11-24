@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "strength_activity_index",
+ "name": "Relative strength / activity index with threshold line",
+ "category": "Cement & concrete engineering",
+ "use_case": "Strength as % of reference; threshold line value comes from the user (e.g. a standard's limit), never assumed.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "mix",
+  "groups": "ages"
+ },
+ "default_params": {
+  "threshold": null,
+  "threshold_label": ""
+ },
+ "origin_hint": "Origin: Grouped Column + labelled reference line.",
+ "recommended_for": [
+  "mechanical testing"
+ ],
+ "calculations": [
+  "100 × f(mix)/f(reference)"
+ ],
+ "preview": "previews/strength_activity_index.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/strength_activity_index.ogs",
+  "otpu": "origin/strength_activity_index.otpu"
+ }
+}

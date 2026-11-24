@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "arrhenius_plot",
+ "name": "Arrhenius plot (ln k vs 1000/T)",
+ "category": "Physics & signal",
+ "use_case": "Rate constants at several temperatures; Ea from the slope. Works for any kinetics.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "T": "temperature",
+  "k": "rate constant"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: scatter + Linear Fit on transformed columns.",
+ "recommended_for": [
+  "kinetics",
+  "calorimetry at several T",
+  "conductivity"
+ ],
+ "calculations": [
+  "Ea = −slope·R"
+ ],
+ "preview": "previews/arrhenius_plot.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/arrhenius_plot.ogs",
+  "otpu": "origin/arrhenius_plot.otpu"
+ }
+}

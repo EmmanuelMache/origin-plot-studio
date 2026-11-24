@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "sensitivity_tornado",
+ "name": "Tornado diagram (sensitivity)",
+ "category": "Sustainability & CO2",
+ "use_case": "Effect of low/high setting of each parameter on a result, sorted by impact.",
+ "source": "generic",
+ "data_kind": "sensitivity",
+ "data_roles": {
+  "params": "names",
+  "low": "result change at low",
+  "high": "result change at high"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Floating Bar.",
+ "recommended_for": [
+  "LCA",
+  "cost",
+  "uncertainty"
+ ],
+ "calculations": [],
+ "preview": "previews/sensitivity_tornado.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/sensitivity_tornado.ogs",
+  "otpu": "origin/sensitivity_tornado.otpu"
+ }
+}

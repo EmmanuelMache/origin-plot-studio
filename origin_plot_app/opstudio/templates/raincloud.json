@@ -1,0 +1,26 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "raincloud",
+ "name": "Raincloud plot (half violin + box + rain)",
+ "category": "General scientific & statistics",
+ "use_case": "Same information as a violin, easier to read for many groups.",
+ "source": "generic",
+ "data_kind": "groups",
+ "data_roles": {
+  "groups": "one column per group"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Raincloud template (File Exchange fid 773).",
+ "recommended_for": [
+  "distributions"
+ ],
+ "calculations": [],
+ "preview": "previews/raincloud.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/raincloud.ogs",
+  "otpu": "origin/raincloud.otpu"
+ }
+}

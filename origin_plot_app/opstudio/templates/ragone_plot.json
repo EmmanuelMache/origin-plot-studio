@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "ragone_plot",
+ "name": "Ragone plot (energy vs power, log-log)",
+ "category": "Electrochemistry & energy",
+ "use_case": "Energy storage comparison.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "power",
+  "y": "energy",
+  "group": "device"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: log-log Line+Symbol.",
+ "recommended_for": [
+  "energy storage"
+ ],
+ "calculations": [],
+ "preview": "previews/ragone_plot.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/ragone_plot.ogs",
+  "otpu": "origin/ragone_plot.otpu"
+ }
+}

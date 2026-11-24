@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "sankey_mass_energy",
+ "name": "Sankey diagram (mass / energy flows)",
+ "category": "Sustainability & CO2",
+ "use_case": "Inputs → process → outputs with widths proportional to flow; balance checked.",
+ "source": "generic",
+ "data_kind": "flows",
+ "data_roles": {
+  "source": "from",
+  "target": "to",
+  "value": "amount"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > Categorical > Sankey (Sankey.otpu).",
+ "recommended_for": [
+  "mass balance",
+  "energy balance",
+  "LCA"
+ ],
+ "calculations": [
+  "input = output check"
+ ],
+ "preview": "previews/sankey_mass_energy.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/sankey_mass_energy.ogs",
+  "otpu": "origin/sankey_mass_energy.otpu"
+ }
+}

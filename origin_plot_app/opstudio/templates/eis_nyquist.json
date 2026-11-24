@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "eis_nyquist",
+ "name": "EIS Nyquist plot (equal axes) with frequency labels",
+ "category": "Electrochemistry & energy",
+ "use_case": "−Z″ vs Z′ with equal aspect; selected frequencies annotated.",
+ "source": "generic",
+ "data_kind": "impedance",
+ "data_roles": {
+  "Zre": "Z′",
+  "Zim": "−Z″",
+  "f": "frequency"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: scatter, axis ratio 1:1.",
+ "recommended_for": [
+  "corrosion",
+  "batteries",
+  "cementitious conductivity"
+ ],
+ "calculations": [
+  "equivalent-circuit fit (external)"
+ ],
+ "preview": "previews/eis_nyquist.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/eis_nyquist.ogs",
+  "otpu": "origin/eis_nyquist.otpu"
+ }
+}

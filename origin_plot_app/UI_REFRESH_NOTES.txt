@@ -1,0 +1,222 @@
+Origin Plot Studio 5.15 - "Scientific Workbench" redesign
+
+What changed: the window (origin_plot_app.py, gui part) and a new file theme.py.
+Not changed: smart_plots.py, xrd_smart.py, assistant.py - reading files, analysis, Origin automation,
+sessions, the assistant's actions, the menu bar and every keyboard shortcut.
+
+THEME (theme.py)
+- THEME holds every colour, font size, radius and spacing. install(root) applies it to all ttk widgets.
+- Rounded cards, buttons, fields, pills, tick boxes and chat bubbles are small pictures made with Pillow
+  (installed with matplotlib) that ttk stretches. Without Pillow the same styles are flat and square.
+- Tk cannot draw shadows or letter-spacing: cards use their 1 px border, kickers use size and weight.
+
+LAYOUT
+- Header: kicker + title; pill with the real state of the AI link (connected / working / not connected);
+  Save session; Draw ticked (shows "Drawing..." while Origin is driven).
+- The five tabs are now five views, chosen with the dark switcher at the bottom or Ctrl+1 ... Ctrl+5:
+    1 Focused Copilot        data cards + live preview (left), assistant (right)       [was: Assistant]
+    2 Scientific Workbench   every control of steps 1-4 + the large zoom/pan preview   [was: My graphs]
+    3 Own graph   4 Analysis settings   5 Look and saving
+- Focused Copilot, left card: one card per loaded graph (file name, Ready / Not selected, kind, what is
+  plotted, number of points). Click a card = preview it and make it the assistant's graph. Click its badge =
+  tick / untick it for drawing. With no files: a card to click and browse. "Open full preview" opens view 2.
+- Focused Copilot, right card: model and state, conversation as bubbles, action queue, examples, prompt at
+  the bottom with Attach and Send. New chat, Earlier chats, My instructions, What it has learned,
+  Choose the results folder and Problem report are under "More".
+- Action queue: lists the steps the assistant carried out for your last request, each marked done or not
+  done. It reports; it does not hold steps back for approval (the assistant still acts as before).
+
+MOVED, NOT REMOVED
+- Open session: File menu (Ctrl+O) and "More" in view 2.   Draw all: under the steps in view 2, Run menu (Shift+F5).
+
+HIGH-RESOLUTION SCREENS
+- The app now asks Windows for sharp drawing and scales every size with the display scaling.
+  If the window comes out too large or too small: put  "dpi_aware": false  in settings.json,
+  or set a factor yourself with  "ui_scale": 1.25 .
+
+CHECKED (on Linux, Tk 9, without Segoe UI - not on Windows)
+- Rendered at 1420x980, at 150 % scaling (2130x1400) and at the minimum 1200x780, empty and with data.
+- Card click, badge click, Ctrl+2/4, switcher, Show details, Open full preview, New chat: all reach their
+  old handlers; no problem in the log. Open session with a workbook, a wrong JSON and a real session.
+- Dry run on the synthetic XRD and TGA examples: 173 LabTalk commands, as before.
+
+
+==========================================================================================
+5.16  -  COMPOSED PAPER FIGURES, UPDATES, AI REPAIRS
+==========================================================================================
+
+PAPER FIGURES FROM A RECIPE  (paper_figures.py, folder figure_recipes)
+- Draws composed figures from the sheets of a workbook and saves each as PDF and as PNG at 600 dpi, in
+  <results folder>\Paper_figures, with figures_report.txt. The app makes these files itself (matplotlib);
+  they are not Origin graphs.
+- A recipe file in figure_recipes (your own, never published) describes the figures: stacked panels, fits with
+  difference and tick rows, zoomed insets, grouped hatched bars.
+- How to run it:  Run > "Paper figures from a recipe..." and choose the workbook;  or tell the assistant
+  "draw Fig A to Fig G from <full path of the workbook>" (new action paper_figures).  A workbook finds the recipe with the same first word in its name by itself.
+- The assistant can also write a figure of its own with this action, for example grouped bars by sample.
+- Nothing is guessed. A sheet or column that is not in the workbook is left out and named in the report.
+  A label that would sit on a curve or on another label is moved up, keeps its colour and gets a leader.
+- Tested with a stand-in workbook that has the sheet and column names of the brief and made-up numbers.
+  The real workbook was not available: run it once and read figures_report.txt.
+
+UPDATES AND REPAIRS  (self_update.py, menu Help)
+- "Where updates come from...": a folder, a link to a .zip or latest.json, or github:owner/repository.
+  The app looks there when it starts and only TELLS you that a new version is there.
+- "Check for updates...": downloads into a trial folder, redraws every file of examples_synthetic with the
+  new version, shows what comes out the same and what differs, and installs only when you press the button.
+- "Repair the last problem with AI...": asks first, then sends the error and the functions it names to the
+  linked AI. The fix is applied to a copy. It is offered only if the copy compiles and gives exactly the same
+  Origin commands for every example file. A fix may not add network access, deleting files, subprocesses,
+  eval or exec, and may not touch self_update.py.
+- "Undo the last update or fix": every install first copies the program into
+  <app data>\program_backups; undo puts that copy back.
+- Limits: the check covers only what the example files cover, not a new kind of file and not the composed
+  paper figures. A zip is not signed: use only a place you control. Your settings, sessions and results are
+  never replaced.
+
+
+5.16.1  -  SPEED
+- Only the preview you are looking at is drawn; the other one is drawn when you open its view.
+  (Before, every click drew both, and the small one twice.)
+- The cards of the graphs are made once; a click changes only a badge and a frame.
+- The status line keeps one fixed height. A longer message used to change the height of the bar, which
+  moved every view and redrew the previews.
+- The window is built out of sight and shown when it is laid out.
+- The conversation: resizing is handled once after it stops; the last 30 messages of an old chat are built
+  as bubbles (all of them stay in the chat file); a long chat keeps its newest 50 bubbles.
+- Reading tables: the row test of the table finder no longer asks pandas for every row. Results are the
+  same: all bundled example files give identical Origin commands before and after.
+- Previews are drawn at up to 150 % sharpness even on a 200 % screen, to keep redraws quick.
+Measured here (Linux): click on a graph 0.9 s -> 0.26 s in Focused Copilot and 0.24 s -> 0.06 s in the
+Workbench; loading the three large example files 5.3 s -> 3.9 s. What remains when loading is mostly Excel
+itself being read.
+
+
+5.16.2  -  NO BLACK WINDOW
+- Origin_Plot_Studio.vbs (new): double-click it, or drag data files onto it, to start the app with no console
+  window at all. If a Python package is missing it opens Run_Origin_Plot_App.bat, which installs it.
+- Run_Origin_Plot_App.bat: its window now closes as soon as the app starts. It also no longer loads all
+  packages just to see whether they are installed, so the app starts sooner.
+- Without a console nothing can be printed: if the app cannot start, it shows a message and writes
+  startup_error.txt in the app folder.
+
+
+5.17.0  -  INSTALLER, AND WHY IT PAINTED SLOWLY
+- Setup.bat + setup.pyw: an installer window with steps and a progress bar. It installs the missing Python
+  packages, copies the program to %LOCALAPPDATA%\Programs\Origin Plot Studio, makes a shortcut on the Desktop
+  and in the Start menu with the app's own icon (app.ico), and adds the app to Windows' list of installed apps
+  (with Uninstall). See HOW_TO_INSTALL.txt.
+- The app has its own icon in the title bar and the taskbar.
+- FIXED: the large preview in the Scientific Workbench view was missing in 5.16.1 and 5.16.2 ("The preview needs
+  the matplotlib package ... get_tk_widget"). A line was lost in the speed change; it is back, and a test now
+  checks that the preview and its zoom toolbar exist.
+- FIXED, slow painting: each rounded card was filled by repeating a picture a few pixels wide, tens of thousands
+  of times per repaint. The pictures now have a wide middle (a handful of copies) and no see-through pixels.
+- FIXED, Windows: the previews were drawn at the display scaling twice (matplotlib scales by itself there),
+  so at 150 % they had more than five times the pixels they needed.
+- Switching views: the view appears first and its graph is drawn a moment later; the cards of the graphs are
+  only built when the Focused Copilot view is open.
+- Closing: the window disappears at once; if a link to the AI or to Origin still hangs, the program ends after
+  3 seconds anyway. Settings are saved first.
+
+
+5.18.0  -  STARTING, SPEED RECORDER, EASIER UPDATES
+- start.pyw: a small "Starting..." window appears at once while the plotting libraries load. The Desktop
+  shortcut, Origin_Plot_Studio.vbs and Run_Origin_Plot_App.bat all start the app through it.
+- Speed recorder: whenever the window does not answer for more than a second, the app writes how long and
+  what it was doing into slow_log.txt (Help > Speed report...). It also notes slow steps (reading files,
+  drawing a preview) and the start-up time.
+- The room for a scroll bar is always reserved. Before, a scroll bar appearing could narrow the text, re-wrap
+  it, make the scroll bar unnecessary again, and so on.
+- A preview is drawn just after the click is shown; several quick clicks draw only the last graph.
+- Help > "Install an update from a zip file...": choose the downloaded zip; after the install the app
+  restarts itself.
+- Updates from GitHub: "github:owner/repository" now also works without releases. The app reads VERSION from
+  the repository's main branch and installs from there. A read-only token can be stored for a private one.
+
+
+5.18.1
+- Updates: the check of a downloaded version no longer depends on the folder the app was started from.
+- This version is the first one delivered through GitHub (its GitHub repository).
+
+
+5.18.2
+- The app's own icon instead of Tk's feather on the window, the taskbar and the dialogs. The icon file held its
+  pictures in a format Tk cannot read, so Tk silently kept the feather. It is rebuilt, and set a second way too.
+
+
+5.19.0  -  ONE-CLICK UPDATES
+- Nothing to type any more: the app knows its own repository (its GitHub repository).
+- Help > "Check for updates and install": one window finds the new version, downloads it, redraws the example
+  files with it, installs it and offers "Restart now". No questions in between.
+- A version that draws an example differently is never installed by itself: the window says so and shows
+  what differs before you decide.
+- When a newer version is waiting, the header shows "Update ... available"; a click on it does the same.
+- The check is quicker: one example of each kind, several at a time (about 12 s instead of 40 s here).
+- Help > "Undo the last update or fix" still brings the earlier version back.
+
+
+5.19.1
+- "The update did not work: the place for updates must be ...": the saved place for updates was in a form the
+  app did not know. Any form is accepted now (a web address of the repository, owner/repository, with or
+  without "github:"), and a setting that cannot be used is replaced by the app's own repository.
+- When a newer version is waiting, the app asks once at the start: "Update now" or "Later". The badge at the
+  top stays until the update is installed.
+- The update window has "Try again" when the download failed.
+- Taskbar: the app's icon is given to Windows directly, in the size the taskbar asks for, and a pinned button
+  keeps the icon and starts the app.
+
+
+5.19.2  -  SETUP KNOWS WHAT IS ALREADY INSTALLED
+- An earlier version is installed: Setup says "Update Origin Plot Studio - version X is installed, update it
+  to Y?" with an Update button. Settings, AI link and sessions are kept.
+- The same version is installed: "already installed", with "Install again" (repairs files) or Close.
+- A newer version is installed: Setup says so and does not put the older one back unless you choose it.
+- "Remove the app instead..." on those screens.
+- The window is as tall as its content: the last tick box is no longer cut off.
+
+
+5.20.0  -  LIVE PREVIEW BACK, PANELS YOU CAN ARRANGE
+- FIXED: the live preview in the Focused Copilot view stayed empty since 5.18.0. The step that draws it was
+  never reached. A test now checks that a graph is really in it after a click.
+- FIXED: the list of graphs could show only its first cards without a scroll bar.
+- The Focused Copilot view has three panels: your graphs, the live preview, the assistant.
+  "Arrange" (top right, or Ctrl+L) chooses how they sit:
+     graphs and preview left, assistant right   |   graphs and preview on top, assistant below
+     all three side by side                      |   assistant left, graphs and preview right
+  Drag the gap between two panels to resize them. The arrangement and the sizes are remembered.
+- The live preview fills its panel and is drawn again for the new size after you resize it.
+- A long name on a card no longer pushes its Ready / Not selected badge out of sight.
+
+
+5.21.0  -  TWO MORE INSTRUMENT FILES, READ DIRECTLY  (instrument_files.py)
+- .spa  (Thermo OMNIC, FTIR): the spectrum is read as it is stored - wavenumber against transmittance,
+  absorbance or whatever the file holds - and treated like any other FTIR table (bands labelled).
+- .ngb-ds3 / .ngb-ss3  (NETZSCH Proteus, DSC and STA): time, sample temperature, DSC signal and, with a balance,
+  the mass. Sample name and sample mass come from the file. You get the same two graphs as from a Proteus text
+  export: TG with DTG, and DSC.
+     * A correction (baseline) run stored in the file on the same time grid is subtracted, as Proteus does.
+     * The DSC signal stays in microvolt: the sensitivity calibration that turns it into mW/mg is a separate
+       Proteus file. Peak temperatures are right; peak areas are not enthalpies.
+- Both formats are undocumented and were worked out from real files. A file that does not look as expected is
+  refused with a plain message; nothing is guessed.
+
+
+5.21.1  -  UPDATES ON COMPUTERS WHERE THE SECURE CONNECTION COULD NOT BE VERIFIED  (net.py)
+- "CERTIFICATE_VERIFY_FAILED ... unable to get local issuer certificate": Python on Windows trusts only the
+  certificates already stored on that computer. Connections are now tried, always fully verified, with
+  (1) Python trusting Windows' certificates and the standard public list, (2) Windows' own curl.exe,
+  (3) PowerShell. The certificate check is never switched off.
+- The same trust is used for the link to the AI.
+- A public repository is read as plain files instead of through GitHub's API, which allows only 60 requests an
+  hour for a whole network: several people in one university no longer block each other.
+- When an update cannot be downloaded, the window says why in plain words and offers "Get the zip in the
+  browser"; that zip is installed with Help > "Install an update from a zip file...".
+- WHATS_NEW.txt: its first line is what the "Update available" question shows.
+- Setup also installs the small package certifi (the standard public certificate list).
+
+
+5.21.2  -  TGA: BOTH CURVES OR ONE
+- Analysis settings > TGA > Curves: "TG and DTG (two y axes)" (as before: mass on the left axis, DTG on the
+  right axis), "TG only (mass)" or "DTG only (rate of mass loss)". It applies to the preview, to Origin and to
+  overlaid TGA figures. The steps and DTG peaks stay in the results table whichever you draw.

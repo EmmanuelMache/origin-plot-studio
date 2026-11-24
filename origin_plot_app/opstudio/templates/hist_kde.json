@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "hist_kde",
+ "name": "Histogram + normal fit + KDE",
+ "category": "General scientific & statistics",
+ "use_case": "Distribution with fitted normal curve and kernel density; mean ± SD printed.",
+ "source": "generic",
+ "data_kind": "values",
+ "data_roles": {
+  "values": "one column"
+ },
+ "default_params": {
+  "bins": "auto"
+ },
+ "origin_hint": "Origin: Plot > Statistical > Histogram + Probabilities.",
+ "recommended_for": [
+  "distributions"
+ ],
+ "calculations": [
+  "mean, SD, KDE"
+ ],
+ "preview": "previews/hist_kde.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/hist_kde.ogs",
+  "otpu": "origin/hist_kde.otpu"
+ }
+}

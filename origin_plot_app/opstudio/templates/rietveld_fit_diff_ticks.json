@@ -1,0 +1,39 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "rietveld_fit_diff_ticks",
+ "name": "Rietveld fit: observed / calculated / difference / Bragg ticks",
+ "category": "XRD & Rietveld",
+ "use_case": "Publication Rietveld plot with Rwp in title, shaded zoom window and inset, tick rows per phase.",
+ "source": "house",
+ "data_kind": "rietveld",
+ "data_roles": {
+  "x": "2θ",
+  "obs": "observed",
+  "calc": "calculated",
+  "diff": "difference (optional)",
+  "ticks": "reflection list per phase (from refinement output)"
+ },
+ "default_params": {
+  "zoom": [
+   31,
+   35
+  ],
+  "inset": true,
+  "obs_marker": "o"
+ },
+ "origin_hint": "Origin: 3 stacked layers (fit, difference, ticks) + inset layer; ticks as '|' scatter.",
+ "recommended_for": [
+  "XRD Rietveld",
+  "GSAS-II",
+  "HighScore"
+ ],
+ "calculations": [],
+ "preview": "previews/rietveld_fit_diff_ticks.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/rietveld_fit_diff_ticks.ogs",
+  "otpu": "origin/rietveld_fit_diff_ticks.otpu"
+ }
+}

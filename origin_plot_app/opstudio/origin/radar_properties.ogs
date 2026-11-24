@@ -1,0 +1,7 @@
+// Template radar_properties: layout commands (illustrative data)
+// Written by Origin Plot Studio: the same commands the app sends to Origin.
+[Main]
+win -t plot line d1a;
+win -a d1a;
+page.width=3.543*page.resx; page.height=2.726*page.resy;
+win -a d1a; insertImg2g fname:="<data folder>/demo_radar_properties_app_figure.png";

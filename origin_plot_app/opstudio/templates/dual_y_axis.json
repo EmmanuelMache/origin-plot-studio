@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "dual_y_axis",
+ "name": "Double-Y graph (two quantities, one x)",
+ "category": "General scientific & statistics",
+ "use_case": "Left and right axes coloured like their series.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "shared x",
+  "series": "left",
+  "series2": "right"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > Multi-Curve > Double-Y.",
+ "recommended_for": [
+  "any"
+ ],
+ "calculations": [],
+ "preview": "previews/dual_y_axis.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/dual_y_axis.ogs",
+  "otpu": "origin/dual_y_axis.otpu"
+ }
+}

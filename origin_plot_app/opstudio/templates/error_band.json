@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "error_band",
+ "name": "Line with shaded SD / CI band",
+ "category": "Basic 2D & layout",
+ "use_case": "Mean curve with a translucent uncertainty band instead of error bars.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "x",
+  "series": "mean per group",
+  "yerr": "SD or CI half-width"
+ },
+ "default_params": {
+  "alpha": 0.18
+ },
+ "origin_hint": "Origin: Plot > Basic 2D > Error Band.",
+ "recommended_for": [
+  "any replicate data"
+ ],
+ "calculations": [],
+ "preview": "previews/error_band.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/error_band.ogs",
+  "otpu": "origin/error_band.otpu"
+ }
+}

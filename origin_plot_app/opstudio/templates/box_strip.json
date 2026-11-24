@@ -1,0 +1,26 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "box_strip",
+ "name": "Box plot with individual points",
+ "category": "General scientific & statistics",
+ "use_case": "Replicate spread; every specimen visible.",
+ "source": "generic",
+ "data_kind": "groups",
+ "data_roles": {
+  "groups": "one column per group (replicates in rows)"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Box Chart with data overlap.",
+ "recommended_for": [
+  "replicates"
+ ],
+ "calculations": [],
+ "preview": "previews/box_strip.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/box_strip.ogs",
+  "otpu": "origin/box_strip.otpu"
+ }
+}

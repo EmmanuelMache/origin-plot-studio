@@ -1,0 +1,33 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "kaplan_meier",
+ "name": "Kaplan–Meier survival / time-to-failure curves",
+ "category": "Life science & medicine",
+ "use_case": "Step curves with censor ticks; also for time-to-failure of specimens.",
+ "source": "generic",
+ "data_kind": "survival",
+ "data_roles": {
+  "t": "time",
+  "event": "1 = event, 0 = censored",
+  "group": "group"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Statistics > Survival Analysis > Kaplan-Meier.",
+ "recommended_for": [
+  "medicine",
+  "reliability",
+  "durability failure"
+ ],
+ "calculations": [
+  "KM estimator",
+  "log-rank (external)"
+ ],
+ "preview": "previews/kaplan_meier.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/kaplan_meier.ogs",
+  "otpu": "origin/kaplan_meier.otpu"
+ }
+}

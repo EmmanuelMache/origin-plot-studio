@@ -1,0 +1,36 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "dta_raw_meal",
+ "name": "High-temperature DTA/DSC with event bands (labels to confirm)",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Reaction sequence on heating; unconfirmed event names are shown with '?' until the user confirms them.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "T",
+  "y": "DTA/DSC signal",
+  "events": "temperature windows + labels (user-confirmed)"
+ },
+ "default_params": {
+  "exo": "up"
+ },
+ "origin_hint": "Origin: line + rectangles + text.",
+ "recommended_for": [
+  "DTA",
+  "DSC",
+  "clinkering",
+  "ceramics",
+  "glass"
+ ],
+ "calculations": [
+  "onset/peak per event"
+ ],
+ "preview": "previews/dta_raw_meal.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/dta_raw_meal.ogs",
+  "otpu": "origin/dta_raw_meal.otpu"
+ }
+}

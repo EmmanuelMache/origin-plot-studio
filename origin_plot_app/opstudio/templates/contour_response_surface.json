@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "contour_response_surface",
+ "name": "Contour response surface (two factors)",
+ "category": "General scientific & statistics",
+ "use_case": "Design-of-experiments / optimisation map with labelled iso-lines.",
+ "source": "generic",
+ "data_kind": "matrix",
+ "data_roles": {
+  "x": "factor 1",
+  "y": "factor 2",
+  "z": "response grid"
+ },
+ "default_params": {
+  "levels": 10
+ },
+ "origin_hint": "Origin: Contour from XYZ (Plot > Contour > Color Fill).",
+ "recommended_for": [
+  "optimisation"
+ ],
+ "calculations": [],
+ "preview": "previews/contour_response_surface.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/contour_response_surface.ogs",
+  "otpu": "origin/contour_response_surface.otpu"
+ }
+}

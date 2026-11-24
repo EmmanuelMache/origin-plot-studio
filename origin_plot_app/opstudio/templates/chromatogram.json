@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "chromatogram",
+ "name": "Chromatogram with integrated, labelled peaks",
+ "category": "Analytical chemistry",
+ "use_case": "Peak areas shaded; labels from the user's peak table.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "time",
+  "y": "signal",
+  "peaks": "peak table (Rt, name) from user"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Peak Analyzer > Integrate Peaks.",
+ "recommended_for": [
+  "HPLC",
+  "GC",
+  "IC"
+ ],
+ "calculations": [
+  "peak areas, Rt"
+ ],
+ "preview": "previews/chromatogram.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/chromatogram.ogs",
+  "otpu": "origin/chromatogram.otpu"
+ }
+}

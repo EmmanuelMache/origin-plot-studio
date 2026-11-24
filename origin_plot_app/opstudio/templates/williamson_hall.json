@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "williamson_hall",
+ "name": "Williamson–Hall plot with linear fit",
+ "category": "XRD & Rietveld",
+ "use_case": "Crystallite size (intercept) and microstrain (slope) from peak broadening.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "4 sin θ",
+  "y": "β cos θ"
+ },
+ "default_params": {
+  "show_equation": true
+ },
+ "origin_hint": "Origin: Scatter + Analysis > Fitting > Linear Fit; report table to sheet.",
+ "recommended_for": [
+  "XRD"
+ ],
+ "calculations": [
+  "linear regression: slope = strain, intercept = Kλ/D (K, λ user-confirmed)"
+ ],
+ "preview": "previews/williamson_hall.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/williamson_hall.ogs",
+  "otpu": "origin/williamson_hall.otpu"
+ }
+}

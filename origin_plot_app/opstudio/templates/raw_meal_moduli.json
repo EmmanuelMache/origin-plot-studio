@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "raw_meal_moduli",
+ "name": "Raw-meal moduli (LSF, SM, AM) with target bands",
+ "category": "Phase & chemical composition",
+ "use_case": "One small panel per modulus; shaded target window supplied by the user.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "mixes",
+  "groups": "LSF/SM/AM columns",
+  "targets": "user-supplied ranges"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: three Column layers; target band = Insert > Rectangle in axis units.",
+ "recommended_for": [
+  "raw meal design"
+ ],
+ "calculations": [
+  "LSF = CaO/(2.8SiO2+1.18Al2O3+0.65Fe2O3); SM = SiO2/(Al2O3+Fe2O3); AM = Al2O3/Fe2O3"
+ ],
+ "preview": "previews/raw_meal_moduli.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/raw_meal_moduli.ogs",
+  "otpu": "origin/raw_meal_moduli.otpu"
+ }
+}

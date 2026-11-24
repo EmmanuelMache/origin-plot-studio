@@ -1,0 +1,29 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "ea_vs_alpha",
+ "name": "Activation energy vs conversion (isoconversional)",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Eα from Friedman / OFW / KAS compared with uncertainty bands; recommended default kinetics output.",
+ "source": "generic",
+ "data_kind": "kinetics",
+ "data_roles": {
+  "alpha": "α levels",
+  "methods": "Eα per method"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Line + Error Band.",
+ "recommended_for": [
+  "thermal kinetics"
+ ],
+ "calculations": [
+  "isoconversional regression at each α"
+ ],
+ "preview": "previews/ea_vs_alpha.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/ea_vs_alpha.ogs",
+  "otpu": "origin/ea_vs_alpha.otpu"
+ }
+}

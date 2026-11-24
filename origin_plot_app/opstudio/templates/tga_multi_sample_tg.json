@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "tga_multi_sample_tg",
+ "name": "TG curves of several samples (mass %)",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Overlay of normalised mass curves; residual mass at end labelled per sample.",
+ "source": "generic",
+ "data_kind": "thermal",
+ "data_roles": {
+  "samples": "T + mass per sample"
+ },
+ "default_params": {
+  "label_residual": true
+ },
+ "origin_hint": "Origin: Line plot; mass normalised to 100 % at T_ref (Column > Set Column Values).",
+ "recommended_for": [
+  "TGA"
+ ],
+ "calculations": [
+  "normalise to initial or ignited mass"
+ ],
+ "preview": "previews/tga_multi_sample_tg.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/tga_multi_sample_tg.ogs",
+  "otpu": "origin/tga_multi_sample_tg.otpu"
+ }
+}

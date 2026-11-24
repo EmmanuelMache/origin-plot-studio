@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "violin",
+ "name": "Violin + box + points",
+ "category": "General scientific & statistics",
+ "use_case": "Distribution shape, quartiles and every observation together.",
+ "source": "generic",
+ "data_kind": "groups",
+ "data_roles": {
+  "groups": "one column per group"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > Statistical > Violin with Box (ViolinBox.otpu).",
+ "recommended_for": [
+  "replicates",
+  "distributions"
+ ],
+ "calculations": [],
+ "preview": "previews/violin.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/violin.ogs",
+  "otpu": "origin/violin.otpu"
+ }
+}

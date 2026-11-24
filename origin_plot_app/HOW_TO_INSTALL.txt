@@ -1,0 +1,33 @@
+ORIGIN PLOT STUDIO - INSTALL
+
+1. Unzip this folder anywhere (for example Downloads).
+2. Double-click  Setup.bat .
+   A window "Install Origin Plot Studio" opens. Press Install. It shows each step:
+   the Python packages, copying the program, the shortcuts.
+3. Press Finish. The app starts.
+
+After that, start the app like any other: the "Origin Plot Studio" icon on your Desktop, or the Start menu.
+You can delete the unzipped folder; the program lives in
+   %LOCALAPPDATA%\Programs\Origin Plot Studio
+
+An earlier version is already installed: Setup.bat sees it and offers "Update". Your settings are kept.
+Remove:      Windows Settings > Apps > Installed apps > Origin Plot Studio > Uninstall.
+
+Needs: Windows, Python 3.9 or newer (Setup.bat offers to install it if it is missing), OriginPro for drawing in Origin.
+No administrator rights are needed: everything is installed for your user only.
+
+Without installing: Origin_Plot_Studio.vbs (no black window) or Run_Origin_Plot_App.bat start the app from this folder.
+
+
+UPDATING LATER
+
+In the app: Help > "Check for updates and install". It finds the new version, checks it, installs it and
+offers "Restart now". When a newer version is waiting, the top of the window also shows "Update available":
+a click on it does the same.
+
+(From a zip instead: Help > "Install an update from a zip file...".)
+
+
+IF THE APP IS SLOW OR HANGS
+   Help > "Speed report..." opens the folder with slow_log.txt. It lists every time the window did not answer
+   for more than a second and what it was doing. Send that file to whoever looks after the app.

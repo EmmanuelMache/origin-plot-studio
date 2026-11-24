@@ -1,0 +1,6 @@
+{
+  "backend": "parser",
+  "ollama": {"address": "http://localhost:11434", "model": "llama3.1"},
+  "api": {"provider": "anthropic", "model": "claude-sonnet-5-5", "api_key": ""},
+  "cli": {"program": "claude"}
+}

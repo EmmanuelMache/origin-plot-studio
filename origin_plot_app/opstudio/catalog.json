@@ -1,0 +1,3144 @@
+[
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_single_labeled",
+  "name": "XRD pattern with phase labels",
+  "category": "XRD & Rietveld",
+  "use_case": "One diffractogram; phase letters above confirmed peaks; letter key below the graph.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "2θ column",
+   "y": "intensity column",
+   "labels": "peak list from user's HighScore file (x, phase)"
+  },
+  "default_params": {
+   "label_offset_frac": 0.04,
+   "show_key": true
+  },
+  "origin_hint": "Origin: Line plot; labels via Text objects at peak x; key as legend text block.",
+  "recommended_for": [
+   "XRD"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_single_labeled.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_single_labeled.ogs",
+   "otpu": "origin/xrd_single_labeled.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_stacked_offset",
+  "name": "Stacked XRD patterns (offset)",
+  "category": "XRD & Rietveld",
+  "use_case": "Compare several samples; constant or auto offset; sample name at the right of each trace.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "2θ",
+   "series": "one Y column per sample"
+  },
+  "default_params": {
+   "offset": "auto",
+   "already_offset": false,
+   "name_position": "right",
+   "color_by_sample": false
+  },
+  "origin_hint": "Origin: Stacked Lines by Y Offsets (Plot > Multi-Curve > Stacked Lines by Y Offsets).",
+  "recommended_for": [
+   "XRD",
+   "FTIR",
+   "Raman"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_stacked_offset.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_stacked_offset.ogs",
+   "otpu": "origin/xrd_stacked_offset.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_stack_with_zoom",
+  "name": "Stacked XRD + zoom panel",
+  "category": "XRD & Rietveld",
+  "use_case": "Full range stack (a) next to a zoom of a diagnostic window (b), e.g. 31-35° for C3S/C2S.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "2θ",
+   "series": "one Y column per sample"
+  },
+  "default_params": {
+   "zoom": [
+    31.0,
+    35.0
+   ],
+   "width_ratio": [
+    3,
+    1
+   ],
+   "already_offset": false
+  },
+  "origin_hint": "Origin: two layers (Graph > Merge or Layer Management) sharing Y offset; second layer rescaled X.",
+  "recommended_for": [
+   "XRD"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_stack_with_zoom.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_stack_with_zoom.ogs",
+   "otpu": "origin/xrd_stack_with_zoom.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_multi_panel_shared_x",
+  "name": "XRD panels sharing one x axis",
+  "category": "XRD & Rietveld",
+  "use_case": "Raw materials or very different intensities: one panel per pattern, own y scale, one shared x label.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "2θ",
+   "series": "one Y column per panel"
+  },
+  "default_params": {
+   "hspace": 0.08
+  },
+  "origin_hint": "Origin: Plot > Multi-Panel > Stack (shared X, independent Y).",
+  "recommended_for": [
+   "XRD"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_multi_panel_shared_x.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_multi_panel_shared_x.ogs",
+   "otpu": "origin/xrd_multi_panel_shared_x.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "rietveld_fit_diff_ticks",
+  "name": "Rietveld fit: observed / calculated / difference / Bragg ticks",
+  "category": "XRD & Rietveld",
+  "use_case": "Publication Rietveld plot with Rwp in title, shaded zoom window and inset, tick rows per phase.",
+  "source": "house",
+  "data_kind": "rietveld",
+  "data_roles": {
+   "x": "2θ",
+   "obs": "observed",
+   "calc": "calculated",
+   "diff": "difference (optional)",
+   "ticks": "reflection list per phase (from refinement output)"
+  },
+  "default_params": {
+   "zoom": [
+    31,
+    35
+   ],
+   "inset": true,
+   "obs_marker": "o"
+  },
+  "origin_hint": "Origin: 3 stacked layers (fit, difference, ticks) + inset layer; ticks as '|' scatter.",
+  "recommended_for": [
+   "XRD Rietveld",
+   "GSAS-II",
+   "HighScore"
+  ],
+  "calculations": [],
+  "preview": "previews/rietveld_fit_diff_ticks.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/rietveld_fit_diff_ticks.ogs",
+   "otpu": "origin/rietveld_fit_diff_ticks.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "rietveld_grid_2x3",
+  "name": "Rietveld fits as small multiples (2 x 3)",
+  "category": "XRD & Rietveld",
+  "use_case": "All six refinements on one page with identical axes; each tile = fit + diff + ticks.",
+  "source": "house",
+  "data_kind": "rietveld",
+  "data_roles": {
+   "items": "list of rietveld bundles (one per file)"
+  },
+  "default_params": {
+   "ncols": 3
+  },
+  "origin_hint": "Origin: Graph > Merge Graph Windows (3 columns) from six fit graphs.",
+  "recommended_for": [
+   "XRD Rietveld"
+  ],
+  "calculations": [],
+  "preview": "previews/rietveld_grid_2x3.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/rietveld_grid_2x3.ogs",
+   "otpu": "origin/rietveld_grid_2x3.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_waterfall_3d",
+  "name": "Waterfall (pseudo-3D) for in-situ / temperature series",
+  "category": "XRD & Rietveld",
+  "use_case": "In-situ heating, hydration time series or a dosage series: traces shifted in x and y.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "2θ",
+   "series": "one column per temperature / time"
+  },
+  "default_params": {
+   "dx": 0.6,
+   "dy_frac": 0.35
+  },
+  "origin_hint": "Origin: Plot > 3D > Waterfall (or 2D Waterfall with X/Y offset).",
+  "recommended_for": [
+   "XRD",
+   "FTIR",
+   "Raman"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_waterfall_3d.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_waterfall_3d.ogs",
+   "otpu": "origin/xrd_waterfall_3d.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_heatmap_contour",
+  "name": "Contour / colour map (2θ vs time or temperature)",
+  "category": "XRD & Rietveld",
+  "use_case": "Many patterns at once: phase appearance and disappearance becomes visible as bands.",
+  "source": "generic",
+  "data_kind": "matrix",
+  "data_roles": {
+   "x": "2θ",
+   "y": "time/temperature per pattern",
+   "z": "intensity matrix"
+  },
+  "default_params": {
+   "cmap": "viridis",
+   "log_z": false
+  },
+  "origin_hint": "Origin: Plot > Contour > Contour-Color Fill (or Heatmap) from matrix.",
+  "recommended_for": [
+   "in-situ XRD",
+   "calorimetry maps"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_heatmap_contour.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_heatmap_contour.ogs",
+   "otpu": "origin/xrd_heatmap_contour.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_peak_shift",
+  "name": "Peak-shift / diagnostic window",
+  "category": "XRD & Rietveld",
+  "use_case": "Zoom on a few peaks with reference lines to show peak shifts or splitting (polymorphs, substitution).",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "2θ",
+   "series": "one per sample",
+   "ref_lines": "user-supplied reference positions"
+  },
+  "default_params": {
+   "normalise": true,
+   "offset": "auto",
+   "color_by_sample": true
+  },
+  "origin_hint": "Origin: Stacked lines + vertical reference lines (Insert > Line).",
+  "recommended_for": [
+   "XRD"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_peak_shift.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_peak_shift.ogs",
+   "otpu": "origin/xrd_peak_shift.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "williamson_hall",
+  "name": "Williamson–Hall plot with linear fit",
+  "category": "XRD & Rietveld",
+  "use_case": "Crystallite size (intercept) and microstrain (slope) from peak broadening.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "4 sin θ",
+   "y": "β cos θ"
+  },
+  "default_params": {
+   "show_equation": true
+  },
+  "origin_hint": "Origin: Scatter + Analysis > Fitting > Linear Fit; report table to sheet.",
+  "recommended_for": [
+   "XRD"
+  ],
+  "calculations": [
+   "linear regression: slope = strain, intercept = Kλ/D (K, λ user-confirmed)"
+  ],
+  "preview": "previews/williamson_hall.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/williamson_hall.ogs",
+   "otpu": "origin/williamson_hall.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "lattice_param_vs_x",
+  "name": "Lattice parameter vs composition (Vegard-type)",
+  "category": "XRD & Rietveld",
+  "use_case": "Refined cell parameters with esd error bars vs substitution level.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "composition",
+   "y": "parameter",
+   "yerr": "esd"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line + Symbol with Y error bars.",
+  "recommended_for": [
+   "Rietveld"
+  ],
+  "calculations": [],
+  "preview": "previews/lattice_param_vs_x.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/lattice_param_vs_x.ogs",
+   "otpu": "origin/lattice_param_vs_x.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "qpa_stacked_bar_100",
+  "name": "Phase assemblage – stacked bars",
+  "category": "Phase & chemical composition",
+  "use_case": "Rietveld QPA (incl. amorphous) per sample as stacked bars summing to 100 wt.%.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "samples (column 1)",
+   "groups": "phases (one column each)"
+  },
+  "default_params": {
+   "show_values": false,
+   "horizontal": false
+  },
+  "origin_hint": "Origin: Column > Stacked Column.",
+  "recommended_for": [
+   "Rietveld QPA"
+  ],
+  "calculations": [],
+  "preview": "previews/qpa_stacked_bar_100.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/qpa_stacked_bar_100.ogs",
+   "otpu": "origin/qpa_stacked_bar_100.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "qpa_grouped_bar",
+  "name": "Grouped bars with error bars",
+  "category": "Phase & chemical composition",
+  "use_case": "Compare one quantity per phase across samples (or per sample across phases).",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "x groups",
+   "groups": "bars within group",
+   "errors": "optional ± table"
+  },
+  "default_params": {
+   "show_values": false
+  },
+  "origin_hint": "Origin: Column > Grouped Columns (Indexed); Y error from second sheet.",
+  "recommended_for": [
+   "Rietveld QPA",
+   "strength",
+   "oxides"
+  ],
+  "calculations": [],
+  "preview": "previews/qpa_grouped_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/qpa_grouped_bar.ogs",
+   "otpu": "origin/qpa_grouped_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "phase_vs_dosage_lines",
+  "name": "Measured vs modelled, one panel per phase",
+  "category": "Phase & chemical composition",
+  "use_case": "Lines + open markers; measured solid black, models dashed/dotted; shared legend in last cell.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "panels": "one file (or sheet) per phase: x + measured + model columns"
+  },
+  "default_params": {
+   "ncols": 3
+  },
+  "origin_hint": "Origin: Line+Symbol, then Merge Graph Windows; legend in a free layer.",
+  "recommended_for": [
+   "measured vs modelled",
+   "models vs measured"
+  ],
+  "calculations": [],
+  "preview": "previews/phase_vs_dosage_lines.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/phase_vs_dosage_lines.ogs",
+   "otpu": "origin/phase_vs_dosage_lines.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "parity_plot",
+  "name": "Parity plot (calculated vs measured)",
+  "category": "Phase & chemical composition",
+  "use_case": "Bogue / model vs Rietveld with 1:1 line and ±band; RMSE in legend.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "measured",
+   "y": "calculated",
+   "group": "method"
+  },
+  "default_params": {
+   "band": 5
+  },
+  "origin_hint": "Origin: Scatter + Insert > Line (y = x) + band via fill-between series.",
+  "recommended_for": [
+   "QPA",
+   "models"
+  ],
+  "calculations": [
+   "RMSE and bias per method"
+  ],
+  "preview": "previews/parity_plot.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/parity_plot.ogs",
+   "otpu": "origin/parity_plot.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "donut_composition",
+  "name": "Donut chart (single composition)",
+  "category": "Phase & chemical composition",
+  "use_case": "Only for a single sample summary on slides; prefer bars for comparisons.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "phase",
+   "values": "wt.%"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > 2D > Doughnut.",
+  "recommended_for": [
+   "slides"
+  ],
+  "calculations": [],
+  "preview": "previews/donut_composition.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/donut_composition.ogs",
+   "otpu": "origin/donut_composition.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrf_oxide_bar",
+  "name": "Oxide composition bars (XRF)",
+  "category": "Phase & chemical composition",
+  "use_case": "Major and minor oxides; optional log scale or split axis so minor oxides stay visible.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "oxides",
+   "groups": "materials"
+  },
+  "default_params": {
+   "log_y": true
+  },
+  "origin_hint": "Origin: Grouped Column; Y log10 scale (Axis dialog).",
+  "recommended_for": [
+   "XRF",
+   "raw meal design"
+  ],
+  "calculations": [],
+  "preview": "previews/xrf_oxide_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrf_oxide_bar.ogs",
+   "otpu": "origin/xrf_oxide_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "raw_meal_moduli",
+  "name": "Raw-meal moduli (LSF, SM, AM) with target bands",
+  "category": "Phase & chemical composition",
+  "use_case": "One small panel per modulus; shaded target window supplied by the user.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "mixes",
+   "groups": "LSF/SM/AM columns",
+   "targets": "user-supplied ranges"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: three Column layers; target band = Insert > Rectangle in axis units.",
+  "recommended_for": [
+   "raw meal design"
+  ],
+  "calculations": [
+   "LSF = CaO/(2.8SiO2+1.18Al2O3+0.65Fe2O3); SM = SiO2/(Al2O3+Fe2O3); AM = Al2O3/Fe2O3"
+  ],
+  "preview": "previews/raw_meal_moduli.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/raw_meal_moduli.ogs",
+   "otpu": "origin/raw_meal_moduli.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "ternary_cas",
+  "name": "Ternary diagram (CaO–SiO2–Al2O3 or any 3 components)",
+  "category": "Phase & chemical composition",
+  "use_case": "Place raw materials, raw meals and clinkers in composition space; optional shaded fields.",
+  "source": "generic",
+  "data_kind": "ternary",
+  "data_roles": {
+   "a,b,c": "three component columns (normalised to 100)",
+   "name": "label column",
+   "regions": "optional polygons"
+  },
+  "default_params": {
+   "grid_step": 10
+  },
+  "origin_hint": "Origin: Plot > Specialized > Ternary.",
+  "recommended_for": [
+   "raw meal design",
+   "SCM screening"
+  ],
+  "calculations": [],
+  "preview": "previews/ternary_cas.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/ternary_cas.ogs",
+   "otpu": "origin/ternary_cas.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "radar_properties",
+  "name": "Radar chart (multi-criteria)",
+  "category": "Phase & chemical composition",
+  "use_case": "Normalised (0-1) performance scores for a few mixes; for slides and discussion only.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "criteria",
+   "groups": "mixes"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Specialized > Radar.",
+  "recommended_for": [
+   "slides"
+  ],
+  "calculations": [],
+  "preview": "previews/radar_properties.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/radar_properties.ogs",
+   "otpu": "origin/radar_properties.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "tga_dtg_single",
+  "name": "TG and DTG in one graph (DTG natural sign, right axis)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "One sample: TG left axis, DTG right axis drawn with its natural (negative) sign; mass-loss steps annotated.",
+  "source": "house",
+  "data_kind": "thermal",
+  "data_roles": {
+   "T": "temperature",
+   "mass": "mass % (or mg -> converted)",
+   "dtg": "optional; computed if absent"
+  },
+  "default_params": {
+   "show_steps": true,
+   "dtg_units": "% °C⁻¹"
+  },
+  "origin_hint": "Origin: Plot > Multi-Curve > Double-Y; DTG on Layer 2 right axis, NOT reversed.",
+  "recommended_for": [
+   "TGA"
+  ],
+  "calculations": [
+   "DTG = dm/dT (Savitzky–Golay)",
+   "step mass loss between user-confirmed limits"
+  ],
+  "preview": "previews/tga_dtg_single.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/tga_dtg_single.ogs",
+   "otpu": "origin/tga_dtg_single.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "tga_dtg_zones_multi",
+  "name": "DTG of several samples with shaded decomposition zones",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Overlay DTG of all samples; shaded and labelled zones (C-S-H/AFt, AFm, portlandite, calcite).",
+  "source": "house",
+  "data_kind": "thermal",
+  "data_roles": {
+   "samples": "one T/mass (or DTG) pair per sample",
+   "zones": "user-confirmed temperature windows"
+  },
+  "default_params": {
+   "label_zones": true,
+   "heating_rate_C_per_min": 10
+  },
+  "origin_hint": "Origin: Line plot + Insert > Rectangle (axis-scaled) per zone.",
+  "recommended_for": [
+   "TGA"
+  ],
+  "calculations": [
+   "zone mass loss",
+   "peak temperature per zone"
+  ],
+  "preview": "previews/tga_dtg_zones_multi.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/tga_dtg_zones_multi.ogs",
+   "otpu": "origin/tga_dtg_zones_multi.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "tga_multi_sample_tg",
+  "name": "TG curves of several samples (mass %)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Overlay of normalised mass curves; residual mass at end labelled per sample.",
+  "source": "generic",
+  "data_kind": "thermal",
+  "data_roles": {
+   "samples": "T + mass per sample"
+  },
+  "default_params": {
+   "label_residual": true
+  },
+  "origin_hint": "Origin: Line plot; mass normalised to 100 % at T_ref (Column > Set Column Values).",
+  "recommended_for": [
+   "TGA"
+  ],
+  "calculations": [
+   "normalise to initial or ignited mass"
+  ],
+  "preview": "previews/tga_multi_sample_tg.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/tga_multi_sample_tg.ogs",
+   "otpu": "origin/tga_multi_sample_tg.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "tga_stacked_panels",
+  "name": "TG–DTG panels stacked (one material per panel)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Raw materials: each panel one TG–DTG graph (twin axis, DTG not inverted) with event notes.",
+  "source": "house",
+  "data_kind": "thermal",
+  "data_roles": {
+   "samples": "one per panel"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column).",
+  "recommended_for": [
+   "TGA raw materials"
+  ],
+  "calculations": [],
+  "preview": "previews/tga_stacked_panels.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/tga_stacked_panels.ogs",
+   "otpu": "origin/tga_stacked_panels.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "tga_massloss_stacked_bar",
+  "name": "Mass loss per temperature window (stacked bars)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Result table from the TGA module drawn directly: one stacked bar per sample.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "sample",
+   "groups": "temperature windows"
+  },
+  "default_params": {
+   "sum_to_100": false
+  },
+  "origin_hint": "Origin: Stacked Column.",
+  "recommended_for": [
+   "TGA results"
+  ],
+  "calculations": [],
+  "preview": "previews/tga_massloss_stacked_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/tga_massloss_stacked_bar.ogs",
+   "otpu": "origin/tga_massloss_stacked_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "ch_cc_content_bar",
+  "name": "Portlandite and CaCO3 content from TGA",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Stoichiometric conversion of the confirmed mass-loss steps; error bars from replicates.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "sample",
+   "groups": "CH, CaCO3"
+  },
+  "default_params": {
+   "show_values": true
+  },
+  "origin_hint": "Origin: Grouped Column + error bars.",
+  "recommended_for": [
+   "TGA results"
+  ],
+  "calculations": [
+   "CH = Δm(H2O) × 74.09/18.02",
+   "CaCO3 = Δm(CO2) × 100.09/44.01"
+  ],
+  "preview": "previews/ch_cc_content_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/ch_cc_content_bar.ogs",
+   "otpu": "origin/ch_cc_content_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "bound_water_vs_age",
+  "name": "Bound water / CH vs age (log time)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Hydration progress from TGA at several ages.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "age",
+   "series": "per sample",
+   "yerr": "optional"
+  },
+  "default_params": {
+   "log_x": true
+  },
+  "origin_hint": "Origin: Line+Symbol, X axis log10.",
+  "recommended_for": [
+   "TGA ages"
+  ],
+  "calculations": [],
+  "preview": "previews/bound_water_vs_age.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/bound_water_vs_age.ogs",
+   "otpu": "origin/bound_water_vs_age.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "dsc_heatflow",
+  "name": "DSC / DTA heat flow with exo/endo indicator",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Heat flow with an 'exo ↑' arrow (direction set by the user/instrument convention) and shaded peak areas.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "T",
+   "y": "heat flow"
+  },
+  "default_params": {
+   "exo": "up"
+  },
+  "origin_hint": "Origin: Line plot + arrow annotation; Peak Analyzer for areas.",
+  "recommended_for": [
+   "DSC",
+   "DTA"
+  ],
+  "calculations": [
+   "peak area (J/g) between limits"
+  ],
+  "preview": "previews/dsc_heatflow.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/dsc_heatflow.ogs",
+   "otpu": "origin/dsc_heatflow.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "tg_ms",
+  "name": "TG + evolved gas (MS / FTIR) panels",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Top: TG (+DTG); bottom: ion currents for H2O and CO2 to assign each step.",
+  "source": "generic",
+  "data_kind": "thermal",
+  "data_roles": {
+   "samples": "TG",
+   "ms": "ion current columns"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: 2 stacked layers sharing X.",
+  "recommended_for": [
+   "TG-MS"
+  ],
+  "calculations": [],
+  "preview": "previews/tg_ms.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/tg_ms.ogs",
+   "otpu": "origin/tg_ms.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "tangent_method_demo",
+  "name": "Tangent (step) method view for one decomposition step",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Analysis view: TG with tangents before/after the step and the read-off Δm; shows exactly what was integrated.",
+  "source": "generic",
+  "data_kind": "thermal",
+  "data_roles": {
+   "samples": "one sample",
+   "window": "user-confirmed onset/endset"
+  },
+  "default_params": {
+   "window": [
+    400,
+    550
+   ]
+  },
+  "origin_hint": "Origin: Line plot + two fitted straight lines + vertical Δm bracket.",
+  "recommended_for": [
+   "TGA"
+  ],
+  "calculations": [
+   "tangent method Δm at T_peak(DTG)"
+  ],
+  "preview": "previews/tangent_method_demo.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/tangent_method_demo.ogs",
+   "otpu": "origin/tangent_method_demo.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "calorimetry_heatflow_inset",
+  "name": "Heat flow with early-age inset",
+  "category": "Isothermal calorimetry",
+  "use_case": "Normalised heat flow vs time; inset zooms the first hours; exclusion window respected.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "time (h)",
+   "series": "heat flow per sample"
+  },
+  "default_params": {
+   "inset_range": [
+    0,
+    12
+   ],
+   "x_max": 168
+  },
+  "origin_hint": "Origin: Line plot + Graph > New Layer (inset) via Plot > Multi-Panel > Inset.",
+  "recommended_for": [
+   "TAM Air / TAM III"
+  ],
+  "calculations": [
+   "mW/g = mW / sample mass",
+   "exclude first X h (user-set)"
+  ],
+  "preview": "previews/calorimetry_heatflow_inset.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/calorimetry_heatflow_inset.ogs",
+   "otpu": "origin/calorimetry_heatflow_inset.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "calorimetry_cumulative",
+  "name": "Cumulative heat with regime brackets",
+  "category": "Isothermal calorimetry",
+  "use_case": "Cumulative heat; right-hand brackets group samples into user-named regimes.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "time",
+   "series": "cumulative heat per sample",
+   "regimes": "user-defined groups"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line plot + bracket via Insert > Line objects.",
+  "recommended_for": [
+   "calorimetry"
+  ],
+  "calculations": [
+   "∫ heat flow dt"
+  ],
+  "preview": "previews/calorimetry_cumulative.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/calorimetry_cumulative.ogs",
+   "otpu": "origin/calorimetry_cumulative.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "calorimetry_two_panel",
+  "name": "Heat flow (a) + cumulative heat (b)",
+  "category": "Isothermal calorimetry",
+  "use_case": "Standard two-panel calorimetry figure.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "time",
+   "series": "heat flow (cumulative computed)"
+  },
+  "default_params": {
+   "x_max": 168
+  },
+  "origin_hint": "Origin: two graphs merged 1 × 2.",
+  "recommended_for": [
+   "calorimetry"
+  ],
+  "calculations": [],
+  "preview": "previews/calorimetry_two_panel.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/calorimetry_two_panel.ogs",
+   "otpu": "origin/calorimetry_two_panel.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "normalised_heat_bar_regimes",
+  "name": "Bars with value labels and regime brackets",
+  "category": "Isothermal calorimetry",
+  "use_case": "One value per sample, value printed on the bar, horizontal brackets naming groups.",
+  "source": "house",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "sample",
+   "values": "one column",
+   "regimes": "user-defined index ranges + names"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Column + Label (Plot Details > Label tab) + bracket lines.",
+  "recommended_for": [
+   "calorimetry",
+   "any one-value-per-sample"
+  ],
+  "calculations": [],
+  "preview": "previews/normalised_heat_bar_regimes.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/normalised_heat_bar_regimes.ogs",
+   "otpu": "origin/normalised_heat_bar_regimes.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "heatflow_vs_cumheat",
+  "name": "Heat flow vs cumulative heat",
+  "category": "Isothermal calorimetry",
+  "use_case": "Kinetic view that removes time; compares reaction regimes and sulfate depletion.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "series": "heat flow + cumulative per sample"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line plot of two computed columns.",
+  "recommended_for": [
+   "calorimetry"
+  ],
+  "calculations": [],
+  "preview": "previews/heatflow_vs_cumheat.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/heatflow_vs_cumheat.ogs",
+   "otpu": "origin/heatflow_vs_cumheat.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "psd_diff_cum_2x2",
+  "name": "Particle size: differential + cumulative (log x)",
+  "category": "Particle size, porosity & surface",
+  "use_case": "Laser diffraction PSD: differential and cumulative side by side, d10/d50/d90 table inset.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "size (µm)",
+   "series": "volume % per material"
+  },
+  "default_params": {
+   "table": true
+  },
+  "origin_hint": "Origin: Line plot, X log10; table via Insert > Table (linked to sheet).",
+  "recommended_for": [
+   "laser diffraction"
+  ],
+  "calculations": [
+   "d10/d50/d90 by interpolation of cumulative curve"
+  ],
+  "preview": "previews/psd_diff_cum_2x2.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/psd_diff_cum_2x2.ogs",
+   "otpu": "origin/psd_diff_cum_2x2.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "psd_dvalues_bar",
+  "name": "d10 / d50 / d90 grouped bars (log y)",
+  "category": "Particle size, porosity & surface",
+  "use_case": "Compact comparison of fineness.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "material",
+   "groups": "d10, d50, d90"
+  },
+  "default_params": {
+   "log_y": true
+  },
+  "origin_hint": "Origin: Grouped Column, Y log.",
+  "recommended_for": [
+   "laser diffraction"
+  ],
+  "calculations": [],
+  "preview": "previews/psd_dvalues_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/psd_dvalues_bar.ogs",
+   "otpu": "origin/psd_dvalues_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "rrsb_plot",
+  "name": "RRSB (Rosin–Rammler) linearised plot",
+  "category": "Particle size, porosity & surface",
+  "use_case": "Slope n (uniformity) and position parameter d' from a straight-line fit.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "size",
+   "y": "cumulative passing"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Set Column Values (transform) + Linear Fit.",
+  "recommended_for": [
+   "grinding / fineness"
+  ],
+  "calculations": [
+   "n = slope; d' = exp(−intercept/n)"
+  ],
+  "preview": "previews/rrsb_plot.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/rrsb_plot.ogs",
+   "otpu": "origin/rrsb_plot.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "mip_pore",
+  "name": "MIP: cumulative + log-differential intrusion",
+  "category": "Particle size, porosity & surface",
+  "use_case": "Pore structure of pastes; x axis reversed (large → small) as is conventional for intrusion.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "pore diameter",
+   "series": "dV/dlogD and cumulative"
+  },
+  "default_params": {
+   "reverse_x": true
+  },
+  "origin_hint": "Origin: two layers, X log10 reversed.",
+  "recommended_for": [
+   "MIP"
+  ],
+  "calculations": [
+   "critical pore diameter = max of dV/dlogD"
+  ],
+  "preview": "previews/mip_pore.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/mip_pore.ogs",
+   "otpu": "origin/mip_pore.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "bet_isotherm",
+  "name": "N2 sorption isotherm (adsorption / desorption)",
+  "category": "Particle size, porosity & surface",
+  "use_case": "Hysteresis loop; filled = adsorption, open = desorption.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "p/p0",
+   "series": "ads, des"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line+Symbol, two series.",
+  "recommended_for": [
+   "BET"
+  ],
+  "calculations": [],
+  "preview": "previews/bet_isotherm.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/bet_isotherm.ogs",
+   "otpu": "origin/bet_isotherm.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "ftir_stacked_bands",
+  "name": "FTIR stacked spectra with band lines",
+  "category": "Spectroscopy (FTIR / Raman / NMR)",
+  "use_case": "Reversed wavenumber axis, offset spectra, dashed band lines labelled at top, one shaded region; names at right in sample colour.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "wavenumber",
+   "series": "one per sample",
+   "bands": "user-confirmed band list"
+  },
+  "default_params": {
+   "offset": 8
+  },
+  "origin_hint": "Origin: Stacked Lines by Y Offsets, X reversed (From 4000 To 500).",
+  "recommended_for": [
+   "FTIR",
+   "ATR"
+  ],
+  "calculations": [],
+  "preview": "previews/ftir_stacked_bands.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/ftir_stacked_bands.ogs",
+   "otpu": "origin/ftir_stacked_bands.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "raman_stacked",
+  "name": "Raman stacked spectra",
+  "category": "Spectroscopy (FTIR / Raman / NMR)",
+  "use_case": "Same mechanics as stacked XRD; normal (increasing) x.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "Raman shift",
+   "series": "per sample"
+  },
+  "default_params": {
+   "offset": "auto",
+   "color_by_sample": true
+  },
+  "origin_hint": "Origin: Stacked Lines by Y Offsets.",
+  "recommended_for": [
+   "Raman"
+  ],
+  "calculations": [],
+  "preview": "previews/raman_stacked.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/raman_stacked.ogs",
+   "otpu": "origin/raman_stacked.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "nmr_29si_deconv",
+  "name": "Deconvolution plot (e.g. 29Si MAS NMR, XPS, DTG)",
+  "category": "Spectroscopy (FTIR / Raman / NMR)",
+  "use_case": "Observed, fitted sum, shaded components, residual below; reversed ppm axis when relevant.",
+  "source": "generic",
+  "data_kind": "deconvolution",
+  "data_roles": {
+   "x": "x",
+   "obs": "observed",
+   "components": "fitted peaks (from Fitting module)"
+  },
+  "default_params": {
+   "reverse_x": true
+  },
+  "origin_hint": "Origin: Peak Analyzer (Fit Peaks Pro) output graph.",
+  "recommended_for": [
+   "NMR",
+   "XPS",
+   "DTG deconvolution"
+  ],
+  "calculations": [
+   "component areas %, MCL = 2(Q1+Q2+1.5Q2(1Al))/Q1 (user-confirmed)"
+  ],
+  "preview": "previews/nmr_29si_deconv.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/nmr_29si_deconv.ogs",
+   "otpu": "origin/nmr_29si_deconv.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "phase_assemblage_vs_T_panels",
+  "name": "Phase evolution vs temperature (Scheil / equilibrium), multi-panel",
+  "category": "Thermodynamic modelling",
+  "use_case": "Thermodynamic software output: one panel per composition, x reversed (cooling left→right), legend in a free cell.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "panels": "one file per composition: T + one column per phase"
+  },
+  "default_params": {
+   "ncols": 3,
+   "reverse_x": true
+  },
+  "origin_hint": "Origin: Line plots, X From 1400 To 1000; Merge Graph Windows 2 × 3 with legend layer.",
+  "recommended_for": [
+   "thermodynamic software (Thermo-Calc, GEMS ...)"
+  ],
+  "calculations": [],
+  "preview": "previews/phase_assemblage_vs_T_panels.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/phase_assemblage_vs_T_panels.ogs",
+   "otpu": "origin/phase_assemblage_vs_T_panels.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "phase_assemblage_stacked_area",
+  "name": "Stacked-area phase assemblage (GEMS-style)",
+  "category": "Thermodynamic modelling",
+  "use_case": "Hydrate assemblage vs replacement level, time or degree of reaction.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "replacement / time",
+   "series": "one column per phase"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Area > Stacked Area.",
+  "recommended_for": [
+   "GEMS",
+   "hydration modelling"
+  ],
+  "calculations": [],
+  "preview": "previews/phase_assemblage_stacked_area.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/phase_assemblage_stacked_area.ogs",
+   "otpu": "origin/phase_assemblage_stacked_area.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "grouped_hatched_bars_markers",
+  "name": "Grouped hatched bars + measured markers",
+  "category": "Thermodynamic modelling",
+  "use_case": "Model scenarios as hatched bars, measured value as black diamonds on top; prints well in greyscale.",
+  "source": "house",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "clinker",
+   "groups": "scenario columns",
+   "markers": "last column = measured"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Grouped Column with pattern fill + Scatter layer (diamond) on same axes.",
+  "recommended_for": [
+   "model scenarios"
+  ],
+  "calculations": [],
+  "preview": "previews/grouped_hatched_bars_markers.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/grouped_hatched_bars_markers.ogs",
+   "otpu": "origin/grouped_hatched_bars_markers.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "liquid_fraction_vs_T",
+  "name": "Liquid fraction vs temperature",
+  "category": "Thermodynamic modelling",
+  "use_case": "Melt formation of raw meals; vertical line at sintering temperature (user-set).",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "T",
+   "series": "liquid per mix"
+  },
+  "default_params": {
+   "vline": 1400
+  },
+  "origin_hint": "Origin: Line plot + reference line.",
+  "recommended_for": [
+   "thermodynamic software"
+  ],
+  "calculations": [],
+  "preview": "previews/liquid_fraction_vs_T.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/liquid_fraction_vs_T.ogs",
+   "otpu": "origin/liquid_fraction_vs_T.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "strength_vs_age_bars",
+  "name": "Compressive strength by age (grouped bars ± SD)",
+  "category": "Cement & concrete engineering",
+  "use_case": "EN 196-1 style mortar prism results; bars = ages, groups = mixes; optional class lines (user-set).",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "mix",
+   "groups": "age columns",
+   "errors": "SD table"
+  },
+  "default_params": {
+   "class_lines": []
+  },
+  "origin_hint": "Origin: Grouped Column + Y error; reference lines via Insert > Straight Line.",
+  "recommended_for": [
+   "mechanical testing"
+  ],
+  "calculations": [
+   "mean ± SD of replicates",
+   "relative strength vs reference (%)"
+  ],
+  "preview": "previews/strength_vs_age_bars.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/strength_vs_age_bars.ogs",
+   "otpu": "origin/strength_vs_age_bars.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "strength_vs_age_lines_log",
+  "name": "Strength development (log age)",
+  "category": "Cement & concrete engineering",
+  "use_case": "Lines + markers with SD; log age axis shows early and late age evenly.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "age",
+   "series": "per mix"
+  },
+  "default_params": {
+   "log_x": true
+  },
+  "origin_hint": "Origin: Line+Symbol, X log10, Y error bars.",
+  "recommended_for": [
+   "mechanical testing"
+  ],
+  "calculations": [],
+  "preview": "previews/strength_vs_age_lines_log.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/strength_vs_age_lines_log.ogs",
+   "otpu": "origin/strength_vs_age_lines_log.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "strength_activity_index",
+  "name": "Relative strength / activity index with threshold line",
+  "category": "Cement & concrete engineering",
+  "use_case": "Strength as % of reference; threshold line value comes from the user (e.g. a standard's limit), never assumed.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "mix",
+   "groups": "ages"
+  },
+  "default_params": {
+   "threshold": null,
+   "threshold_label": ""
+  },
+  "origin_hint": "Origin: Grouped Column + labelled reference line.",
+  "recommended_for": [
+   "mechanical testing"
+  ],
+  "calculations": [
+   "100 × f(mix)/f(reference)"
+  ],
+  "preview": "previews/strength_activity_index.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/strength_activity_index.ogs",
+   "otpu": "origin/strength_activity_index.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "setting_time_bar",
+  "name": "Setting time as floating bars (initial → final)",
+  "category": "Cement & concrete engineering",
+  "use_case": "Each bar spans initial to final set (Vicat); compact and readable.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "mix",
+   "groups": "initial, final"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Floating Column (Plot > Column > Floating Column).",
+  "recommended_for": [
+   "Vicat"
+  ],
+  "calculations": [],
+  "preview": "previews/setting_time_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/setting_time_bar.ogs",
+   "otpu": "origin/setting_time_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "flow_slump_bar",
+  "name": "Workability (flow / slump) bars",
+  "category": "Cement & concrete engineering",
+  "use_case": "One value per mix with SD.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "mix",
+   "values": "flow"
+  },
+  "default_params": {
+   "show_values": true
+  },
+  "origin_hint": "Origin: Column + error bars.",
+  "recommended_for": [
+   "fresh properties"
+  ],
+  "calculations": [],
+  "preview": "previews/flow_slump_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/flow_slump_bar.ogs",
+   "otpu": "origin/flow_slump_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "shrinkage_vs_time",
+  "name": "Shrinkage / expansion vs time (± band)",
+  "category": "Cement & concrete engineering",
+  "use_case": "Length change with shaded SD band instead of error bars.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "time",
+   "series": "per mix",
+   "yerr": "SD"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line + Y error as band (Plot Details > Error Bar > fill).",
+  "recommended_for": [
+   "durability"
+  ],
+  "calculations": [],
+  "preview": "previews/shrinkage_vs_time.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/shrinkage_vs_time.ogs",
+   "otpu": "origin/shrinkage_vs_time.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "stress_strain",
+  "name": "Stress–strain curves",
+  "category": "Cement & concrete engineering",
+  "use_case": "Uniaxial compression curves; peak and modulus annotated on request.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "strain",
+   "series": "stress per specimen/mix"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line plot.",
+  "recommended_for": [
+   "mechanical testing"
+  ],
+  "calculations": [
+   "E-modulus = slope 10–40 % f_c (user-confirmed)"
+  ],
+  "preview": "previews/stress_strain.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/stress_strain.ogs",
+   "otpu": "origin/stress_strain.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "abrams_wc_strength",
+  "name": "Strength vs w/c with Abrams-type fit",
+  "category": "Cement & concrete engineering",
+  "use_case": "f = A / B^(w/c) fitted; equation printed; points from user's mixes.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "w/c",
+   "y": "strength"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Nonlinear Curve Fit with user-defined function A/B^x.",
+  "recommended_for": [
+   "mix design"
+  ],
+  "calculations": [
+   "nonlinear least squares A, B"
+  ],
+  "preview": "previews/abrams_wc_strength.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/abrams_wc_strength.ogs",
+   "otpu": "origin/abrams_wc_strength.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "carbonation_depth_sqrt_t",
+  "name": "Carbonation depth vs √t with k coefficient",
+  "category": "Cement & concrete engineering",
+  "use_case": "Linear fit through origin per mix; slope = carbonation coefficient k (mm/√day or mm/√year, user unit).",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "time (converted to √t)",
+   "series": "depth per mix"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Linear Fit with fixed intercept 0.",
+  "recommended_for": [
+   "durability"
+  ],
+  "calculations": [
+   "k = slope of depth vs √t"
+  ],
+  "preview": "previews/carbonation_depth_sqrt_t.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/carbonation_depth_sqrt_t.ogs",
+   "otpu": "origin/carbonation_depth_sqrt_t.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "chloride_profile",
+  "name": "Chloride profile with Fick's 2nd-law fit",
+  "category": "Cement & concrete engineering",
+  "use_case": "Profile points + erfc fit; apparent D and Cs reported in legend.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "depth",
+   "y": "chloride",
+   "group": "mix"
+  },
+  "default_params": {
+   "exposure_days": 90
+  },
+  "origin_hint": "Origin: Nonlinear fit with erfc user function.",
+  "recommended_for": [
+   "durability"
+  ],
+  "calculations": [
+   "C(x)=Cs·erfc(x/(2√(D·t)))+Ci"
+  ],
+  "preview": "previews/chloride_profile.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/chloride_profile.ogs",
+   "otpu": "origin/chloride_profile.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "free_lime_bar",
+  "name": "Single-quantity bars with SD and 'not detected' marking",
+  "category": "Cement & concrete engineering",
+  "use_case": "Free lime (or any titration result); missing values shown as 'n.d.' text, not as zero.",
+  "source": "house",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "sample",
+   "values": "one column",
+   "errors": "SD"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Column + error bars + text label.",
+  "recommended_for": [
+   "f-CaO",
+   "any single quantity"
+  ],
+  "calculations": [],
+  "preview": "previews/free_lime_bar.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/free_lime_bar.ogs",
+   "otpu": "origin/free_lime_bar.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "eds_atomic_ratio",
+  "name": "SEM-EDS atomic ratio plot (Al/Ca vs Si/Ca)",
+  "category": "Microstructure & SEM-EDS",
+  "use_case": "Point analyses of C-(A-)S-H; reference phase positions supplied by the user; density colouring optional.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "Si/Ca",
+   "y": "Al/Ca",
+   "group": "sample",
+   "refs": "user-confirmed reference compositions"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Scatter with transparency + labelled reference points.",
+  "recommended_for": [
+   "SEM-EDS"
+  ],
+  "calculations": [
+   "atomic ratios from at.% columns"
+  ],
+  "preview": "previews/eds_atomic_ratio.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/eds_atomic_ratio.ogs",
+   "otpu": "origin/eds_atomic_ratio.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "sem_panel_layout",
+  "name": "SEM / optical image panel grid with scale bars",
+  "category": "Microstructure & SEM-EDS",
+  "use_case": "2 × 2 image grid, (a)–(d) labels on white boxes, scale bars drawn from pixel size (from image metadata or user).",
+  "source": "generic",
+  "data_kind": "image_grid",
+  "data_roles": {
+   "images": "image files",
+   "px_um": "pixel size",
+   "titles": "panel captions"
+  },
+  "default_params": {
+   "ncols": 2
+  },
+  "origin_hint": "Origin: Image graphs merged; or insert pictures into a layout page.",
+  "recommended_for": [
+   "SEM",
+   "optical microscopy"
+  ],
+  "calculations": [],
+  "preview": "previews/sem_panel_layout.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/sem_panel_layout.ogs",
+   "otpu": "origin/sem_panel_layout.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "co2_emissions_stacked",
+  "name": "CO2 per tonne clinker (stacked by source)",
+  "category": "Sustainability & CO2",
+  "use_case": "Process vs fuel vs electricity emissions; totals printed above bars. All factors from the user.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "scenario",
+   "groups": "emission source"
+  },
+  "default_params": {
+   "totals": true,
+   "sum_to_100": false
+  },
+  "origin_hint": "Origin: Stacked Column + labels.",
+  "recommended_for": [
+   "LCA"
+  ],
+  "calculations": [],
+  "preview": "previews/co2_emissions_stacked.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/co2_emissions_stacked.ogs",
+   "otpu": "origin/co2_emissions_stacked.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "waterfall_co2",
+  "name": "Waterfall chart (step-wise reduction)",
+  "category": "Sustainability & CO2",
+  "use_case": "Shows contribution of each measure to a total change.",
+  "source": "generic",
+  "data_kind": "steps",
+  "data_roles": {
+   "steps": "label + delta; first = start, last = result"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Column > Waterfall.",
+  "recommended_for": [
+   "LCA",
+   "cost"
+  ],
+  "calculations": [],
+  "preview": "previews/waterfall_co2.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/waterfall_co2.ogs",
+   "otpu": "origin/waterfall_co2.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "scatter_linear_fit",
+  "name": "Scatter + linear fit with 95 % confidence band",
+  "category": "General scientific & statistics",
+  "use_case": "Correlation between two measured quantities; equation and R² in legend.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "x",
+   "y": "y"
+  },
+  "default_params": {
+   "ci": true,
+   "show_equation": true
+  },
+  "origin_hint": "Origin: Linear Fit with Confidence Bands checked.",
+  "recommended_for": [
+   "any"
+  ],
+  "calculations": [
+   "OLS slope, intercept, R², 95 % CI"
+  ],
+  "preview": "previews/scatter_linear_fit.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/scatter_linear_fit.ogs",
+   "otpu": "origin/scatter_linear_fit.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "correlation_heatmap",
+  "name": "Correlation matrix heatmap",
+  "category": "General scientific & statistics",
+  "use_case": "Pearson r between variables; values printed in cells.",
+  "source": "generic",
+  "data_kind": "matrix",
+  "data_roles": {
+   "table": "samples × variables"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Statistics > Correlation Coefficient → Heatmap.",
+  "recommended_for": [
+   "statistics"
+  ],
+  "calculations": [
+   "Pearson / Spearman r"
+  ],
+  "preview": "previews/correlation_heatmap.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/correlation_heatmap.ogs",
+   "otpu": "origin/correlation_heatmap.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "box_strip",
+  "name": "Box plot with individual points",
+  "category": "General scientific & statistics",
+  "use_case": "Replicate spread; every specimen visible.",
+  "source": "generic",
+  "data_kind": "groups",
+  "data_roles": {
+   "groups": "one column per group (replicates in rows)"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Box Chart with data overlap.",
+  "recommended_for": [
+   "replicates"
+  ],
+  "calculations": [],
+  "preview": "previews/box_strip.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/box_strip.ogs",
+   "otpu": "origin/box_strip.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "dual_y_axis",
+  "name": "Double-Y graph (two quantities, one x)",
+  "category": "General scientific & statistics",
+  "use_case": "Left and right axes coloured like their series.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "shared x",
+   "series": "left",
+   "series2": "right"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Multi-Curve > Double-Y.",
+  "recommended_for": [
+   "any"
+  ],
+  "calculations": [],
+  "preview": "previews/dual_y_axis.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/dual_y_axis.ogs",
+   "otpu": "origin/dual_y_axis.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "broken_axis",
+  "name": "Broken y axis (one dominant peak)",
+  "category": "General scientific & statistics",
+  "use_case": "Keeps a dominant peak (e.g. quartz, rutile) without flattening the rest.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "x",
+   "y": "y",
+   "break": "user-set lower/upper"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Axis dialog > Breaks tab.",
+  "recommended_for": [
+   "XRD",
+   "any"
+  ],
+  "calculations": [],
+  "preview": "previews/broken_axis.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/broken_axis.ogs",
+   "otpu": "origin/broken_axis.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "contour_response_surface",
+  "name": "Contour response surface (two factors)",
+  "category": "General scientific & statistics",
+  "use_case": "Design-of-experiments / optimisation map with labelled iso-lines.",
+  "source": "generic",
+  "data_kind": "matrix",
+  "data_roles": {
+   "x": "factor 1",
+   "y": "factor 2",
+   "z": "response grid"
+  },
+  "default_params": {
+   "levels": 10
+  },
+  "origin_hint": "Origin: Contour from XYZ (Plot > Contour > Color Fill).",
+  "recommended_for": [
+   "optimisation"
+  ],
+  "calculations": [],
+  "preview": "previews/contour_response_surface.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/contour_response_surface.ogs",
+   "otpu": "origin/contour_response_surface.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "error_band",
+  "name": "Line with shaded SD / CI band",
+  "category": "Basic 2D & layout",
+  "use_case": "Mean curve with a translucent uncertainty band instead of error bars.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "x",
+   "series": "mean per group",
+   "yerr": "SD or CI half-width"
+  },
+  "default_params": {
+   "alpha": 0.18
+  },
+  "origin_hint": "Origin: Plot > Basic 2D > Error Band.",
+  "recommended_for": [
+   "any replicate data"
+  ],
+  "calculations": [],
+  "preview": "previews/error_band.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/error_band.ogs",
+   "otpu": "origin/error_band.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "colormap_line_series",
+  "name": "Colour-mapped line series (colour = parameter)",
+  "category": "Basic 2D & layout",
+  "use_case": "Many curves whose order matters (temperature, time, concentration); colour bar replaces a long legend.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "x",
+   "series": "one column per level",
+   "param": "numeric level per column (from header or user)"
+  },
+  "default_params": {
+   "cmap": "viridis"
+  },
+  "origin_hint": "Origin: Plot > Basic 2D > Colormapped Line Series.",
+  "recommended_for": [
+   "series of spectra",
+   "temperature series"
+  ],
+  "calculations": [],
+  "preview": "previews/colormap_line_series.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/colormap_line_series.ogs",
+   "otpu": "origin/colormap_line_series.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "bubble_colormap",
+  "name": "Bubble chart with colour map (4 variables)",
+  "category": "Basic 2D & layout",
+  "use_case": "x, y, bubble size and colour show four variables at once; size legend included.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "x",
+   "y": "y",
+   "s": "size column",
+   "z": "colour column"
+  },
+  "default_params": {
+   "cmap": "viridis"
+  },
+  "origin_hint": "Origin: Plot > Basic 2D > Bubble + Color Mapped.",
+  "recommended_for": [
+   "multi-variable comparison"
+  ],
+  "calculations": [],
+  "preview": "previews/bubble_colormap.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/bubble_colormap.ogs",
+   "otpu": "origin/bubble_colormap.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "lollipop",
+  "name": "Lollipop / dumbbell chart",
+  "category": "Basic 2D & layout",
+  "use_case": "Cleaner than bars for many categories; dumbbell shows before → after.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "labels",
+   "values": "value 1",
+   "values2": "optional value 2 (dumbbell)"
+  },
+  "default_params": {
+   "dumbbell": true
+  },
+  "origin_hint": "Origin: Plot > Basic 2D > Lollipop.",
+  "recommended_for": [
+   "rankings",
+   "before/after"
+  ],
+  "calculations": [],
+  "preview": "previews/lollipop.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/lollipop.ogs",
+   "otpu": "origin/lollipop.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "bar_line_combo",
+  "name": "Bars + line on a second y axis",
+  "category": "Basic 2D & layout",
+  "use_case": "Two related quantities per category with different units.",
+  "source": "generic",
+  "data_kind": "category_table",
+  "data_roles": {
+   "categories": "x",
+   "values": "bars (left)",
+   "values2": "line (right)"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Multi-Panel/Axis > Double-Y Column-Line Symbol.",
+  "recommended_for": [
+   "any"
+  ],
+  "calculations": [],
+  "preview": "previews/bar_line_combo.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/bar_line_combo.ogs",
+   "otpu": "origin/bar_line_combo.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "xrd_dspacing_top",
+  "name": "Secondary top axis (e.g. d-spacing over 2θ, K over °C)",
+  "category": "XRD & Rietveld",
+  "use_case": "Second, transformed x scale on top: d = λ / (2 sin θ); same mechanism for K↔°C, √t↔t, energy↔wavelength.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "x",
+   "y": "y",
+   "transform": "user-chosen function + inverse"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Axis dialog > Top: Tick Labels with formula.",
+  "recommended_for": [
+   "XRD",
+   "any unit pair"
+  ],
+  "calculations": [],
+  "preview": "previews/xrd_dspacing_top.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/xrd_dspacing_top.ogs",
+   "otpu": "origin/xrd_dspacing_top.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "violin",
+  "name": "Violin + box + points",
+  "category": "General scientific & statistics",
+  "use_case": "Distribution shape, quartiles and every observation together.",
+  "source": "generic",
+  "data_kind": "groups",
+  "data_roles": {
+   "groups": "one column per group"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Statistical > Violin with Box (ViolinBox.otpu).",
+  "recommended_for": [
+   "replicates",
+   "distributions"
+  ],
+  "calculations": [],
+  "preview": "previews/violin.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/violin.ogs",
+   "otpu": "origin/violin.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "raincloud",
+  "name": "Raincloud plot (half violin + box + rain)",
+  "category": "General scientific & statistics",
+  "use_case": "Same information as a violin, easier to read for many groups.",
+  "source": "generic",
+  "data_kind": "groups",
+  "data_roles": {
+   "groups": "one column per group"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Raincloud template (File Exchange fid 773).",
+  "recommended_for": [
+   "distributions"
+  ],
+  "calculations": [],
+  "preview": "previews/raincloud.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/raincloud.ogs",
+   "otpu": "origin/raincloud.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "ridgeline",
+  "name": "Ridgeline (joy) plot",
+  "category": "General scientific & statistics",
+  "use_case": "Offset density curves - many distributions in little space.",
+  "source": "generic",
+  "data_kind": "groups",
+  "data_roles": {
+   "groups": "one column per group"
+  },
+  "default_params": {
+   "overlap": 1.6
+  },
+  "origin_hint": "Origin: Plot > Statistical > Ridgeline.",
+  "recommended_for": [
+   "distributions",
+   "time series of distributions"
+  ],
+  "calculations": [],
+  "preview": "previews/ridgeline.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/ridgeline.ogs",
+   "otpu": "origin/ridgeline.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "hist_kde",
+  "name": "Histogram + normal fit + KDE",
+  "category": "General scientific & statistics",
+  "use_case": "Distribution with fitted normal curve and kernel density; mean ± SD printed.",
+  "source": "generic",
+  "data_kind": "values",
+  "data_roles": {
+   "values": "one column"
+  },
+  "default_params": {
+   "bins": "auto"
+  },
+  "origin_hint": "Origin: Plot > Statistical > Histogram + Probabilities.",
+  "recommended_for": [
+   "distributions"
+  ],
+  "calculations": [
+   "mean, SD, KDE"
+  ],
+  "preview": "previews/hist_kde.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/hist_kde.ogs",
+   "otpu": "origin/hist_kde.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "qq",
+  "name": "Normal Q–Q plot with reference line",
+  "category": "General scientific & statistics",
+  "use_case": "Checks normality of residuals or replicate data.",
+  "source": "generic",
+  "data_kind": "values",
+  "data_roles": {
+   "values": "one column"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Statistical > Q-Q Plot.",
+  "recommended_for": [
+   "statistics"
+  ],
+  "calculations": [],
+  "preview": "previews/qq.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/qq.ogs",
+   "otpu": "origin/qq.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "regression_bands",
+  "name": "Regression with 95 % confidence and prediction bands",
+  "category": "General scientific & statistics",
+  "use_case": "Fit line, CI of the mean (dark) and PI for new observations (light); equation, R², n.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "x",
+   "y": "y"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Linear Fit > Confidence & Prediction Bands.",
+  "recommended_for": [
+   "any fit"
+  ],
+  "calculations": [
+   "OLS, CI, PI"
+  ],
+  "preview": "previews/regression_bands.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/regression_bands.ogs",
+   "otpu": "origin/regression_bands.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "residuals_4",
+  "name": "Residual diagnostics (4 panels)",
+  "category": "General scientific & statistics",
+  "use_case": "Residuals vs fitted, vs x, histogram and Q–Q - to defend any fit.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "x",
+   "y": "y",
+   "model": "fit from Fitting module"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Fit report > Residual Plots.",
+  "recommended_for": [
+   "any fit"
+  ],
+  "calculations": [],
+  "preview": "previews/residuals_4.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/residuals_4.ogs",
+   "otpu": "origin/residuals_4.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "pca_biplot",
+  "name": "PCA biplot (scores + loadings) with scree inset",
+  "category": "General scientific & statistics",
+  "use_case": "Which samples group together and which variables drive it.",
+  "source": "generic",
+  "data_kind": "table",
+  "data_roles": {
+   "X": "samples × variables (numeric)",
+   "groups": "optional group column"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Statistics > Multivariate > PCA.",
+  "recommended_for": [
+   "multi-variable data"
+  ],
+  "calculations": [
+   "standardise, SVD, explained variance"
+  ],
+  "preview": "previews/pca_biplot.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/pca_biplot.ogs",
+   "otpu": "origin/pca_biplot.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "bland_altman",
+  "name": "Bland–Altman agreement plot",
+  "category": "General scientific & statistics",
+  "use_case": "Agreement between two methods: difference vs mean with bias and ±1.96 SD limits.",
+  "source": "generic",
+  "data_kind": "paired",
+  "data_roles": {
+   "m1": "method 1",
+   "m2": "method 2"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Bland-Altman Plot app.",
+  "recommended_for": [
+   "method comparison"
+  ],
+  "calculations": [
+   "bias, limits of agreement"
+  ],
+  "preview": "previews/bland_altman.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/bland_altman.ogs",
+   "otpu": "origin/bland_altman.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "conversion_vs_T",
+  "name": "Conversion α vs T at several heating rates",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "S-curves from multi-rate TG/DSC; input for isoconversional kinetics.",
+  "source": "generic",
+  "data_kind": "kinetics",
+  "data_roles": {
+   "curves": "one TG/DSC run per heating rate (β from file or user)"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: line plot, colour-mapped by β.",
+  "recommended_for": [
+   "thermal kinetics"
+  ],
+  "calculations": [
+   "α = (m0 − m)/(m0 − m∞)"
+  ],
+  "preview": "previews/conversion_vs_T.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/conversion_vs_T.ogs",
+   "otpu": "origin/conversion_vs_T.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "kissinger_plot",
+  "name": "Kissinger plot (activation energy)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "ln(β/Tp²) vs 1000/Tp; slope = −Ea/R. Use ≥ 3 heating rates.",
+  "source": "generic",
+  "data_kind": "kinetics",
+  "data_roles": {
+   "beta": "heating rates",
+   "Tp": "peak temperatures (K)"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: scatter + Linear Fit.",
+  "recommended_for": [
+   "thermal kinetics"
+  ],
+  "calculations": [
+   "Ea = −slope × R"
+  ],
+  "preview": "previews/kissinger_plot.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/kissinger_plot.ogs",
+   "otpu": "origin/kissinger_plot.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "ea_vs_alpha",
+  "name": "Activation energy vs conversion (isoconversional)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Eα from Friedman / OFW / KAS compared with uncertainty bands; recommended default kinetics output.",
+  "source": "generic",
+  "data_kind": "kinetics",
+  "data_roles": {
+   "alpha": "α levels",
+   "methods": "Eα per method"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line + Error Band.",
+  "recommended_for": [
+   "thermal kinetics"
+  ],
+  "calculations": [
+   "isoconversional regression at each α"
+  ],
+  "preview": "previews/ea_vs_alpha.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/ea_vs_alpha.ogs",
+   "otpu": "origin/ea_vs_alpha.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "dta_raw_meal",
+  "name": "High-temperature DTA/DSC with event bands (labels to confirm)",
+  "category": "Thermal analysis (TGA / DTG / DSC)",
+  "use_case": "Reaction sequence on heating; unconfirmed event names are shown with '?' until the user confirms them.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "T",
+   "y": "DTA/DSC signal",
+   "events": "temperature windows + labels (user-confirmed)"
+  },
+  "default_params": {
+   "exo": "up"
+  },
+  "origin_hint": "Origin: line + rectangles + text.",
+  "recommended_for": [
+   "DTA",
+   "DSC",
+   "clinkering",
+   "ceramics",
+   "glass"
+  ],
+  "calculations": [
+   "onset/peak per event"
+  ],
+  "preview": "previews/dta_raw_meal.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/dta_raw_meal.ogs",
+   "otpu": "origin/dta_raw_meal.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "arrhenius_plot",
+  "name": "Arrhenius plot (ln k vs 1000/T)",
+  "category": "Physics & signal",
+  "use_case": "Rate constants at several temperatures; Ea from the slope. Works for any kinetics.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "T": "temperature",
+   "k": "rate constant"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: scatter + Linear Fit on transformed columns.",
+  "recommended_for": [
+   "kinetics",
+   "calorimetry at several T",
+   "conductivity"
+  ],
+  "calculations": [
+   "Ea = −slope·R"
+  ],
+  "preview": "previews/arrhenius_plot.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/arrhenius_plot.ogs",
+   "otpu": "origin/arrhenius_plot.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "rheo_flow_curve",
+  "name": "Rheology flow curve with Herschel–Bulkley fit and viscosity",
+  "category": "Rheology & mechanics",
+  "use_case": "Shear stress (left) and apparent viscosity (right) vs shear rate, log-log; yield stress from the fit.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "shear rate",
+   "series": "shear stress per sample"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Double-Y, log axes, NLFit (Herschel-Bulkley).",
+  "recommended_for": [
+   "pastes",
+   "suspensions",
+   "polymers",
+   "food"
+  ],
+  "calculations": [
+   "τ = τ0 + K·γ̇ⁿ; η = τ/γ̇"
+  ],
+  "preview": "previews/rheo_flow_curve.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/rheo_flow_curve.ogs",
+   "otpu": "origin/rheo_flow_curve.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "rheo_amp_sweep",
+  "name": "Amplitude sweep (G′, G″) with LVE limit and crossover",
+  "category": "Rheology & mechanics",
+  "use_case": "Oscillatory strain sweep: linear viscoelastic limit (G′ drops 5 %) and G′ = G″ crossover marked.",
+  "source": "generic",
+  "data_kind": "oscillation",
+  "data_roles": {
+   "x": "strain",
+   "Gp": "storage modulus",
+   "Gpp": "loss modulus"
+  },
+  "default_params": {
+   "lve_drop": 0.05
+  },
+  "origin_hint": "Origin: log-log line+symbol.",
+  "recommended_for": [
+   "pastes",
+   "gels",
+   "polymers"
+  ],
+  "calculations": [
+   "LVE limit, crossover strain"
+  ],
+  "preview": "previews/rheo_amp_sweep.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/rheo_amp_sweep.ogs",
+   "otpu": "origin/rheo_amp_sweep.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "eis_nyquist",
+  "name": "EIS Nyquist plot (equal axes) with frequency labels",
+  "category": "Electrochemistry & energy",
+  "use_case": "−Z″ vs Z′ with equal aspect; selected frequencies annotated.",
+  "source": "generic",
+  "data_kind": "impedance",
+  "data_roles": {
+   "Zre": "Z′",
+   "Zim": "−Z″",
+   "f": "frequency"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: scatter, axis ratio 1:1.",
+  "recommended_for": [
+   "corrosion",
+   "batteries",
+   "cementitious conductivity"
+  ],
+  "calculations": [
+   "equivalent-circuit fit (external)"
+  ],
+  "preview": "previews/eis_nyquist.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/eis_nyquist.ogs",
+   "otpu": "origin/eis_nyquist.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "cv_voltammogram",
+  "name": "Cyclic voltammograms at several scan rates",
+  "category": "Electrochemistry & energy",
+  "use_case": "Closed CV loops colour-ordered by scan rate.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "potential",
+   "series": "current per scan rate"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line, colour-mapped series.",
+  "recommended_for": [
+   "electrochemistry"
+  ],
+  "calculations": [
+   "peak currents, ΔEp"
+  ],
+  "preview": "previews/cv_voltammogram.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/cv_voltammogram.ogs",
+   "otpu": "origin/cv_voltammogram.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "ragone_plot",
+  "name": "Ragone plot (energy vs power, log-log)",
+  "category": "Electrochemistry & energy",
+  "use_case": "Energy storage comparison.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "power",
+   "y": "energy",
+   "group": "device"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: log-log Line+Symbol.",
+  "recommended_for": [
+   "energy storage"
+  ],
+  "calculations": [],
+  "preview": "previews/ragone_plot.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/ragone_plot.ogs",
+   "otpu": "origin/ragone_plot.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "dose_response_4pl",
+  "name": "Dose–response with 4-parameter logistic fit (EC50)",
+  "category": "Life science & medicine",
+  "use_case": "Log-concentration x axis, fitted sigmoid, EC50/IC50 in legend.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "dose",
+   "series": "response per compound",
+   "yerr": "SD"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: NLFit DoseResp, X log.",
+  "recommended_for": [
+   "pharmacology",
+   "toxicity",
+   "adsorption"
+  ],
+  "calculations": [
+   "4PL: bottom, top, EC50, Hill slope"
+  ],
+  "preview": "previews/dose_response_4pl.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/dose_response_4pl.ogs",
+   "otpu": "origin/dose_response_4pl.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "kaplan_meier",
+  "name": "Kaplan–Meier survival / time-to-failure curves",
+  "category": "Life science & medicine",
+  "use_case": "Step curves with censor ticks; also for time-to-failure of specimens.",
+  "source": "generic",
+  "data_kind": "survival",
+  "data_roles": {
+   "t": "time",
+   "event": "1 = event, 0 = censored",
+   "group": "group"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Statistics > Survival Analysis > Kaplan-Meier.",
+  "recommended_for": [
+   "medicine",
+   "reliability",
+   "durability failure"
+  ],
+  "calculations": [
+   "KM estimator",
+   "log-rank (external)"
+  ],
+  "preview": "previews/kaplan_meier.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/kaplan_meier.ogs",
+   "otpu": "origin/kaplan_meier.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "roc_curve",
+  "name": "ROC curve with AUC",
+  "category": "Life science & medicine",
+  "use_case": "Classifier / diagnostic test performance; diagonal = chance.",
+  "source": "generic",
+  "data_kind": "classification",
+  "data_roles": {
+   "truth": "0/1 column",
+   "scores": "score per model"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Statistics > ROC Curve.",
+  "recommended_for": [
+   "diagnostics",
+   "machine learning"
+  ],
+  "calculations": [
+   "TPR, FPR, AUC"
+  ],
+  "preview": "previews/roc_curve.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/roc_curve.ogs",
+   "otpu": "origin/roc_curve.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "calibration_lod",
+  "name": "Calibration curve with LOD/LOQ and residual panel",
+  "category": "Analytical chemistry",
+  "use_case": "Linear calibration; LOD = 3.3 s/b, LOQ = 10 s/b shown; residuals below.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "standard concentration",
+   "y": "signal"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Linear Fit + residual plot.",
+  "recommended_for": [
+   "ICP",
+   "IC",
+   "UV-Vis",
+   "any calibration"
+  ],
+  "calculations": [
+   "slope, intercept, LOD, LOQ"
+  ],
+  "preview": "previews/calibration_lod.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/calibration_lod.ogs",
+   "otpu": "origin/calibration_lod.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "chromatogram",
+  "name": "Chromatogram with integrated, labelled peaks",
+  "category": "Analytical chemistry",
+  "use_case": "Peak areas shaded; labels from the user's peak table.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "time",
+   "y": "signal",
+   "peaks": "peak table (Rt, name) from user"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Peak Analyzer > Integrate Peaks.",
+  "recommended_for": [
+   "HPLC",
+   "GC",
+   "IC"
+  ],
+  "calculations": [
+   "peak areas, Rt"
+  ],
+  "preview": "previews/chromatogram.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/chromatogram.ogs",
+   "otpu": "origin/chromatogram.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "fft_spectrum",
+  "name": "Signal + amplitude spectrum (FFT)",
+  "category": "Physics & signal",
+  "use_case": "Time signal above, single-sided amplitude spectrum below with dominant peaks marked.",
+  "source": "generic",
+  "data_kind": "signal",
+  "data_roles": {
+   "t": "time",
+   "y": "signal"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Analysis > Signal Processing > FFT.",
+  "recommended_for": [
+   "vibration",
+   "acoustics",
+   "sensors",
+   "AE"
+  ],
+  "calculations": [
+   "FFT, dominant frequencies"
+  ],
+  "preview": "previews/fft_spectrum.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/fft_spectrum.ogs",
+   "otpu": "origin/fft_spectrum.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "time_series_band",
+  "name": "Time series with moving average and min–max band",
+  "category": "Environment & geoscience",
+  "use_case": "Long monitoring records: raw (light), rolling mean (bold), rolling range band.",
+  "source": "generic",
+  "data_kind": "signal",
+  "data_roles": {
+   "t": "time",
+   "y": "value"
+  },
+  "default_params": {
+   "window": 30
+  },
+  "origin_hint": "Origin: Line + Smoothing (Adjacent Averaging) + band.",
+  "recommended_for": [
+   "monitoring",
+   "climate",
+   "sensors"
+  ],
+  "calculations": [
+   "rolling mean, rolling min/max"
+  ],
+  "preview": "previews/time_series_band.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/time_series_band.ogs",
+   "otpu": "origin/time_series_band.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "depth_profile",
+  "name": "Depth profiles (depth downward, shared y)",
+  "category": "Environment & geoscience",
+  "use_case": "Several variables against depth in side-by-side panels; depth axis reversed.",
+  "source": "generic",
+  "data_kind": "profile",
+  "data_roles": {
+   "depth": "depth column",
+   "vars": "one column per variable"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Multi-panel horizontal, Y reversed.",
+  "recommended_for": [
+   "soil",
+   "sediment",
+   "concrete cores",
+   "oceanography"
+  ],
+  "calculations": [],
+  "preview": "previews/depth_profile.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/depth_profile.ogs",
+   "otpu": "origin/depth_profile.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "pareto_front",
+  "name": "Pareto front (trade-off of two objectives, third as colour)",
+  "category": "Sustainability & CO2",
+  "use_case": "All options as points; non-dominated set highlighted and joined.",
+  "source": "generic",
+  "data_kind": "scatter",
+  "data_roles": {
+   "x": "objective to maximise",
+   "y": "objective to minimise",
+   "s": "optional third"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Bubble/colour scatter + line through front.",
+  "recommended_for": [
+   "design optimisation",
+   "LCA",
+   "mix design"
+  ],
+  "calculations": [
+   "non-dominated sorting"
+  ],
+  "preview": "previews/pareto_front.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/pareto_front.ogs",
+   "otpu": "origin/pareto_front.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "sankey_mass_energy",
+  "name": "Sankey diagram (mass / energy flows)",
+  "category": "Sustainability & CO2",
+  "use_case": "Inputs → process → outputs with widths proportional to flow; balance checked.",
+  "source": "generic",
+  "data_kind": "flows",
+  "data_roles": {
+   "source": "from",
+   "target": "to",
+   "value": "amount"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Plot > Categorical > Sankey (Sankey.otpu).",
+  "recommended_for": [
+   "mass balance",
+   "energy balance",
+   "LCA"
+  ],
+  "calculations": [
+   "input = output check"
+  ],
+  "preview": "previews/sankey_mass_energy.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/sankey_mass_energy.ogs",
+   "otpu": "origin/sankey_mass_energy.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "sensitivity_tornado",
+  "name": "Tornado diagram (sensitivity)",
+  "category": "Sustainability & CO2",
+  "use_case": "Effect of low/high setting of each parameter on a result, sorted by impact.",
+  "source": "generic",
+  "data_kind": "sensitivity",
+  "data_roles": {
+   "params": "names",
+   "low": "result change at low",
+   "high": "result change at high"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Floating Bar.",
+  "recommended_for": [
+   "LCA",
+   "cost",
+   "uncertainty"
+  ],
+  "calculations": [],
+  "preview": "previews/sensitivity_tornado.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/sensitivity_tornado.ogs",
+   "otpu": "origin/sensitivity_tornado.otpu"
+  }
+ }
+]

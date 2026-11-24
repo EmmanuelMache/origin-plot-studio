@@ -1,0 +1,33 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "strength_vs_age_bars",
+ "name": "Compressive strength by age (grouped bars ± SD)",
+ "category": "Cement & concrete engineering",
+ "use_case": "EN 196-1 style mortar prism results; bars = ages, groups = mixes; optional class lines (user-set).",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "mix",
+  "groups": "age columns",
+  "errors": "SD table"
+ },
+ "default_params": {
+  "class_lines": []
+ },
+ "origin_hint": "Origin: Grouped Column + Y error; reference lines via Insert > Straight Line.",
+ "recommended_for": [
+  "mechanical testing"
+ ],
+ "calculations": [
+  "mean ± SD of replicates",
+  "relative strength vs reference (%)"
+ ],
+ "preview": "previews/strength_vs_age_bars.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/strength_vs_age_bars.ogs",
+  "otpu": "origin/strength_vs_age_bars.otpu"
+ }
+}

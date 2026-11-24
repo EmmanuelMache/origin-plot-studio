@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrf_oxide_bar",
+ "name": "Oxide composition bars (XRF)",
+ "category": "Phase & chemical composition",
+ "use_case": "Major and minor oxides; optional log scale or split axis so minor oxides stay visible.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "oxides",
+  "groups": "materials"
+ },
+ "default_params": {
+  "log_y": true
+ },
+ "origin_hint": "Origin: Grouped Column; Y log10 scale (Axis dialog).",
+ "recommended_for": [
+  "XRF",
+  "raw meal design"
+ ],
+ "calculations": [],
+ "preview": "previews/xrf_oxide_bar.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrf_oxide_bar.ogs",
+  "otpu": "origin/xrf_oxide_bar.otpu"
+ }
+}

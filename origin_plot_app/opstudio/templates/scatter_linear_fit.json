@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "scatter_linear_fit",
+ "name": "Scatter + linear fit with 95 % confidence band",
+ "category": "General scientific & statistics",
+ "use_case": "Correlation between two measured quantities; equation and R² in legend.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "x",
+  "y": "y"
+ },
+ "default_params": {
+  "ci": true,
+  "show_equation": true
+ },
+ "origin_hint": "Origin: Linear Fit with Confidence Bands checked.",
+ "recommended_for": [
+  "any"
+ ],
+ "calculations": [
+  "OLS slope, intercept, R², 95 % CI"
+ ],
+ "preview": "previews/scatter_linear_fit.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/scatter_linear_fit.ogs",
+  "otpu": "origin/scatter_linear_fit.otpu"
+ }
+}

@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "bet_isotherm",
+ "name": "N2 sorption isotherm (adsorption / desorption)",
+ "category": "Particle size, porosity & surface",
+ "use_case": "Hysteresis loop; filled = adsorption, open = desorption.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "p/p0",
+  "series": "ads, des"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Line+Symbol, two series.",
+ "recommended_for": [
+  "BET"
+ ],
+ "calculations": [],
+ "preview": "previews/bet_isotherm.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/bet_isotherm.ogs",
+  "otpu": "origin/bet_isotherm.otpu"
+ }
+}

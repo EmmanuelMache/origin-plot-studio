@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_heatmap_contour",
+ "name": "Contour / colour map (2θ vs time or temperature)",
+ "category": "XRD & Rietveld",
+ "use_case": "Many patterns at once: phase appearance and disappearance becomes visible as bands.",
+ "source": "generic",
+ "data_kind": "matrix",
+ "data_roles": {
+  "x": "2θ",
+  "y": "time/temperature per pattern",
+  "z": "intensity matrix"
+ },
+ "default_params": {
+  "cmap": "viridis",
+  "log_z": false
+ },
+ "origin_hint": "Origin: Plot > Contour > Contour-Color Fill (or Heatmap) from matrix.",
+ "recommended_for": [
+  "in-situ XRD",
+  "calorimetry maps"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_heatmap_contour.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrd_heatmap_contour.ogs",
+  "otpu": "origin/xrd_heatmap_contour.otpu"
+ }
+}

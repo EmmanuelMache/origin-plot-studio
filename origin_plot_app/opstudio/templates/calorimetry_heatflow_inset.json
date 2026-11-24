@@ -1,0 +1,36 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "calorimetry_heatflow_inset",
+ "name": "Heat flow with early-age inset",
+ "category": "Isothermal calorimetry",
+ "use_case": "Normalised heat flow vs time; inset zooms the first hours; exclusion window respected.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "time (h)",
+  "series": "heat flow per sample"
+ },
+ "default_params": {
+  "inset_range": [
+   0,
+   12
+  ],
+  "x_max": 168
+ },
+ "origin_hint": "Origin: Line plot + Graph > New Layer (inset) via Plot > Multi-Panel > Inset.",
+ "recommended_for": [
+  "TAM Air / TAM III"
+ ],
+ "calculations": [
+  "mW/g = mW / sample mass",
+  "exclude first X h (user-set)"
+ ],
+ "preview": "previews/calorimetry_heatflow_inset.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/calorimetry_heatflow_inset.ogs",
+  "otpu": "origin/calorimetry_heatflow_inset.otpu"
+ }
+}

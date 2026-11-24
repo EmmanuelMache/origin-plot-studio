@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "rheo_flow_curve",
+ "name": "Rheology flow curve with Herschel–Bulkley fit and viscosity",
+ "category": "Rheology & mechanics",
+ "use_case": "Shear stress (left) and apparent viscosity (right) vs shear rate, log-log; yield stress from the fit.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "shear rate",
+  "series": "shear stress per sample"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Double-Y, log axes, NLFit (Herschel-Bulkley).",
+ "recommended_for": [
+  "pastes",
+  "suspensions",
+  "polymers",
+  "food"
+ ],
+ "calculations": [
+  "τ = τ0 + K·γ̇ⁿ; η = τ/γ̇"
+ ],
+ "preview": "previews/rheo_flow_curve.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/rheo_flow_curve.ogs",
+  "otpu": "origin/rheo_flow_curve.otpu"
+ }
+}

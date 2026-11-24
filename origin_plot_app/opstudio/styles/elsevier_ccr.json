@@ -1,0 +1,130 @@
+{
+ "schema": "opstudio.style/1",
+ "id": "elsevier_ccr",
+ "name": "Elsevier – Cement and Concrete Research / Composites",
+ "description": "Elsevier artwork sizing; clean sans, 7–9 pt in print.",
+ "source": "Elsevier artwork guidelines (verify current)",
+ "font": {
+  "family": [
+   "Arial",
+   "Helvetica",
+   "Liberation Sans",
+   "DejaVu Sans"
+  ],
+  "size_pt": {
+   "base": 7,
+   "axis_label": 7.5,
+   "tick": 7,
+   "legend": 7,
+   "panel_label": 8,
+   "annotation": 6.5
+  },
+  "math": "regular-sans (sub/superscripts in same family)"
+ },
+ "axes": {
+  "linewidth_pt": 0.8,
+  "box": true,
+  "tick_direction": "in",
+  "ticks_all_sides": true,
+  "major_tick_len_pt": 3.5,
+  "minor_tick_len_pt": 2.0,
+  "minor_ticks": true,
+  "grid": false,
+  "label_format": "Quantity (unit)",
+  "unit_brackets": "()"
+ },
+ "lines": {
+  "width_pt": 1.0,
+  "marker_size_pt": 4,
+  "marker_edge_width_pt": 0.8,
+  "errorbar_capsize_pt": 2.5
+ },
+ "legend": {
+  "frame": false,
+  "font_size_pt": 7,
+  "handle_length": 1.8,
+  "location": "best"
+ },
+ "panel_label": {
+  "format": "(a)",
+  "weight": "bold",
+  "position": "top-left, above axes",
+  "joins_title": true,
+  "example": "(a) Alite, C₃S"
+ },
+ "palette": {
+  "series": [
+   "#000000",
+   "#1F77B4",
+   "#D62728",
+   "#2CA02C",
+   "#9467BD",
+   "#FF7F0E",
+   "#8C564B",
+   "#E377C2",
+   "#7F7F7F",
+   "#17BECF"
+  ],
+  "samples": {
+   "Sample A": "#000000",
+   "Sample B": "#1F77B4",
+   "Sample C": "#D62728",
+   "Sample D": "#2CA02C",
+   "Sample E": "#9467BD",
+   "Sample F": "#FF7F0E"
+  },
+  "phases": {
+   "Alite": "#1F77B4",
+   "Belite": "#FF7F0E",
+   "Aluminate": "#0F9D8A",
+   "Ferrite": "#E377C2",
+   "Periclase": "#17BECF",
+   "Free lime": "#E6A800",
+   "Liquid": "#555555",
+   "Melilite": "#8C564B",
+   "Calcite": "#7F7F7F",
+   "Quartz": "#9467BD",
+   "Rutile (std)": "#000000",
+   "Gypsum": "#BCBD22",
+   "Portlandite": "#D62728",
+   "Ettringite": "#8C564B",
+   "C-S-H": "#1F77B4",
+   "AFm": "#2CA02C",
+   "Amorphous": "#BBBBBB"
+  },
+  "use_hatches_for_print": false
+ },
+ "figure": {
+  "orientation": "landscape",
+  "width_mm": {
+   "minimum": 30,
+   "single": 90,
+   "one_and_half": 140,
+   "double": 190
+  },
+  "default_width": "double",
+  "aspect_w_h": 1.6,
+  "background": "white"
+ },
+ "export": {
+  "raster_dpi": 500,
+  "line_art_dpi": 1000,
+  "vector": [
+   "pdf",
+   "svg",
+   "emf (Windows)"
+  ],
+  "raster": [
+   "png",
+   "tiff (LZW)"
+  ],
+  "embed_fonts": true,
+  "halftone_dpi": 300
+ },
+ "notes": "Elsevier artwork instructions (applies to Cement and Concrete Research, Cement and Concrete Composites, Construction and Building Materials): lettering 7 pt at final size, sub/superscripts >= 6 pt; 300 dpi halftone, 500 dpi combination, 1000 dpi line art; EPS/PDF vector. Verify the current guide before submission.",
+ "limits": {
+  "min_font_pt": 6,
+  "min_line_pt": 0.25,
+  "note": "minimum at the final printed size; check the publisher's current guide before submission"
+ }
+}

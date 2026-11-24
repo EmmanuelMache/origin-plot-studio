@@ -1,0 +1,29 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "abrams_wc_strength",
+ "name": "Strength vs w/c with Abrams-type fit",
+ "category": "Cement & concrete engineering",
+ "use_case": "f = A / B^(w/c) fitted; equation printed; points from user's mixes.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "w/c",
+  "y": "strength"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Nonlinear Curve Fit with user-defined function A/B^x.",
+ "recommended_for": [
+  "mix design"
+ ],
+ "calculations": [
+  "nonlinear least squares A, B"
+ ],
+ "preview": "previews/abrams_wc_strength.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/abrams_wc_strength.ogs",
+  "otpu": "origin/abrams_wc_strength.otpu"
+ }
+}

@@ -1,0 +1,34 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "nmr_29si_deconv",
+ "name": "Deconvolution plot (e.g. 29Si MAS NMR, XPS, DTG)",
+ "category": "Spectroscopy (FTIR / Raman / NMR)",
+ "use_case": "Observed, fitted sum, shaded components, residual below; reversed ppm axis when relevant.",
+ "source": "generic",
+ "data_kind": "deconvolution",
+ "data_roles": {
+  "x": "x",
+  "obs": "observed",
+  "components": "fitted peaks (from Fitting module)"
+ },
+ "default_params": {
+  "reverse_x": true
+ },
+ "origin_hint": "Origin: Peak Analyzer (Fit Peaks Pro) output graph.",
+ "recommended_for": [
+  "NMR",
+  "XPS",
+  "DTG deconvolution"
+ ],
+ "calculations": [
+  "component areas %, MCL = 2(Q1+Q2+1.5Q2(1Al))/Q1 (user-confirmed)"
+ ],
+ "preview": "previews/nmr_29si_deconv.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/nmr_29si_deconv.ogs",
+  "otpu": "origin/nmr_29si_deconv.otpu"
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "roc_curve",
+ "name": "ROC curve with AUC",
+ "category": "Life science & medicine",
+ "use_case": "Classifier / diagnostic test performance; diagonal = chance.",
+ "source": "generic",
+ "data_kind": "classification",
+ "data_roles": {
+  "truth": "0/1 column",
+  "scores": "score per model"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Statistics > ROC Curve.",
+ "recommended_for": [
+  "diagnostics",
+  "machine learning"
+ ],
+ "calculations": [
+  "TPR, FPR, AUC"
+ ],
+ "preview": "previews/roc_curve.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/roc_curve.ogs",
+  "otpu": "origin/roc_curve.otpu"
+ }
+}

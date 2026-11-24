@@ -1,0 +1,37 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_stack_with_zoom",
+ "name": "Stacked XRD + zoom panel",
+ "category": "XRD & Rietveld",
+ "use_case": "Full range stack (a) next to a zoom of a diagnostic window (b), e.g. 31-35° for C3S/C2S.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "2θ",
+  "series": "one Y column per sample"
+ },
+ "default_params": {
+  "zoom": [
+   31.0,
+   35.0
+  ],
+  "width_ratio": [
+   3,
+   1
+  ],
+  "already_offset": false
+ },
+ "origin_hint": "Origin: two layers (Graph > Merge or Layer Management) sharing Y offset; second layer rescaled X.",
+ "recommended_for": [
+  "XRD"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_stack_with_zoom.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrd_stack_with_zoom.ogs",
+  "otpu": "origin/xrd_stack_with_zoom.otpu"
+ }
+}

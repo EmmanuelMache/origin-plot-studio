@@ -1,0 +1,33 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "parity_plot",
+ "name": "Parity plot (calculated vs measured)",
+ "category": "Phase & chemical composition",
+ "use_case": "Bogue / model vs Rietveld with 1:1 line and ±band; RMSE in legend.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "measured",
+  "y": "calculated",
+  "group": "method"
+ },
+ "default_params": {
+  "band": 5
+ },
+ "origin_hint": "Origin: Scatter + Insert > Line (y = x) + band via fill-between series.",
+ "recommended_for": [
+  "QPA",
+  "models"
+ ],
+ "calculations": [
+  "RMSE and bias per method"
+ ],
+ "preview": "previews/parity_plot.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/parity_plot.ogs",
+  "otpu": "origin/parity_plot.otpu"
+ }
+}

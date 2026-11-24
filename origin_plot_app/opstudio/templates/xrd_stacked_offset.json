@@ -1,0 +1,34 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_stacked_offset",
+ "name": "Stacked XRD patterns (offset)",
+ "category": "XRD & Rietveld",
+ "use_case": "Compare several samples; constant or auto offset; sample name at the right of each trace.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "2θ",
+  "series": "one Y column per sample"
+ },
+ "default_params": {
+  "offset": "auto",
+  "already_offset": false,
+  "name_position": "right",
+  "color_by_sample": false
+ },
+ "origin_hint": "Origin: Stacked Lines by Y Offsets (Plot > Multi-Curve > Stacked Lines by Y Offsets).",
+ "recommended_for": [
+  "XRD",
+  "FTIR",
+  "Raman"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_stacked_offset.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrd_stacked_offset.ogs",
+  "otpu": "origin/xrd_stacked_offset.otpu"
+ }
+}

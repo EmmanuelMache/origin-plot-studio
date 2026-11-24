@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "lattice_param_vs_x",
+ "name": "Lattice parameter vs composition (Vegard-type)",
+ "category": "XRD & Rietveld",
+ "use_case": "Refined cell parameters with esd error bars vs substitution level.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "composition",
+  "y": "parameter",
+  "yerr": "esd"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Line + Symbol with Y error bars.",
+ "recommended_for": [
+  "Rietveld"
+ ],
+ "calculations": [],
+ "preview": "previews/lattice_param_vs_x.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/lattice_param_vs_x.ogs",
+  "otpu": "origin/lattice_param_vs_x.otpu"
+ }
+}

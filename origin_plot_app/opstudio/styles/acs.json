@@ -1,0 +1,127 @@
+{
+ "schema": "opstudio.style/1",
+ "id": "acs",
+ "name": "ACS journals",
+ "description": "ACS sizing (3.25 in single, 7 in double).",
+ "source": "ACS author guidelines (verify current)",
+ "font": {
+  "family": [
+   "Arial",
+   "Helvetica",
+   "Liberation Sans",
+   "DejaVu Sans"
+  ],
+  "size_pt": {
+   "base": 7,
+   "axis_label": 7.5,
+   "tick": 7,
+   "legend": 6.5,
+   "panel_label": 8,
+   "annotation": 6
+  },
+  "math": "regular-sans (sub/superscripts in same family)"
+ },
+ "axes": {
+  "linewidth_pt": 0.8,
+  "box": true,
+  "tick_direction": "in",
+  "ticks_all_sides": true,
+  "major_tick_len_pt": 3.5,
+  "minor_tick_len_pt": 2.0,
+  "minor_ticks": true,
+  "grid": false,
+  "label_format": "Quantity (unit)",
+  "unit_brackets": "()"
+ },
+ "lines": {
+  "width_pt": 1.0,
+  "marker_size_pt": 4,
+  "marker_edge_width_pt": 0.8,
+  "errorbar_capsize_pt": 2.5
+ },
+ "legend": {
+  "frame": false,
+  "font_size_pt": 7,
+  "handle_length": 1.8,
+  "location": "best"
+ },
+ "panel_label": {
+  "format": "(a)",
+  "weight": "bold",
+  "position": "top-left, above axes",
+  "joins_title": true,
+  "example": "(a) Alite, C₃S"
+ },
+ "palette": {
+  "series": [
+   "#000000",
+   "#1F77B4",
+   "#D62728",
+   "#2CA02C",
+   "#9467BD",
+   "#FF7F0E",
+   "#8C564B",
+   "#E377C2",
+   "#7F7F7F",
+   "#17BECF"
+  ],
+  "samples": {
+   "Sample A": "#000000",
+   "Sample B": "#1F77B4",
+   "Sample C": "#D62728",
+   "Sample D": "#2CA02C",
+   "Sample E": "#9467BD",
+   "Sample F": "#FF7F0E"
+  },
+  "phases": {
+   "Alite": "#1F77B4",
+   "Belite": "#FF7F0E",
+   "Aluminate": "#0F9D8A",
+   "Ferrite": "#E377C2",
+   "Periclase": "#17BECF",
+   "Free lime": "#E6A800",
+   "Liquid": "#555555",
+   "Melilite": "#8C564B",
+   "Calcite": "#7F7F7F",
+   "Quartz": "#9467BD",
+   "Rutile (std)": "#000000",
+   "Gypsum": "#BCBD22",
+   "Portlandite": "#D62728",
+   "Ettringite": "#8C564B",
+   "C-S-H": "#1F77B4",
+   "AFm": "#2CA02C",
+   "Amorphous": "#BBBBBB"
+  },
+  "use_hatches_for_print": false
+ },
+ "figure": {
+  "orientation": "landscape",
+  "width_mm": {
+   "single": 82.5,
+   "double": 178
+  },
+  "default_width": "double",
+  "aspect_w_h": 1.6,
+  "background": "white"
+ },
+ "export": {
+  "raster_dpi": 600,
+  "line_art_dpi": 1200,
+  "vector": [
+   "pdf",
+   "svg",
+   "emf (Windows)"
+  ],
+  "raster": [
+   "png",
+   "tiff (LZW)"
+  ],
+  "embed_fonts": true
+ },
+ "notes": "ACS: single column 3.25 in (82.5 mm), double up to 7 in (178 mm); lettering >= 4.5 pt and lines >= 0.5 pt at final size; 300 dpi colour, 600 dpi combination, 1200 dpi line art. Verify before submission.",
+ "limits": {
+  "min_font_pt": 4.5,
+  "min_line_pt": 0.5,
+  "note": "minimum at the final printed size; check the publisher's current guide before submission"
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "eds_atomic_ratio",
+ "name": "SEM-EDS atomic ratio plot (Al/Ca vs Si/Ca)",
+ "category": "Microstructure & SEM-EDS",
+ "use_case": "Point analyses of C-(A-)S-H; reference phase positions supplied by the user; density colouring optional.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "Si/Ca",
+  "y": "Al/Ca",
+  "group": "sample",
+  "refs": "user-confirmed reference compositions"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Scatter with transparency + labelled reference points.",
+ "recommended_for": [
+  "SEM-EDS"
+ ],
+ "calculations": [
+  "atomic ratios from at.% columns"
+ ],
+ "preview": "previews/eds_atomic_ratio.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/eds_atomic_ratio.ogs",
+  "otpu": "origin/eds_atomic_ratio.otpu"
+ }
+}

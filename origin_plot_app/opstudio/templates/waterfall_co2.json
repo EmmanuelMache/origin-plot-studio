@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "waterfall_co2",
+ "name": "Waterfall chart (step-wise reduction)",
+ "category": "Sustainability & CO2",
+ "use_case": "Shows contribution of each measure to a total change.",
+ "source": "generic",
+ "data_kind": "steps",
+ "data_roles": {
+  "steps": "label + delta; first = start, last = result"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > Column > Waterfall.",
+ "recommended_for": [
+  "LCA",
+  "cost"
+ ],
+ "calculations": [],
+ "preview": "previews/waterfall_co2.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/waterfall_co2.ogs",
+  "otpu": "origin/waterfall_co2.otpu"
+ }
+}

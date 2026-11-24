@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "bound_water_vs_age",
+ "name": "Bound water / CH vs age (log time)",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Hydration progress from TGA at several ages.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "age",
+  "series": "per sample",
+  "yerr": "optional"
+ },
+ "default_params": {
+  "log_x": true
+ },
+ "origin_hint": "Origin: Line+Symbol, X axis log10.",
+ "recommended_for": [
+  "TGA ages"
+ ],
+ "calculations": [],
+ "preview": "previews/bound_water_vs_age.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/bound_water_vs_age.ogs",
+  "otpu": "origin/bound_water_vs_age.otpu"
+ }
+}

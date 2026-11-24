@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "co2_emissions_stacked",
+ "name": "CO2 per tonne clinker (stacked by source)",
+ "category": "Sustainability & CO2",
+ "use_case": "Process vs fuel vs electricity emissions; totals printed above bars. All factors from the user.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "scenario",
+  "groups": "emission source"
+ },
+ "default_params": {
+  "totals": true,
+  "sum_to_100": false
+ },
+ "origin_hint": "Origin: Stacked Column + labels.",
+ "recommended_for": [
+  "LCA"
+ ],
+ "calculations": [],
+ "preview": "previews/co2_emissions_stacked.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/co2_emissions_stacked.ogs",
+  "otpu": "origin/co2_emissions_stacked.otpu"
+ }
+}

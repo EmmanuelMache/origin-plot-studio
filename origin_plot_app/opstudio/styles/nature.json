@@ -1,0 +1,126 @@
+{
+ "schema": "opstudio.style/1",
+ "id": "nature",
+ "name": "Nature family",
+ "description": "Compact: 5–7 pt text, thin lines.",
+ "source": "Nature figure guide (verify current)",
+ "font": {
+  "family": [
+   "Arial",
+   "Helvetica",
+   "Liberation Sans",
+   "DejaVu Sans"
+  ],
+  "size_pt": {
+   "base": 6.5,
+   "axis_label": 7,
+   "tick": 6,
+   "legend": 6,
+   "panel_label": 8,
+   "annotation": 6
+  },
+  "math": "regular-sans (sub/superscripts in same family)"
+ },
+ "axes": {
+  "linewidth_pt": 0.8,
+  "box": true,
+  "tick_direction": "out",
+  "ticks_all_sides": false,
+  "major_tick_len_pt": 3.5,
+  "minor_tick_len_pt": 2.0,
+  "minor_ticks": true,
+  "grid": false,
+  "label_format": "Quantity (unit)",
+  "unit_brackets": "()"
+ },
+ "lines": {
+  "width_pt": 0.75,
+  "marker_size_pt": 3,
+  "marker_edge_width_pt": 0.8,
+  "errorbar_capsize_pt": 2.5
+ },
+ "legend": {
+  "frame": false,
+  "font_size_pt": 6,
+  "handle_length": 1.8,
+  "location": "best"
+ },
+ "panel_label": {
+  "format": "a",
+  "weight": "bold",
+  "position": "top-left, above axes",
+  "joins_title": true,
+  "example": "a  (8 pt bold lowercase, upright)"
+ },
+ "palette": {
+  "series": [
+   "#000000",
+   "#0072B2",
+   "#D55E00",
+   "#009E73",
+   "#CC79A7",
+   "#E69F00",
+   "#56B4E9",
+   "#F0E442"
+  ],
+  "samples": {
+   "Sample A": "#000000",
+   "Sample B": "#1F77B4",
+   "Sample C": "#D62728",
+   "Sample D": "#2CA02C",
+   "Sample E": "#9467BD",
+   "Sample F": "#FF7F0E"
+  },
+  "phases": {
+   "Alite": "#1F77B4",
+   "Belite": "#FF7F0E",
+   "Aluminate": "#0F9D8A",
+   "Ferrite": "#E377C2",
+   "Periclase": "#17BECF",
+   "Free lime": "#E6A800",
+   "Liquid": "#555555",
+   "Melilite": "#8C564B",
+   "Calcite": "#7F7F7F",
+   "Quartz": "#9467BD",
+   "Rutile (std)": "#000000",
+   "Gypsum": "#BCBD22",
+   "Portlandite": "#D62728",
+   "Ettringite": "#8C564B",
+   "C-S-H": "#1F77B4",
+   "AFm": "#2CA02C",
+   "Amorphous": "#BBBBBB"
+  },
+  "use_hatches_for_print": false
+ },
+ "figure": {
+  "orientation": "landscape",
+  "width_mm": {
+   "single": 89,
+   "one_and_half": 120,
+   "double": 183
+  },
+  "default_width": "double",
+  "aspect_w_h": 1.6,
+  "background": "white"
+ },
+ "export": {
+  "raster_dpi": 600,
+  "line_art_dpi": 1200,
+  "vector": [
+   "pdf",
+   "svg",
+   "emf (Windows)"
+  ],
+  "raster": [
+   "png",
+   "tiff (LZW)"
+  ],
+  "embed_fonts": true
+ },
+ "notes": "Nature final artwork: 89/120-136/183 mm widths, 5-7 pt sans-serif, panel labels 8 pt bold lowercase a, b, c, lines 0.25-1 pt, vector graphs. Verify before submission.",
+ "limits": {
+  "min_font_pt": 5,
+  "min_line_pt": 0.25,
+  "note": "minimum at the final printed size; check the publisher's current guide before submission"
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "lollipop",
+ "name": "Lollipop / dumbbell chart",
+ "category": "Basic 2D & layout",
+ "use_case": "Cleaner than bars for many categories; dumbbell shows before → after.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "labels",
+  "values": "value 1",
+  "values2": "optional value 2 (dumbbell)"
+ },
+ "default_params": {
+  "dumbbell": true
+ },
+ "origin_hint": "Origin: Plot > Basic 2D > Lollipop.",
+ "recommended_for": [
+  "rankings",
+  "before/after"
+ ],
+ "calculations": [],
+ "preview": "previews/lollipop.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/lollipop.ogs",
+  "otpu": "origin/lollipop.otpu"
+ }
+}

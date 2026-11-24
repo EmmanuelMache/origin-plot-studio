@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "dsc_heatflow",
+ "name": "DSC / DTA heat flow with exo/endo indicator",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Heat flow with an 'exo ↑' arrow (direction set by the user/instrument convention) and shaded peak areas.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "T",
+  "y": "heat flow"
+ },
+ "default_params": {
+  "exo": "up"
+ },
+ "origin_hint": "Origin: Line plot + arrow annotation; Peak Analyzer for areas.",
+ "recommended_for": [
+  "DSC",
+  "DTA"
+ ],
+ "calculations": [
+  "peak area (J/g) between limits"
+ ],
+ "preview": "previews/dsc_heatflow.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/dsc_heatflow.ogs",
+  "otpu": "origin/dsc_heatflow.otpu"
+ }
+}

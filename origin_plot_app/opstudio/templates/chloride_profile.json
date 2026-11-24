@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "chloride_profile",
+ "name": "Chloride profile with Fick's 2nd-law fit",
+ "category": "Cement & concrete engineering",
+ "use_case": "Profile points + erfc fit; apparent D and Cs reported in legend.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "depth",
+  "y": "chloride",
+  "group": "mix"
+ },
+ "default_params": {
+  "exposure_days": 90
+ },
+ "origin_hint": "Origin: Nonlinear fit with erfc user function.",
+ "recommended_for": [
+  "durability"
+ ],
+ "calculations": [
+  "C(x)=Cs·erfc(x/(2√(D·t)))+Ci"
+ ],
+ "preview": "previews/chloride_profile.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/chloride_profile.ogs",
+  "otpu": "origin/chloride_profile.otpu"
+ }
+}

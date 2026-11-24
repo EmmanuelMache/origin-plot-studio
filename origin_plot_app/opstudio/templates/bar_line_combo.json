@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "bar_line_combo",
+ "name": "Bars + line on a second y axis",
+ "category": "Basic 2D & layout",
+ "use_case": "Two related quantities per category with different units.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "x",
+  "values": "bars (left)",
+  "values2": "line (right)"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > Multi-Panel/Axis > Double-Y Column-Line Symbol.",
+ "recommended_for": [
+  "any"
+ ],
+ "calculations": [],
+ "preview": "previews/bar_line_combo.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/bar_line_combo.ogs",
+  "otpu": "origin/bar_line_combo.otpu"
+ }
+}

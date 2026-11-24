@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "fft_spectrum",
+ "name": "Signal + amplitude spectrum (FFT)",
+ "category": "Physics & signal",
+ "use_case": "Time signal above, single-sided amplitude spectrum below with dominant peaks marked.",
+ "source": "generic",
+ "data_kind": "signal",
+ "data_roles": {
+  "t": "time",
+  "y": "signal"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Analysis > Signal Processing > FFT.",
+ "recommended_for": [
+  "vibration",
+  "acoustics",
+  "sensors",
+  "AE"
+ ],
+ "calculations": [
+  "FFT, dominant frequencies"
+ ],
+ "preview": "previews/fft_spectrum.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/fft_spectrum.ogs",
+  "otpu": "origin/fft_spectrum.otpu"
+ }
+}

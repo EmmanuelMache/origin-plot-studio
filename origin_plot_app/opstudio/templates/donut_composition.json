@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "donut_composition",
+ "name": "Donut chart (single composition)",
+ "category": "Phase & chemical composition",
+ "use_case": "Only for a single sample summary on slides; prefer bars for comparisons.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "phase",
+  "values": "wt.%"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > 2D > Doughnut.",
+ "recommended_for": [
+  "slides"
+ ],
+ "calculations": [],
+ "preview": "previews/donut_composition.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/donut_composition.ogs",
+  "otpu": "origin/donut_composition.otpu"
+ }
+}

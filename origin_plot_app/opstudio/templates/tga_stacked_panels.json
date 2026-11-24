@@ -1,0 +1,26 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "tga_stacked_panels",
+ "name": "TG–DTG panels stacked (one material per panel)",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Raw materials: each panel one TG–DTG graph (twin axis, DTG not inverted) with event notes.",
+ "source": "house",
+ "data_kind": "thermal",
+ "data_roles": {
+  "samples": "one per panel"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column).",
+ "recommended_for": [
+  "TGA raw materials"
+ ],
+ "calculations": [],
+ "preview": "previews/tga_stacked_panels.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/tga_stacked_panels.ogs",
+  "otpu": "origin/tga_stacked_panels.otpu"
+ }
+}

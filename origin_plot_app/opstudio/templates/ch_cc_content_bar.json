@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "ch_cc_content_bar",
+ "name": "Portlandite and CaCO3 content from TGA",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Stoichiometric conversion of the confirmed mass-loss steps; error bars from replicates.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "sample",
+  "groups": "CH, CaCO3"
+ },
+ "default_params": {
+  "show_values": true
+ },
+ "origin_hint": "Origin: Grouped Column + error bars.",
+ "recommended_for": [
+  "TGA results"
+ ],
+ "calculations": [
+  "CH = Δm(H2O) × 74.09/18.02",
+  "CaCO3 = Δm(CO2) × 100.09/44.01"
+ ],
+ "preview": "previews/ch_cc_content_bar.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/ch_cc_content_bar.ogs",
+  "otpu": "origin/ch_cc_content_bar.otpu"
+ }
+}

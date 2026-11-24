@@ -1,0 +1,34 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "rheo_amp_sweep",
+ "name": "Amplitude sweep (G′, G″) with LVE limit and crossover",
+ "category": "Rheology & mechanics",
+ "use_case": "Oscillatory strain sweep: linear viscoelastic limit (G′ drops 5 %) and G′ = G″ crossover marked.",
+ "source": "generic",
+ "data_kind": "oscillation",
+ "data_roles": {
+  "x": "strain",
+  "Gp": "storage modulus",
+  "Gpp": "loss modulus"
+ },
+ "default_params": {
+  "lve_drop": 0.05
+ },
+ "origin_hint": "Origin: log-log line+symbol.",
+ "recommended_for": [
+  "pastes",
+  "gels",
+  "polymers"
+ ],
+ "calculations": [
+  "LVE limit, crossover strain"
+ ],
+ "preview": "previews/rheo_amp_sweep.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/rheo_amp_sweep.ogs",
+  "otpu": "origin/rheo_amp_sweep.otpu"
+ }
+}

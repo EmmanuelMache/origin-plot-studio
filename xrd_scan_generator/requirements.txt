@@ -1,0 +1,7 @@
+# XRD Scan Generator, Python 3.9 or newer
+PySide6>=6.5
+numpy>=1.23
+scipy>=1.9
+matplotlib>=3.6
+# time zone data (Europe/Stockholm time stamps): Windows has no system time-zone database for Python's zoneinfo
+tzdata>=2023.3

@@ -1,0 +1,34 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "tga_dtg_single",
+ "name": "TG and DTG in one graph (DTG natural sign, right axis)",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "One sample: TG left axis, DTG right axis drawn with its natural (negative) sign; mass-loss steps annotated.",
+ "source": "house",
+ "data_kind": "thermal",
+ "data_roles": {
+  "T": "temperature",
+  "mass": "mass % (or mg -> converted)",
+  "dtg": "optional; computed if absent"
+ },
+ "default_params": {
+  "show_steps": true,
+  "dtg_units": "% °C⁻¹"
+ },
+ "origin_hint": "Origin: Plot > Multi-Curve > Double-Y; DTG on Layer 2 right axis, NOT reversed.",
+ "recommended_for": [
+  "TGA"
+ ],
+ "calculations": [
+  "DTG = dm/dT (Savitzky–Golay)",
+  "step mass loss between user-confirmed limits"
+ ],
+ "preview": "previews/tga_dtg_single.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/tga_dtg_single.ogs",
+  "otpu": "origin/tga_dtg_single.otpu"
+ }
+}

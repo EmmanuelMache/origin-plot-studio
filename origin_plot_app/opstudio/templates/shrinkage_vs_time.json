@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "shrinkage_vs_time",
+ "name": "Shrinkage / expansion vs time (± band)",
+ "category": "Cement & concrete engineering",
+ "use_case": "Length change with shaded SD band instead of error bars.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "time",
+  "series": "per mix",
+  "yerr": "SD"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Line + Y error as band (Plot Details > Error Bar > fill).",
+ "recommended_for": [
+  "durability"
+ ],
+ "calculations": [],
+ "preview": "previews/shrinkage_vs_time.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/shrinkage_vs_time.ogs",
+  "otpu": "origin/shrinkage_vs_time.otpu"
+ }
+}

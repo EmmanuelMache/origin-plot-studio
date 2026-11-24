@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Origin Plot Studio"
+type: software
+authors:
+  - name: "Origin Plot Studio authors"
+license: MIT
+version: "5.51.0"

@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "radar_properties",
+ "name": "Radar chart (multi-criteria)",
+ "category": "Phase & chemical composition",
+ "use_case": "Normalised (0-1) performance scores for a few mixes; for slides and discussion only.",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "criteria",
+  "groups": "mixes"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > Specialized > Radar.",
+ "recommended_for": [
+  "slides"
+ ],
+ "calculations": [],
+ "preview": "previews/radar_properties.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/radar_properties.ogs",
+  "otpu": "origin/radar_properties.otpu"
+ }
+}

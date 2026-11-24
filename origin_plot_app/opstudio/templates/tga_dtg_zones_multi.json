@@ -1,0 +1,33 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "tga_dtg_zones_multi",
+ "name": "DTG of several samples with shaded decomposition zones",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Overlay DTG of all samples; shaded and labelled zones (C-S-H/AFt, AFm, portlandite, calcite).",
+ "source": "house",
+ "data_kind": "thermal",
+ "data_roles": {
+  "samples": "one T/mass (or DTG) pair per sample",
+  "zones": "user-confirmed temperature windows"
+ },
+ "default_params": {
+  "label_zones": true,
+  "heating_rate_C_per_min": 10
+ },
+ "origin_hint": "Origin: Line plot + Insert > Rectangle (axis-scaled) per zone.",
+ "recommended_for": [
+  "TGA"
+ ],
+ "calculations": [
+  "zone mass loss",
+  "peak temperature per zone"
+ ],
+ "preview": "previews/tga_dtg_zones_multi.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/tga_dtg_zones_multi.ogs",
+  "otpu": "origin/tga_dtg_zones_multi.otpu"
+ }
+}

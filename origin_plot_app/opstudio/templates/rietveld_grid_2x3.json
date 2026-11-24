@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "rietveld_grid_2x3",
+ "name": "Rietveld fits as small multiples (2 x 3)",
+ "category": "XRD & Rietveld",
+ "use_case": "All six refinements on one page with identical axes; each tile = fit + diff + ticks.",
+ "source": "house",
+ "data_kind": "rietveld",
+ "data_roles": {
+  "items": "list of rietveld bundles (one per file)"
+ },
+ "default_params": {
+  "ncols": 3
+ },
+ "origin_hint": "Origin: Graph > Merge Graph Windows (3 columns) from six fit graphs.",
+ "recommended_for": [
+  "XRD Rietveld"
+ ],
+ "calculations": [],
+ "preview": "previews/rietveld_grid_2x3.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/rietveld_grid_2x3.ogs",
+  "otpu": "origin/rietveld_grid_2x3.otpu"
+ }
+}

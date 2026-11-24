@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "calibration_lod",
+ "name": "Calibration curve with LOD/LOQ and residual panel",
+ "category": "Analytical chemistry",
+ "use_case": "Linear calibration; LOD = 3.3 s/b, LOQ = 10 s/b shown; residuals below.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "standard concentration",
+  "y": "signal"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Linear Fit + residual plot.",
+ "recommended_for": [
+  "ICP",
+  "IC",
+  "UV-Vis",
+  "any calibration"
+ ],
+ "calculations": [
+  "slope, intercept, LOD, LOQ"
+ ],
+ "preview": "previews/calibration_lod.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/calibration_lod.ogs",
+  "otpu": "origin/calibration_lod.otpu"
+ }
+}

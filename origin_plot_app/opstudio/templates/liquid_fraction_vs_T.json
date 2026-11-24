@@ -1,0 +1,29 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "liquid_fraction_vs_T",
+ "name": "Liquid fraction vs temperature",
+ "category": "Thermodynamic modelling",
+ "use_case": "Melt formation of raw meals; vertical line at sintering temperature (user-set).",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "T",
+  "series": "liquid per mix"
+ },
+ "default_params": {
+  "vline": 1400
+ },
+ "origin_hint": "Origin: Line plot + reference line.",
+ "recommended_for": [
+  "thermodynamic software"
+ ],
+ "calculations": [],
+ "preview": "previews/liquid_fraction_vs_T.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/liquid_fraction_vs_T.ogs",
+  "otpu": "origin/liquid_fraction_vs_T.otpu"
+ }
+}

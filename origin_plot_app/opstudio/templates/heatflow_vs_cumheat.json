@@ -1,0 +1,26 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "heatflow_vs_cumheat",
+ "name": "Heat flow vs cumulative heat",
+ "category": "Isothermal calorimetry",
+ "use_case": "Kinetic view that removes time; compares reaction regimes and sulfate depletion.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "series": "heat flow + cumulative per sample"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Line plot of two computed columns.",
+ "recommended_for": [
+  "calorimetry"
+ ],
+ "calculations": [],
+ "preview": "previews/heatflow_vs_cumheat.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/heatflow_vs_cumheat.ogs",
+  "otpu": "origin/heatflow_vs_cumheat.otpu"
+ }
+}

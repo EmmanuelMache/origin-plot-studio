@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_peak_shift",
+ "name": "Peak-shift / diagnostic window",
+ "category": "XRD & Rietveld",
+ "use_case": "Zoom on a few peaks with reference lines to show peak shifts or splitting (polymorphs, substitution).",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "2θ",
+  "series": "one per sample",
+  "ref_lines": "user-supplied reference positions"
+ },
+ "default_params": {
+  "normalise": true,
+  "offset": "auto",
+  "color_by_sample": true
+ },
+ "origin_hint": "Origin: Stacked lines + vertical reference lines (Insert > Line).",
+ "recommended_for": [
+  "XRD"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_peak_shift.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrd_peak_shift.ogs",
+  "otpu": "origin/xrd_peak_shift.otpu"
+ }
+}

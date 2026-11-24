@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "dose_response_4pl",
+ "name": "Dose–response with 4-parameter logistic fit (EC50)",
+ "category": "Life science & medicine",
+ "use_case": "Log-concentration x axis, fitted sigmoid, EC50/IC50 in legend.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "dose",
+  "series": "response per compound",
+  "yerr": "SD"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: NLFit DoseResp, X log.",
+ "recommended_for": [
+  "pharmacology",
+  "toxicity",
+  "adsorption"
+ ],
+ "calculations": [
+  "4PL: bottom, top, EC50, Hill slope"
+ ],
+ "preview": "previews/dose_response_4pl.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/dose_response_4pl.ogs",
+  "otpu": "origin/dose_response_4pl.otpu"
+ }
+}

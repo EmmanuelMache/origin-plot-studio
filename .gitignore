@@ -1,0 +1,40 @@
+# yours, never shared
+origin_plot_app/settings.json
+origin_plot_app/settings_modern.json
+origin_plot_app/last_session.json
+origin_plot_app/last_run_log.txt
+origin_plot_app/console_output.txt
+origin_plot_app/startup_error.txt
+origin_plot_app/slow_log.txt
+# your own measurement data: kept out until you say the repository is private
+origin_plot_app/examples_your_data/
+__pycache__/
+*.pyc
+dry_out/
+# figure recipes are the user's own (they name samples and results): never in a public repository
+origin_plot_app/figure_recipes/*.json
+# private work: reference figures, real data, the user's own templates and the built phase library
+sample_data/
+screenshots/
+my_templates/
+ops_private/
+origin_plot_app/xrd_phase_library.csv
+*.opju
+*.opj
+*.xlsx
+!origin_plot_app/XRD_workbook_template.xlsx
+!origin_plot_app/examples_synthetic/*.xlsx
+!tests/gallery_templates/*.xlsx
+!origin_plot_app/opstudio/**/*.xlsx
+# local data and secrets
+origin_plot_app/converted_tables/
+converted_tables/
+examples_your_data/
+*.opju
+*.log
+secrets.dat
+.env
+config/*.local.json
+origin_plot_app/config/*.local.json
+_upgrade_pack/
+dry_commands.txt

@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "qpa_grouped_bar",
+ "name": "Grouped bars with error bars",
+ "category": "Phase & chemical composition",
+ "use_case": "Compare one quantity per phase across samples (or per sample across phases).",
+ "source": "generic",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "x groups",
+  "groups": "bars within group",
+  "errors": "optional ± table"
+ },
+ "default_params": {
+  "show_values": false
+ },
+ "origin_hint": "Origin: Column > Grouped Columns (Indexed); Y error from second sheet.",
+ "recommended_for": [
+  "Rietveld QPA",
+  "strength",
+  "oxides"
+ ],
+ "calculations": [],
+ "preview": "previews/qpa_grouped_bar.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/qpa_grouped_bar.ogs",
+  "otpu": "origin/qpa_grouped_bar.otpu"
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "mip_pore",
+ "name": "MIP: cumulative + log-differential intrusion",
+ "category": "Particle size, porosity & surface",
+ "use_case": "Pore structure of pastes; x axis reversed (large → small) as is conventional for intrusion.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "pore diameter",
+  "series": "dV/dlogD and cumulative"
+ },
+ "default_params": {
+  "reverse_x": true
+ },
+ "origin_hint": "Origin: two layers, X log10 reversed.",
+ "recommended_for": [
+  "MIP"
+ ],
+ "calculations": [
+  "critical pore diameter = max of dV/dlogD"
+ ],
+ "preview": "previews/mip_pore.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/mip_pore.ogs",
+  "otpu": "origin/mip_pore.otpu"
+ }
+}

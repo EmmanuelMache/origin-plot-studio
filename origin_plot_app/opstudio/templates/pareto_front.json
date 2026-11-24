@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "pareto_front",
+ "name": "Pareto front (trade-off of two objectives, third as colour)",
+ "category": "Sustainability & CO2",
+ "use_case": "All options as points; non-dominated set highlighted and joined.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "objective to maximise",
+  "y": "objective to minimise",
+  "s": "optional third"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Bubble/colour scatter + line through front.",
+ "recommended_for": [
+  "design optimisation",
+  "LCA",
+  "mix design"
+ ],
+ "calculations": [
+  "non-dominated sorting"
+ ],
+ "preview": "previews/pareto_front.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/pareto_front.ogs",
+  "otpu": "origin/pareto_front.otpu"
+ }
+}

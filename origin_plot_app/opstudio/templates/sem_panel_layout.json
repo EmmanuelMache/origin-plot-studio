@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "sem_panel_layout",
+ "name": "SEM / optical image panel grid with scale bars",
+ "category": "Microstructure & SEM-EDS",
+ "use_case": "2 × 2 image grid, (a)–(d) labels on white boxes, scale bars drawn from pixel size (from image metadata or user).",
+ "source": "generic",
+ "data_kind": "image_grid",
+ "data_roles": {
+  "images": "image files",
+  "px_um": "pixel size",
+  "titles": "panel captions"
+ },
+ "default_params": {
+  "ncols": 2
+ },
+ "origin_hint": "Origin: Image graphs merged; or insert pictures into a layout page.",
+ "recommended_for": [
+  "SEM",
+  "optical microscopy"
+ ],
+ "calculations": [],
+ "preview": "previews/sem_panel_layout.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/sem_panel_layout.ogs",
+  "otpu": "origin/sem_panel_layout.otpu"
+ }
+}

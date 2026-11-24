@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_waterfall_3d",
+ "name": "Waterfall (pseudo-3D) for in-situ / temperature series",
+ "category": "XRD & Rietveld",
+ "use_case": "In-situ heating, hydration time series or a dosage series: traces shifted in x and y.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "2θ",
+  "series": "one column per temperature / time"
+ },
+ "default_params": {
+  "dx": 0.6,
+  "dy_frac": 0.35
+ },
+ "origin_hint": "Origin: Plot > 3D > Waterfall (or 2D Waterfall with X/Y offset).",
+ "recommended_for": [
+  "XRD",
+  "FTIR",
+  "Raman"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_waterfall_3d.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/xrd_waterfall_3d.ogs",
+  "otpu": "origin/xrd_waterfall_3d.otpu"
+ }
+}

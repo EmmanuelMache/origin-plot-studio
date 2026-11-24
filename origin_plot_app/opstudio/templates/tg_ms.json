@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "tg_ms",
+ "name": "TG + evolved gas (MS / FTIR) panels",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Top: TG (+DTG); bottom: ion currents for H2O and CO2 to assign each step.",
+ "source": "generic",
+ "data_kind": "thermal",
+ "data_roles": {
+  "samples": "TG",
+  "ms": "ion current columns"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: 2 stacked layers sharing X.",
+ "recommended_for": [
+  "TG-MS"
+ ],
+ "calculations": [],
+ "preview": "previews/tg_ms.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/tg_ms.ogs",
+  "otpu": "origin/tg_ms.otpu"
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "grouped_hatched_bars_markers",
+ "name": "Grouped hatched bars + measured markers",
+ "category": "Thermodynamic modelling",
+ "use_case": "Model scenarios as hatched bars, measured value as black diamonds on top; prints well in greyscale.",
+ "source": "house",
+ "data_kind": "category_table",
+ "data_roles": {
+  "categories": "clinker",
+  "groups": "scenario columns",
+  "markers": "last column = measured"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Grouped Column with pattern fill + Scatter layer (diamond) on same axes.",
+ "recommended_for": [
+  "model scenarios"
+ ],
+ "calculations": [],
+ "preview": "previews/grouped_hatched_bars_markers.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/grouped_hatched_bars_markers.ogs",
+  "otpu": "origin/grouped_hatched_bars_markers.otpu"
+ }
+}

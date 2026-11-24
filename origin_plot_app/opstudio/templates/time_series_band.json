@@ -1,0 +1,33 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "time_series_band",
+ "name": "Time series with moving average and min–max band",
+ "category": "Environment & geoscience",
+ "use_case": "Long monitoring records: raw (light), rolling mean (bold), rolling range band.",
+ "source": "generic",
+ "data_kind": "signal",
+ "data_roles": {
+  "t": "time",
+  "y": "value"
+ },
+ "default_params": {
+  "window": 30
+ },
+ "origin_hint": "Origin: Line + Smoothing (Adjacent Averaging) + band.",
+ "recommended_for": [
+  "monitoring",
+  "climate",
+  "sensors"
+ ],
+ "calculations": [
+  "rolling mean, rolling min/max"
+ ],
+ "preview": "previews/time_series_band.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/time_series_band.ogs",
+  "otpu": "origin/time_series_band.otpu"
+ }
+}

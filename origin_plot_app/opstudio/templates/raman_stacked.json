@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "raman_stacked",
+ "name": "Raman stacked spectra",
+ "category": "Spectroscopy (FTIR / Raman / NMR)",
+ "use_case": "Same mechanics as stacked XRD; normal (increasing) x.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "Raman shift",
+  "series": "per sample"
+ },
+ "default_params": {
+  "offset": "auto",
+  "color_by_sample": true
+ },
+ "origin_hint": "Origin: Stacked Lines by Y Offsets.",
+ "recommended_for": [
+  "Raman"
+ ],
+ "calculations": [],
+ "preview": "previews/raman_stacked.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/raman_stacked.ogs",
+  "otpu": "origin/raman_stacked.otpu"
+ }
+}

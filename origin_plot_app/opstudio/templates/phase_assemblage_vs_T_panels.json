@@ -1,0 +1,29 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "phase_assemblage_vs_T_panels",
+ "name": "Phase evolution vs temperature (Scheil / equilibrium), multi-panel",
+ "category": "Thermodynamic modelling",
+ "use_case": "Thermodynamic software output: one panel per composition, x reversed (cooling left→right), legend in a free cell.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "panels": "one file per composition: T + one column per phase"
+ },
+ "default_params": {
+  "ncols": 3,
+  "reverse_x": true
+ },
+ "origin_hint": "Origin: Line plots, X From 1400 To 1000; Merge Graph Windows 2 × 3 with legend layer.",
+ "recommended_for": [
+  "thermodynamic software (Thermo-Calc, GEMS ...)"
+ ],
+ "calculations": [],
+ "preview": "previews/phase_assemblage_vs_T_panels.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/phase_assemblage_vs_T_panels.ogs",
+  "otpu": "origin/phase_assemblage_vs_T_panels.otpu"
+ }
+}

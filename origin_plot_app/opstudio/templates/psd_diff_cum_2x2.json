@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "psd_diff_cum_2x2",
+ "name": "Particle size: differential + cumulative (log x)",
+ "category": "Particle size, porosity & surface",
+ "use_case": "Laser diffraction PSD: differential and cumulative side by side, d10/d50/d90 table inset.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "size (µm)",
+  "series": "volume % per material"
+ },
+ "default_params": {
+  "table": true
+ },
+ "origin_hint": "Origin: Line plot, X log10; table via Insert > Table (linked to sheet).",
+ "recommended_for": [
+  "laser diffraction"
+ ],
+ "calculations": [
+  "d10/d50/d90 by interpolation of cumulative curve"
+ ],
+ "preview": "previews/psd_diff_cum_2x2.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/psd_diff_cum_2x2.ogs",
+  "otpu": "origin/psd_diff_cum_2x2.otpu"
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "phase_assemblage_stacked_area",
+ "name": "Stacked-area phase assemblage (GEMS-style)",
+ "category": "Thermodynamic modelling",
+ "use_case": "Hydrate assemblage vs replacement level, time or degree of reaction.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "replacement / time",
+  "series": "one column per phase"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Plot > Area > Stacked Area.",
+ "recommended_for": [
+  "GEMS",
+  "hydration modelling"
+ ],
+ "calculations": [],
+ "preview": "previews/phase_assemblage_stacked_area.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/phase_assemblage_stacked_area.ogs",
+  "otpu": "origin/phase_assemblage_stacked_area.otpu"
+ }
+}
