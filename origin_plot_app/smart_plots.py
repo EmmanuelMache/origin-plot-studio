@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.54.3"
+VERSION = "5.54.4"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):

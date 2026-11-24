@@ -169,6 +169,19 @@ check("the Columns panel shows what each column is used as", "[x]" in roles[0] a
 big = TMP / "wide.csv"; pd.DataFrame({"t (h)": [1, 2, 3, 4.0], "A": [1, 2, 3, 4.0], "B": [2, 3, 4, 5.0], "note": list("abcd")}).to_csv(big, index=False); pg.add_files([str(big)]); pg.show_columns(str(big))
 pg.cols.item(2).setCheckState(Qt.Unchecked); app.processEvents(); tb = pg.table_of(str(big))[0]
 check("unticking a column leaves it out; the choice is remembered for files with the same headers", tb.ys == ["A"] and pg._cfg()["mappings"]["t (h)|A|B|note"]["off"] == ["B"], tb.ys)
+# ---- a multi-sheet "recipe" workbook, as sent in by a real user: a text-only guide sheet first, a sheet with more numeric
+# columns than the one actually meant for the ticked template, and the right sheet for it
+recipe = TMP / "recipe.xlsx"
+with pd.ExcelWriter(recipe) as xw:
+    pd.DataFrame({"Step": ["Read this first", "Then go to Stack_clinkers"], "Note": ["guide", "guide"]}).to_excel(xw, sheet_name="START_HERE", index=False)
+    pd.DataFrame({"T (min)": np.arange(20.0), "r1": np.arange(20.0), "r2": np.arange(20.0) * 2, "r3": np.arange(20.0) * 3, "r4": np.arange(20.0) * 4}).to_excel(xw, sheet_name="Model_runs", index=False)
+    pd.DataFrame({"2theta (deg)": x, "Clinker_A": 100 + 900 * np.exp(-(x - 29) ** 2 / 0.5), "Clinker_B": 120 + 700 * np.exp(-(x - 32) ** 2 / 0.6)}).to_excel(xw, sheet_name="Stack_clinkers", index=False)
+pg.add_files([str(recipe)]); app.processEvents()
+check("no sheet called 'Data': the default pick is the most plottable sheet, not just the first (text-only guide) one", pg.table_of(str(recipe))[1] == "Model_runs", pg.table_of(str(recipe))[1])
+t_recipe = pg._table_for_template(str(recipe), "xrd_stacked_offset")
+check("for a ticked template, the sheet picked is the one that actually fits it (XRD stack), not the sheet with the most numeric columns", list(t_recipe.df.columns) == ["2theta (deg)", "Clinker_A", "Clinker_B"], list(t_recipe.df.columns))
+f_recipe, _ = pg.api.draw("xrd_stacked_offset", pg.tables_for([str(recipe)], "xrd_stacked_offset"))
+check("drawing the ticked template from this workbook succeeds and uses the right sheet's series names", f_recipe is not None and {"Clinker_A", "Clinker_B"} <= {t.get_text() for t in f_recipe.axes[0].texts}, [t.get_text() for t in f_recipe.axes[0].texts])
 # ---- one graph from several files
 set_checked(pg.files, range(pg.files.count()), False); tick(pg.files, set(files)); pg.together.setChecked(True); tick(pg.grid, {"xrd_stacked_offset"}); tick(pg.styles, {"house_style_1"})
 check("'All ticked files in one graph': 3 files → 1 preview", "→  1 preview" in pg.count.text(), pg.count.text())

@@ -150,6 +150,7 @@ class TemplatePage(QWidget):
         except Exception:
             self.my_dir = lambda make=False: os.path.join(os.path.expanduser("~"), "OriginPlotStudio_my_templates"); self.style0 = api.default_style()
         self.tables = {}                     # path -> [Table]
+        self._sheet_pick_cache = {}          # (path, template) -> the sheet that fits that template (a workbook with many sheets)
         self.extra_files = []                # files added on this page
         self.tiles = []; self.queue = []; self.switches = {}; self.params = {}; self.cancelled = False
         self.catalogue = self._catalogue()
@@ -528,11 +529,23 @@ class TemplatePage(QWidget):
 
     def _pattern(self, cols): return "|".join(str(c) for c in cols)
 
+    def _best_sheet(self, sheets_dict):
+        """Which sheet to show first when there is no sheet called 'Data' and none remembered: the one that looks most like
+        a plottable table (most numeric columns; ties broken by the most rows), not just the first one. A workbook with many
+        sheets (a recipe workbook, a guide sheet first, lookup tables …) would otherwise open on a sheet with no numbers in it."""
+        names = list(sheets_dict)
+        if len(names) <= 1: return names[0]
+        def score(nm):
+            try: t = self.ops.data.Table(nm, sheets_dict[nm])
+            except Exception: return (-1, 0)
+            return (len(t.numeric), len(t.df))
+        return max(names, key=score)
+
     def table_of(self, path):
         """The Table of a file as the user mapped it: the chosen sheet, the ticked columns in the chosen order."""
         raw = self.raw_tables(path); m = self._cfg().get("mappings") or {}; sheets = list(raw["sheets"])
         pick = (self._cfg().get("sheets") or {}).get(os.path.basename(path))
-        s = pick if pick in raw["sheets"] else next((x for x in sheets if x.strip().lower() == "data"), sheets[0])
+        s = pick if pick in raw["sheets"] else (next((x for x in sheets if x.strip().lower() == "data"), None) or self._best_sheet(raw["sheets"]))
         df = raw["sheets"][s]; cols = [str(c) for c in df.columns]; mp = m.get(self._pattern(cols))
         df = df.copy(); df.columns = cols
         if mp:
@@ -561,7 +574,7 @@ class TemplatePage(QWidget):
         order = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count())]; off = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count()) if self.cols.item(i).checkState() != Qt.Checked]
         raw = self.raw_tables(self._col_path); _t, s, _sh, cols, _mp = self.table_of(self._col_path)
         m = dict(self._cfg().get("mappings") or {}); m[self._pattern([str(c) for c in raw["sheets"][s].columns])] = {"order": order, "off": off}; self._save_cfg({"mappings": m})
-        self.show_columns(self._col_path); self.schedule()
+        getattr(self, "_sheet_pick_cache", {}).clear(); self.show_columns(self._col_path); self.schedule()
 
     def _set_x(self):
         sel = self.cols.selectedItems()
@@ -571,7 +584,7 @@ class TemplatePage(QWidget):
     def _sheet_changed(self, i):
         if not self._col_path or i < 0: return
         raw = self.raw_tables(self._col_path); sheets = list(raw["sheets"]); s = dict(self._cfg().get("sheets") or {}); s[os.path.basename(self._col_path)] = sheets[i]
-        self._save_cfg({"sheets": s}); self.show_columns(self._col_path); self.schedule()
+        self._save_cfg({"sheets": s}); getattr(self, "_sheet_pick_cache", {}).clear(); self.show_columns(self._col_path); self.schedule()
 
     # ------------------------------------------------------------------------------------------------ filtering and counting
     def ticked_tables(self):
@@ -685,8 +698,49 @@ class TemplatePage(QWidget):
             self.bar.setRange(0, self.total); self.bar.setValue(0); self.bar.show(); self.b_stop.show(); self.pmsg.setText(f"Drawing {self.total} preview(s) …"); QTimer.singleShot(0, self._draw_next)
         else: self._done_drawing()
 
-    def tables_for(self, files):
-        return [self.table_of(p)[0] for p in files]
+    def tables_for(self, files, template=None):
+        """The Table of each file. When a template is given and the user has not explicitly chosen a sheet for a file
+        (via the sheet drop-down in Columns), the sheet that best fits THIS template is used - not just the sheet with the
+        most numeric columns overall. A workbook with many sheets (a recipe workbook, raw profiles, Bragg lists, a guide
+        sheet …) then draws the right data for each template picture, without the user having to pick a sheet by hand."""
+        out = []
+        for p in files:
+            picked = (self._cfg().get("sheets") or {}).get(os.path.basename(p))
+            if picked or template is None or str(template).startswith("wb:") or str(template).startswith("coming:"):
+                out.append(self.table_of(p)[0]); continue
+            out.append(self._table_for_template(p, template))
+        return out
+
+    def _table_for_template(self, path, template):
+        """Among the sheets of `path`, the Table that this template can actually draw - cached per (file, template)."""
+        key = (path, template); cache = getattr(self, "_sheet_pick_cache", None)
+        if cache is None: cache = self._sheet_pick_cache = {}
+        if key in cache: return cache[key]
+        default_t, s_default, sheets, cols, mp = self.table_of(path)
+        if len(sheets) <= 1: cache[key] = default_t; return default_t
+        try: base, *_rest = self.api.resolve(template)
+        except Exception: cache[key] = default_t; return default_t
+        tid_l = str(template).lower()
+        best = None; best_score = None
+        raw = self.raw_tables(path); m = self._cfg().get("mappings") or {}
+        for s in sheets:
+            try:
+                df = raw["sheets"][s]; c = [str(x) for x in df.columns]; mp_s = m.get(self._pattern(c))
+                d2 = df.copy(); d2.columns = c
+                if mp_s:
+                    order = [x for x in mp_s.get("order", []) if x in c and x not in mp_s.get("off", [])]
+                    if order: d2 = d2[order + [x for x in c if x not in order and x not in mp_s.get("off", [])]]
+                t = self.ops.data.Table(raw["name"], d2)
+            except Exception: continue
+            try: self.ops.data.bundle(base, [t]); fits = True
+            except self.ops.data.NeedData: fits = False
+            except Exception: fits = False
+            head = " | ".join(t.cols).lower()                           # among sheets that fit, prefer one whose headers
+            matches = any(re.search(pat, head) and any(k in tid_l for k in keys) for pat, keys, _ in self.api.RULES)  # actually match the template's domain
+            score = (fits, matches, len(t.numeric), len(t.df))
+            if best is None or score > best_score: best, best_score = t, score
+        picked = best if (best is not None and best_score[0]) else default_t
+        cache[key] = picked; return picked
 
     def draw_workbook_type(self, combo):
         """A workbook graph type (G01-G24, C01, C02) drawn from a ticked workbook by the app's own drawing of that type."""
@@ -711,7 +765,7 @@ class TemplatePage(QWidget):
             return self.draw_workbook_type(combo)
         if combo.get("demo"):
             fig = self.api.demo_figure(combo["template"], combo["style"]); return fig, [("data", "illustrative example - tick a file to draw your own data")]
-        return self.api.draw(combo["template"], self.tables_for(combo["files"]), style=combo["style"], params=self.params.get(combo["template"]) or None,
+        return self.api.draw(combo["template"], self.tables_for(combo["files"], combo["template"]), style=combo["style"], params=self.params.get(combo["template"]) or None,
                              switches=combo.get("switches", self.current_switches()), overrides=combo.get("overrides"), width=width, target=target)
 
     def _draw_next(self):

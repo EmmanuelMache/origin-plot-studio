@@ -72,6 +72,8 @@ def photo_to_items(path_or_array, page=None):
     else:
         a = np.asarray(path_or_array, float)
         if a.ndim == 3: a = a[..., :3].mean(axis=2)
+    if a.ndim != 2 or 0 in a.shape:
+        raise ValueError("this picture has no readable width and height (it may be empty, 1-pixel, or in a format that did not convert to a plain image)")
     H0, W0 = a.shape
     sc = 1100.0 / max(W0, H0)
     if sc < 1:
@@ -593,7 +595,12 @@ def open_pad(w):
             try:
                 items, (PW, PH) = photo_to_items(path)
             except Exception as e:
-                self.msg.setText(f"The photo could not be read: {e}"); return None
+                try:
+                    import traceback, datetime, workspace_qt as _WQ
+                    with open(_WQ.ERROR_LOG, "a", encoding="utf-8") as f:
+                        f.write(f"\n--- {datetime.datetime.now().isoformat(timespec='seconds')}  reading a sketch photo: {path} ---\n{traceback.format_exc()}")
+                except Exception: pass
+                self.msg.setText(f"The photo could not be read: {e}  (the full error is in error_log.txt next to the app)"); return None
             self.page.setCurrentIndex(0 if PW >= PH else 1); self.pad.set_size(PW, PH)
             self.clear()
             ang = getattr(photo_to_items, "angle", 0.0)

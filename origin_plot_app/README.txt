@@ -1,3 +1,9 @@
+VERSION 5.54.4  -  SMARTER SHEET AND COLUMN PICKING
+  Loading a multi-sheet workbook now picks the sheet that actually fits the ticked template, not just the one with
+  the most numeric columns or the first sheet. An instrument export with a leading row-number column ("No.", "#")
+  no longer gets drawn against that column by mistake, and a "decimal commas" export keeps its real header text.
+  A reference pattern file with an almost-empty text column is no longer mistaken for a peak list.
+
 VERSION 5.54.3  -  FAILED COMMANDS ARE NO LONGER SILENT
   Without a console window, a command that failed used to leave no trace: Qt swallowed the error and the button looked
   like it did nothing. Now every such error is written to error_log.txt (next to the app), shown in the status bar, and

@@ -2,6 +2,14 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.54.4
+
+* **Fixed: a multi-sheet workbook could draw the wrong sheet.** When a file has many sheets and none is called "Data", the sheet picked is now the one that actually fits the ticked template (tried against it directly), not just the sheet with the most numeric columns or the first sheet - which could be a text-only guide page.
+* **Fixed: an instrument export with a leading row-number column ("No.", "#", "Index"…) could be drawn against that column instead of the real x / position column.** The row-number column is now skipped when picking x and the series columns, everywhere a file is read.
+* **Fixed: a "decimal commas" instrument export (the comma is both the column separator and the decimal point) now keeps its real header text** instead of falling back to generic column names.
+* **Fixed: a reference pattern file with an almost-empty text column (for example "ESD") was sometimes drawn as if it were a peak list too.** Only a table whose name column actually names more than one thing counts as a peak list now, so reference stick rows ("connect related things") come only from the real peak list file.
+* Reading a photo in the Sketch pad now always reports a clear message (and logs the full error) instead of a cryptic crash when the image cannot be read.
+
 ## 5.54.3
 
 * **Fixed: a failed command used to do nothing visible.** The app runs without a console window, so an error inside a button's command (for example "Draw my data like this") was swallowed by Qt and nothing was shown - it looked exactly like the command doing nothing. Every such error is now written to **error_log.txt** next to the app, shown in the status bar, and included in *Help ▸ Problem report*. **Help ▸ Open the error log…** opens it directly.

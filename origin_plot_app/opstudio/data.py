@@ -15,6 +15,7 @@ class NeedData(Exception):
 
 
 ERR_RE = re.compile(r"(^|[^a-z])(sd|std|stdev|err|error|se|sem|±|\+/-|unc|uncertainty)([^a-z]|$)", re.I)
+INDEX_RE = re.compile(r"(?i)^\s*(no\.?|nr\.?|#|index|id|row)\s*$")               # a leading row-number column: never the x axis when there is another numeric column
 CUM_RE = re.compile(r"cum|total|integral|passing", re.I)
 
 
@@ -37,11 +38,15 @@ class Table:
 
     def arr(self, c): return self.num[c].to_numpy(dtype=float)
     @property
-    def x(self): return self.numeric[0] if self.numeric else None
+    def x(self):
+        if not self.numeric: return None
+        if INDEX_RE.match(self.numeric[0]) and len(self.numeric) > 1: return self.numeric[1]      # 'No.'/'#'/'Index' before the real x column
+        return self.numeric[0]
     @property
     def ys(self):
-        """The series columns: numeric, not x, not an error column."""
-        return [c for c in self.numeric[1:] if not ERR_RE.search(c)]
+        """The series columns: numeric, not x, not a leading row-number column before x, not an error column."""
+        xc = self.x; xi = self.numeric.index(xc) if xc in self.numeric else -1
+        return [c for c, i in zip(self.numeric, range(len(self.numeric))) if c != xc and not (i < xi and INDEX_RE.match(c)) and not ERR_RE.search(c)]
     def err_of(self, c):
         i = self.cols.index(c)
         nxt = self.cols[i + 1] if i + 1 < len(self.cols) else None
@@ -157,12 +162,18 @@ def bundle(template, tables, overrides=None):
             d["x"] = t.arr(t.x); d["series"] = [{"name": short_name(c), "y": t.arr(c)} for c in t.ys]; mp += [("x", t.x), ("series", ", ".join(t.ys))]
             if not d["series"]: raise NeedData("needs at least one series column beside x")
         elif "sticks" in k_set:                                            # pattern(s) from the tables of curves; reference positions from a table with a name column
-            lists = [x for x in tables if x.cat is not None and x.numeric]; curves = [x for x in tables if x not in lists] or tables[:1]
+            def _named_table(x):                                          # a real peak/phase list: its name column actually names something, not an (almost) empty column
+                if x.cat is None or not x.numeric: return False
+                vals = x.df[x.cat].astype(str).str.strip(); vals = vals[(vals != "") & (vals.str.lower() != "nan")]
+                return vals.nunique() >= 2 and vals.str.len().median() >= 2
+            lists = [x for x in tables if _named_table(x)]; curves = [x for x in tables if x not in lists] or tables[:1]
             d["series"] = _series(curves, exs, mp); st_ = {}
+            POS_RE = re.compile(r"(?i)2\s*th|2\s*θ|two.?theta|\bpos\b|position|d.?spac")
             for x in lists:
-                for nm_, v_ in zip(x.df[x.cat], x.arr(x.numeric[0])):
+                pos_col = next((c for c in x.numeric if POS_RE.search(c)), x.numeric[0])      # '2θ' / 'Pos.' over a leading 'No.' index column
+                for nm_, v_ in zip(x.df[x.cat], x.arr(pos_col)):
                     if np.isfinite(v_): st_.setdefault(str(nm_), []).append(float(v_))
-                mp.append((f"reference positions ({x.name})", f"{x.cat} + {x.numeric[0]}"))
+                mp.append((f"reference positions ({x.name})", f"{x.cat} + {pos_col}"))
             d["sticks"] = st_
             if not lists: mp.append(("reference positions", "none in the ticked files (tick a peak list as well: a name column and a position column)"))
         else:
@@ -315,14 +326,22 @@ def read_tables(path, sheet=None, max_rows=200000):
             df = book[s]
             if df.shape[1] >= 1 and len(df): out.append(Table(name if len(pick) == 1 else f"{name} [{s}]", df))
     else:
-        df = None
-        for kw in (dict(sep=None, engine="python"), dict(sep=r"\s+", engine="python"), dict(sep=";", decimal=",")):
-            try:
-                df = pd.read_csv(path, nrows=max_rows, comment="#", **kw)
-                if df.shape[1] >= 2: break
-            except Exception: df = None
+        df = None; has_header = False
+        try:                                                 # HighScore and other instrument exports written with the comma both
+            import smart_plots as _sp                        # between columns and as the decimal sign ('1,6,0043,307,9961'): same
+            text = _sp._text(path)                            # reader as the rest of the app, so these files read the same way here
+            dc = _sp._read_decimal_commas(text)
+            if dc is not None:                                # dc[0]: the real header sits in its first row, as text (not a column name yet)
+                df = dc[0]; hdr_row = [str(v) for v in df.iloc[0]]; df = df.iloc[1:].reset_index(drop=True); df.columns = hdr_row; has_header = True
+        except Exception: df = None
+        if df is None:
+            for kw in (dict(sep=None, engine="python"), dict(sep=r"\s+", engine="python"), dict(sep=";", decimal=",")):
+                try:
+                    df = pd.read_csv(path, nrows=max_rows, comment="#", **kw)
+                    if df.shape[1] >= 2: break
+                except Exception: df = None
         if df is None: raise NeedData("this file could not be read as a table")
-        if all(re.fullmatch(r"-?[\d.,eE+-]+", str(c).strip()) for c in df.columns):       # no header row: the first row is data
+        if not has_header and all(re.fullmatch(r"-?[\d.,eE+-]+", str(c).strip()) for c in df.columns):       # no header row: the first row is data
             df = pd.concat([pd.DataFrame([df.columns], columns=df.columns), df], ignore_index=True); df.columns = ["x"] + [f"y{i}" for i in range(1, df.shape[1])]
         out.append(Table(name, df))
     return out

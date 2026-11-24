@@ -127,6 +127,30 @@ sticks = pd.DataFrame({"Phase": ["P1", "P1", "P2"], "2theta": [29.4, 47.5, 32.2]
 fs, mps = api.draw("xrd_ref_ticks", [D.Table("fileA", xy[["2theta (deg)", "Sample A"]]), D.Table("peaks", sticks)])
 rows_ = [t.get_text() for t in fs.axes[1].texts]; f0, _ = api.draw("xrd_ref_ticks", [D.Table("fileA", xy[["2theta (deg)", "Sample A"]])])
 check("reference stick rows come only from the user's peak list; without one there are no rows", rows_ == ["P1", "P2"] and "no reference positions" in f0.axes[1].texts[0].get_text(), rows_)
+
+# ---------------------------------------------------------------- instrument-export quirks (a leading row-number column before
+# the real x / position column; a pattern table with an almost-empty text column that must not look like a peak list)
+pat_no = pd.DataFrame({"No.": range(1, 11), "Pos. [2Th.]": np.linspace(5, 50, 10), "Iobs": np.linspace(100, 900, 10), "ESD": [""] * 9 + [" "]})
+tp_no = D.Table("pattern", pat_no)
+check("Table.x skips a leading 'No.' row-index column and uses the real position column", tp_no.x == "Pos. [2Th.]", tp_no.x)
+check("Table.ys drops the leading 'No.' column from the series too", tp_no.ys == ["Iobs"], tp_no.ys)
+peaks_named = pd.DataFrame({"No.": range(1, 5), "Pos. [2Th.]": [12.0, 29.4, 29.4, 47.5], "Assignment": ["Q1", "P1", "P1", "P2"]})
+fs2, _ = api.draw("xrd_ref_ticks", [tp_no, D.Table("peaks", peaks_named)])
+rows2 = [t.get_text() for t in fs2.axes[1].texts]
+check("a pattern table's own near-empty text column ('ESD') is not mistaken for a peak list; only the real named table contributes stick rows", sorted(rows2) == ["P1", "P2", "Q1"], rows2)
+series_x = fs2.axes[0].get_lines()[0].get_xdata()
+check("the pattern's own series is drawn against the real position column, not the leading 'No.' column", series_x[0] == pat_no["Pos. [2Th.]"].iloc[0] and series_x[-1] == pat_no["Pos. [2Th.]"].iloc[-1], (series_x[0], series_x[-1]))
+
+# decimal-comma instrument export (comma is both the field separator and the decimal sign), with a real header row
+dc_path = os.path.join(tempfile.mkdtemp(), "decimal_comma.csv")
+with open(dc_path, "w", encoding="utf-8") as f:
+    f.write("No.,Pos. [2Th.],Iobs [cts]\n")
+    for i in range(1, 21):                                          # a fraction like '0119' (leading zero) is what tells the
+        pos = 5 + i + 0.0119                                        # unscrambler where a column's decimal point sits
+        f.write(f"{i},{str(round(pos, 4)).replace('.', ',')},{100 + i * 10}\n")
+tdc = D.read_tables(dc_path)
+check("a decimal-comma instrument export is read with its real header text, not generic x/y1/y2 names", len(tdc) == 1 and list(tdc[0].df.columns) == ["No.", "Pos. [2Th.]", "Iobs [cts]"], list(tdc[0].df.columns) if tdc else None)
+check("...and its decimal-comma numbers are unscrambled correctly (20 data rows, real position values)", len(tdc[0].df) == 20 and abs(float(tdc[0].df["Pos. [2Th.]"].iloc[0]) - 6.0119) < 1e-6, (len(tdc[0].df), tdc[0].df["Pos. [2Th.]"].iloc[0]) if tdc else None)
 cat2 = json.load(open(os.path.join(LIB, "catalogue_all_graph_types.json"), encoding="utf-8")); import collections
 cnt = collections.Counter(r["status"] for r in cat2); check("catalogue statuses: Tier 1 rows built are 'implemented' with their template; 3 Tier 1 rows remain", cnt["tier1"] == 3 and cnt["implemented"] == 135 and all(r["template_id"] in opstudio.REGISTRY for r in cat2 if r["status"] == "implemented"), dict(cnt))
 
