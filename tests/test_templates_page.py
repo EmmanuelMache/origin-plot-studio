@@ -23,6 +23,7 @@ def settle(pg, extra=lambda: True, timeout=240):
         QTest.qWait(15)
     return False
 import workspace_qt as W
+from workspace_templates import checked, set_checked
 def tick(lst, ids):
     for i in range(lst.count()): lst.item(i).setCheckState(Qt.Checked if lst.item(i).data(Qt.UserRole) in ids else Qt.Unchecked)
 app.setStyle("Fusion"); app.setStyleSheet(W.STYLE)
@@ -34,23 +35,32 @@ sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest(); before = [sha(
 w = W.Workspace([]); w.resize(1500, 900); w.show(); app.processEvents()
 pg = w.templates_page
 names_ = [b.text() for b in w.header_nav.buttons()]
-check("one Graph gallery entry in the top bar; the templates are inside it (no separate Templates section)", names_ == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"] and hasattr(pg, "main"), names_)
-w.header_nav.button(2).click(); app.processEvents()
-check("clicking Graph gallery opens the templates first", w.pages.currentWidget() is pg and w.header_nav.button(2).isChecked())
+check("four sections in the top bar: Workspace, Analysis, Assistant, Settings - the graph gallery is inside Analysis", names_ == ["Workspace", "Analysis", "Assistant", "Settings"] and hasattr(pg, "main"), names_)
+w.header_nav.button(1).click(); app.processEvents()
+check("clicking Analysis opens the graphs and templates (the picture gallery) first", w.pages.currentWidget() is pg and w.header_nav.button(1).isChecked())
 sw = [b.text() for b in w.gallery_switch[5].buttons()]
-check("a switch at the top of the gallery: Templates | Workbook graph types (26)", sw == ["Templates", "Workbook graph types (26)"] and w.gallery_switch[5].button(5).isChecked(), sw)
-w.gallery_switch[5].button(2).click(); app.processEvents()
-check("the switch shows the 26 workbook graph types; Graph gallery stays the section", w.pages.currentIndex() == 2 and w.header_nav.button(2).isChecked() and w.gallery_switch[2].button(2).isChecked())
-w.header_nav.button(0).click(); w.header_nav.button(2).click(); app.processEvents()
-check("Graph gallery opens again where you left it", w.pages.currentIndex() == 2)
-w.gallery_switch[2].button(5).click(); app.processEvents()
+check("a switch at the top of Analysis: Graphs and templates | Calculations", sw == ["Graphs and templates", "Calculations"] and w.gallery_switch[5].button(5).isChecked(), sw)
+w.gallery_switch[5].button(1).click(); app.processEvents()
+check("the switch shows the calculation tools; Analysis stays the section", w.pages.currentIndex() == 1 and w.header_nav.button(1).isChecked() and w.gallery_switch[1].button(1).isChecked())
+w.header_nav.button(0).click(); w.header_nav.button(1).click(); app.processEvents(); check("Analysis opens again where you left it", w.pages.currentIndex() == 1)
+w.gallery_switch[1].button(5).click(); app.processEvents()
+pa = w.pages.widget(1)
+wbs = [r for r in pg.catalogue if r["source"] == "workbook"]
+check("the 26 workbook graph types are pictures in the gallery, in the class of their technique (not a second list page)", len(wbs) == 26 and all(os.path.isfile(r["preview"]) for r in wbs)
+      and next(r for r in wbs if r["id"] == "wb:G01")["section"].startswith("I. XRD") and next(r for r in wbs if r["id"] == "wb:G07")["section"].startswith("N. Thermal") and pa.find_entry("G01") is None, len(wbs))
+EXS = ROOT / "origin_plot_app" / "examples_synthetic"; w.load([str(EXS / "xrd_raw.csv")])
+t0_ = _time.time()
+while _time.time() - t0_ < 90:
+    app.processEvents()
+    if w.job_thread is None and getattr(w, "loader", None) is None: break
+check("a file loaded while the gallery is open appears in its Files list at once, ticked", [pg.files.item(i).text() for i in range(pg.files.count())] == ["xrd_raw.csv"] and len(checked(pg.files)) == 1, [pg.files.item(i).text() for i in range(pg.files.count())])
+w.clear_all_graphs(); app.processEvents(); check("… and leaves the list when it is removed from the session", pg.files.count() == 0)
 w.go(5); app.processEvents()
 names = [d.windowTitle().replace("⠿", "").strip() for d in pg.main.findChildren(QDockWidget)]
 check("six panels: Files, Columns, Templates, Styles, Previews, Variants - each movable, floatable, closable", sorted(names) == ["Columns", "Files", "Previews", "Styles", "Templates", "Variants"]
       and all(d.features() & QDockWidget.DockWidgetMovable and d.features() & QDockWidget.DockWidgetFloatable and d.features() & QDockWidget.DockWidgetClosable for d in pg.docks), names)
 pg.live.setChecked(False); pg.silent = True; pg.force_dry = True
 pg.add_files(files); app.processEvents()
-from workspace_templates import checked, set_checked
 check("files added on the page are listed and ticked", pg.files.count() == 3 and len(checked(pg.files)) == 3)
 # ---- the same multiple selection in every list
 from PySide6.QtWidgets import QAbstractItemView
@@ -81,6 +91,13 @@ tick(pg.grid, {"scatter_linear_fit"}); set_checked(pg.files, range(3), False); n
 check("'Draw my data like this' ticks your files when none is ticked and draws them in the ticked template", n_d == 3 and len(checked(pg.files)) == 3 and all(t.fig is not None and not t.combo.get("demo") for t in pg.tiles), (n_d, [t.error for t in pg.tiles]))
 check("it is the primary button of the page", pg.b_draw.objectName() == "primary" and pg.b_draw.text() == "Draw my data like this")
 set_checked(pg.grid, range(pg.grid.count()), False)
+# a workbook graph type drawn from a workbook, in the same gallery
+wbf = str(ROOT / "tests" / "gallery_templates" / "G01_XRD_STACK.xlsx"); pg.add_files([wbf]); set_checked(pg.files, range(pg.files.count()), False); tick(pg.files, {wbf}); tick(pg.grid, {"wb:G01"}); pg.rebuild_previews(); settle(pg)
+check("a workbook graph type is drawn from a ticked workbook like any other picture of the gallery", len(pg.tiles) == 1 and pg.tiles[0].fig is not None and len(pg.tiles[0].fig.axes) >= 1 and pg.tiles[0].mapping[0] == ("workbook", "G01_XRD_STACK.xlsx"), [t.error for t in pg.tiles])
+junk = TMP / "words.txt"; junk.write_text("no table here\njust words\n", encoding="utf-8"); pg.add_files([str(junk)]); set_checked(pg.files, range(pg.files.count()), False); tick(pg.files, {str(junk)}); pg.rebuild_previews(); settle(pg)
+check("a file that cannot be drawn as that workbook type gives a tile that says so (no crash)", len(pg.tiles) == 1 and pg.tiles[0].fig is None and len(pg.tiles[0].error) > 20, pg.tiles[0].error[:120] if pg.tiles else "")
+pg.extra_files = [f for f in pg.extra_files if f != str(junk)]
+pg.remove_files() if False else None; pg.extra_files = [f for f in pg.extra_files if f != wbf]; pg.refresh_files(); set_checked(pg.grid, range(pg.grid.count()), False); set_checked(pg.files, range(pg.files.count()), True)
 # the classes: by instrument / technique and by graph type
 tops = [pg.classes.topLevelItem(i).text(0) for i in range(pg.classes.topLevelItemCount())]; inst = pg.classes.topLevelItem(1); kids = [inst.child(i).text(0) for i in range(inst.childCount())]
 check("the templates are in classes: by instrument / technique and by graph type, with counts", tops[0].startswith("All templates") and tops[1].startswith("By instrument / technique") and tops[2].startswith("By graph type") and any(k.startswith("XRD  (") for k in kids) and any(k.startswith("TGA, DTG, DSC") for k in kids) and any(k.startswith("Calorimetry") for k in kids), tops)
@@ -90,9 +107,9 @@ check("clicking a class shows only its templates", 6 <= len(vis) <= 19 and all(v
 pg._class_clicked(pg.classes.topLevelItem(0)); app.processEvents()
 # ---- the gallery: every catalogue row, filters, search
 cat = pg.catalogue; avail = [r for r in cat if r["available"]]; coming = [r for r in cat if not r["available"]]
-check("all 121 templates are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 121 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
+check("all 121 templates and the 26 workbook graph types are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 147 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
 pg.state.setCurrentIndex(1); shown = lambda: sum(1 for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden())
-check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 121))
+check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 147))
 fields = [pg.field.itemText(i) for i in range(pg.field.count())]
 check("fields: graph families and domain packs with counts, and My templates", any("Graph families" in f for f in fields) and any("Domain packs" in f for f in fields) and any("My templates" in f for f in fields) and any("XRD" in f for f in fields), fields[:4])
 pg.find.setText("rietveld"); n_find = shown(); pg.find.setText("zzzz-no-such"); n_none = shown(); pg.find.setText("")
@@ -165,7 +182,7 @@ pg.next_name = "My stack"; tid = pg.save_my_template(one); mine = pg.api.user_te
 check("Save as my template: JSON + preview + Origin script in the private folder, listed under My templates", tid == "my_stack" and (TMP / "private" / "templates" / "my_stack.json").is_file() and (TMP / "private" / "previews" / "my_stack.png").is_file()
       and (TMP / "private" / "origin" / "my_stack.ogs").is_file() and any(r["id"] == "my_stack" and r["source"] == "mine" for r in pg.catalogue))
 acts = [a.text() for a in pg.add_btn.menu().actions()]
-check("'+ Add template' in the gallery: from my graph, as a copy of a ticked template, from a file, open my folder", pg.add_btn.text().startswith("+ Add template") and len(acts) == 4 and acts[0].startswith("From the graph I made here") and acts[2].startswith("From a template file"), acts)
+check("'+ Add template' in the gallery: from my graph, as a copy of a ticked template, from a file, open my folder", pg.add_btn.text().startswith("+ Add template") and len(acts) == 5 and acts[0].startswith("From the graph I made here") and acts[2].startswith("From a template file"), acts)
 tick(pg.grid, {"scatter_linear_fit"}); pg.next_name = "My copy"; cp = pg._copy_ticked(); mine_ids = [r["id"] for r in pg.catalogue if r["source"] == "mine"]
 shown_ = [pg.grid.item(i).data(Qt.UserRole) for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()]
 check("a copy of a ticked template is added under My templates and shown at once", cp == "my_copy" and "my_copy" in mine_ids and "my_copy" in shown_ and all(x in mine_ids for x in shown_), (cp, shown_))

@@ -2,6 +2,15 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.54.0
+
+* **One place for graphs: the gallery is inside Analysis.** The top bar has four sections: Workspace · Analysis · Assistant · Settings. *Graph gallery* is no longer a section of its own.
+* **Analysis** has two views, with a switch at the top:
+  * **Graphs and templates** (opens first): the picture gallery – tick your files and the pictures of the graphs you want, *Draw my data like this*, then Origin, export or combine;
+  * **Calculations**: the analysis tools with their settings (XRD, TGA, calorimetry, composition and the 44 data-analysis tools).
+* **The 26 workbook graph types** (G01–G24, C01, C02) are pictures in that gallery, in the class of their technique, and are drawn from your ticked workbooks like any other picture. The separate look-alike list page is gone. *+ Add template ▸ Workbook for a workbook graph type* writes such a workbook from a raw file.
+* **Fixed: your loaded files were missing from the gallery.** Files added while the gallery was open did not appear in its Files list. They now appear at once, ticked.
+
 ## 5.53.0
 
 ### Panels

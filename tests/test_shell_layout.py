@@ -23,12 +23,14 @@ w = W.Workspace([]); w.resize(1366, 768); w.show(); app.processEvents()
 check("starts with older settings that have a 'layout' entry of their own (and a damaged arrangement)", w.isVisible() and W.load_cfg().get("layout") == "Side by side")
 # ---------------------------------------------------------------- one top bar
 check("one top bar: the sections, Find, File / View / Tools / Help, Add files; no menu bar, no side bar",
-      [b.text() for b in w.header_nav.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"] and w.file_btn.isVisible()
+      [b.text() for b in w.header_nav.buttons()] == ["Workspace", "Analysis", "Assistant", "Settings"] and w.file_btn.isVisible()
       and w.panels_btn.text().startswith("View") and w.tools_btn.isVisible() and w.help_btn.isVisible() and not w.menuBar().isVisible() and not w.navw.isVisible())
 check("the colours: navy top bar, blue primary, orange only for Origin", "#17324D" in W.STYLE and "#2563EB" in W.STYLE and W.ACCENT == "#B4532A" and w.b_draw.objectName() == "accent")
 check("the keyboard shortcuts of the old menus still work (window actions)", any(a.shortcut().toString() == "Ctrl+N" for a in w.actions()))
 w.header_nav.button(1).click(); app.processEvents()
-check("a click on a section opens it; the formatting ribbon is for Workspace only", w.pages.currentIndex() == 1 and not w.ribbon.isVisible())
+check("a click on Analysis opens its graphs and templates; the formatting ribbon is for Workspace only", w.pages.currentIndex() == 5 and not w.ribbon.isVisible())
+w.gallery_switch[5].button(1).click(); app.processEvents()
+check("the switch at the top of Analysis shows the calculations", w.pages.currentIndex() == 1 and w.header_nav.button(1).isChecked())
 # ---------------------------------------------------------------- Analysis: every entry opens at once
 pa = w.pages.widget(1); pt = w.pages.widget(2)
 check("Analysis: browser, setup, preview and gallery are panels", all(isinstance(d, QDockWidget) for d in pa.docks) and len(pa.docks) == 4)

@@ -25,7 +25,7 @@ w = W.Workspace(files); w.resize(1440, 900); w.show()
 wait(lambda: w.thread is None and w.list.count() > 0)
 kinds = [it.kind for it in w.items]
 check("graphs read with the app's engine; combined figure made for the 3 TGA replicates", len(w.singles) == 5 and len(w.combined) >= 1 and w.list.item(0).text().startswith("★"), (len(w.singles), len(w.combined), kinds))
-check("five sections in the side bar: XRD and calorimetry are inside Analysis and Graph gallery", [b.text() for b in w.navgroup.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"], [b.text() for b in w.navgroup.buttons()])
+check("four sections in the side bar: the graph gallery, XRD and calorimetry are inside Analysis", [b.text() for b in w.navgroup.buttons()] == ["Workspace", "Analysis", "Assistant", "Settings"], [b.text() for b in w.navgroup.buttons()])
 import analysis_tools as at_
 ta = w.pages.widget(1).tree; groups = [ta.topLevelItem(i).text(0).split("  ")[0] for i in range(ta.topLevelItemCount())]
 n_tools = sum(ta.topLevelItem(i).childCount() for i in range(ta.topLevelItemCount()))
@@ -59,7 +59,7 @@ w.search.setText("calorimetry"); app.processEvents()
 vis = [w.list.item(i).text().split("\n")[0] for i in range(w.list.count()) if not w.list.item(i).isHidden()]
 check("find a graph by name", vis and all("calorimetry" in v.lower() for v in vis), vis)
 w.search.setText("")
-w.navgroup.button(1).click(); app.processEvents(); check("Analysis section says it comes in step 3", w.pages.currentIndex() == 1)
+w.navgroup.button(1).click(); app.processEvents(); check("Analysis opens its graphs and templates; Calculations is one click on the switch", w.pages.currentIndex() == 5 and (w.gallery_switch[5].button(1).click() or True) and w.pages.currentIndex() == 1)
 w.navgroup.button(0).click(); app.processEvents()
 
 # ---------------------------------------------------------------- step 2: names, saving, drawing, figure, paper set

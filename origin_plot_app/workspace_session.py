@@ -254,25 +254,34 @@ def install(w):
 
 
 def _gallery_switch(w):
-    """Graph gallery is one section with two views: the templates (any template x any style x your data) and the 26
-    workbook graph types. The same two buttons sit at the top of both, so it reads as one place."""
+    """Analysis is one section with two views: 'Graphs and templates' (the picture gallery: tick files and pictures, draw,
+    send to Origin) and 'Calculations' (the analysis tools with their settings). The same two buttons sit at the top of both.
+    The files of the session appear in the gallery's Files list as soon as they are loaded."""
     import workspace_qt as WQ
     from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel, QButtonGroup
-    names = {5: ("Templates", "Templates – Tick files, templates and styles: every combination is drawn from your data; draw them in Origin, export or combine them"),
-             2: ("Workbook graph types (26)", "Workbook graph types – The 26 graph types that are drawn from a filled-in workbook (G01–G24, C01, C02), and their workbook templates")}
-    w.gallery_switch = {}
-    for i in WQ.GALLERY_PAGES:
-        pg = w.pages.widget(i)
-        if pg is None or pg.layout() is None or not hasattr(pg, "main"): continue
-        bar = QWidget(); h = QHBoxLayout(bar); h.setContentsMargins(2, 0, 2, 2); h.setSpacing(6); h.addWidget(QLabel("Graph gallery:", objectName="soft")); grp = QButtonGroup(bar); grp.setExclusive(True)
-        for j in WQ.GALLERY_PAGES:
-            b = QPushButton(names[j][0], objectName="navbtn"); b.setCheckable(True); b.setChecked(j == i); b.setToolTip(names[j][1]); b.setStatusTip(names[j][1]); b.setMinimumHeight(30)
-            b.clicked.connect(lambda _c=False, j=j: w.go(j)); grp.addButton(b, j); h.addWidget(b)
-        h.addStretch(1); pg.layout().insertWidget(0, bar); w.gallery_switch[i] = grp
-    def keep(i):
-        g = w.gallery_switch.get(i)
-        if g is not None and g.button(i) is not None: g.button(i).setChecked(True)
-    w.pages.currentChanged.connect(keep)
+    names = {5: ("Graphs and templates", "Graphs and templates – Tick your files and the pictures of the graphs you want: they are drawn from your data; then draw them in Origin, export or combine them"),
+             1: ("Calculations", "Calculations – XRD, TGA, calorimetry, composition and the 44 data-analysis tools (smoothing, baseline, peaks, fitting, statistics …), each with its settings")}
+    w.gallery_switch = {}; pg5 = getattr(w, "templates_page", None)
+    if pg5 is not None and hasattr(pg5, "main"):
+        for i in WQ.GALLERY_PAGES:
+            pg = w.pages.widget(i)
+            if pg is None or pg.layout() is None: continue
+            bar = QWidget(); h = QHBoxLayout(bar); h.setContentsMargins(2, 0, 2, 2); h.setSpacing(6); h.addWidget(QLabel("Analysis:", objectName="soft")); grp = QButtonGroup(bar); grp.setExclusive(True)
+            for j in WQ.GALLERY_PAGES:
+                b = QPushButton(names[j][0], objectName="navbtn"); b.setCheckable(True); b.setChecked(j == i); b.setToolTip(names[j][1]); b.setStatusTip(names[j][1]); b.setMinimumHeight(30)
+                b.clicked.connect(lambda _c=False, j=j: w.go(j)); grp.addButton(b, j); h.addWidget(b)
+            h.addStretch(1); pg.layout().insertWidget(0, bar); w.gallery_switch[i] = grp
+        def keep(i):
+            g = w.gallery_switch.get(i)
+            if g is not None and g.button(i) is not None: g.button(i).setChecked(True)
+        w.pages.currentChanged.connect(keep)
+        old = w.refresh_list
+        def refresh_list(*a, **k):
+            r = old(*a, **k)
+            try: pg5.refresh_files()                         # your loaded graphs are listed in the gallery at once (also when it is open)
+            except Exception: pass
+            return r
+        w.refresh_list = refresh_list
 
 
 TIPS = {  # buttons that had no tooltip: name (shortcut) – what it does. Disabled: what enables it.
@@ -309,6 +318,8 @@ def tooltips(w):
         t = b.text().strip()
         if not b.toolTip().strip():
             tip = TIPS.get(t) or TIPS.get(t.replace("▸", "▾")) or {"ScrollLeftButton": "Show the tabs further left", "ScrollRightButton": "Show the tabs further right"}.get(b.objectName())
+            if not tip and t.startswith("Draw the ticked workbook"): tip = t + " – Draws the workbooks ticked in Workspace as this graph type. Disabled: no workbook is ticked"
+            if not tip and t.startswith("Make a template from a raw file"): tip = "Make a template from a raw file – Writes a workbook in the layout of this graph type from one of your raw files, then loads it"
             if tip: b.setToolTip(tip)
             elif t: left.append(t)
         if b.toolTip() and not b.statusTip(): b.setStatusTip(b.toolTip().split("\n")[0])

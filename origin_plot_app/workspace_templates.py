@@ -136,7 +136,7 @@ def checked(lst):
 
 
 class TemplatePage(QWidget):
-    label = "Templates"
+    label = "Graphs and templates"
 
     def __init__(self, ws):
         super().__init__(); self.ws = ws
@@ -196,6 +196,17 @@ class TemplatePage(QWidget):
                 rows.append(dict(id="coming:" + str(r.get("catalogue_id")), name=r["name"], section=r["section"], use=f"Roles: {r.get('data_roles', '')}", source="generic", available=False,
                                  roles={}, origin=r.get("origin_path", ""), preview=None, kind="", tier=r["status"], alias=""))
         by_letter = {r_["section"][:1]: r_["section"] for r_ in cat if r_["section"][1:2] == "."}
+        try:                                             # the 26 workbook graph types: pictures in the class of their technique
+            import gallery_graphs as TG; from workspace_tools import GALLERY_GROUPS
+            here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gallery"); L = {"XRD": "I", "NMR": "J", "TGA": "N", "Calorimetry": "O", "Phases and composition": "P", "Particle size": "L", "General plots": "A"}; done = set()
+            for g, codes in GALLERY_GROUPS:
+                for c in codes:
+                    if c in done or c not in TG.TYPES: continue
+                    done.add(c); nm, what = TG.TYPES[c][0], TG.TYPES[c][1]
+                    rows.append(dict(id="wb:" + c, name=f"{c}  {what}", section=by_letter.get(L.get(g, "A"), g), use=f"{what}. Drawn from a workbook in the layout of {c} ({nm}); + Add template makes that workbook from a raw file.",
+                                     source="workbook", available=True, roles={"workbook": f"a workbook in the layout of {c} (its sheets: Data, Labels, Options …)"}, origin="the app's own Origin graphs of this type (Workspace: Draw in Origin)",
+                                     preview=os.path.join(here, f"type_{c}.png"), kind="workbook", tier="implemented", alias=f"{c} {nm} workbook graph type"))
+        except Exception: pass
         for tid, t in info.items():
             if tid not in seen:                          # a template without a row in the catalogue: classed by its own category
                 rows.append(dict(id=tid, name=t["name"], section="My templates" if t.get("source") == "mine" else by_letter.get(CAT_LETTER.get(t.get("category", ""), ""), t.get("category", "Other")), use=t["use_case"], source=t.get("source", "generic"),
@@ -271,7 +282,7 @@ class TemplatePage(QWidget):
         self.find = QLineEdit(placeholderText="Find a template: name, field, Origin name …  (Ctrl+F)"); self.find.setClearButtonEnabled(True); self.find.textChanged.connect(lambda _t: self.filter_templates()); v.addWidget(self.find)
         f = QHBoxLayout()
         self.field = QComboBox(); self.field.setToolTip("Field: a graph family (basic 2D, bars, statistics …) or a domain pack (diffraction, thermal analysis, electrochemistry …)")
-        self.source = QComboBox(); self.source.addItems(["All sources", "House figures", "Generic", "My templates"]); self.source.setToolTip("Where the template comes from")
+        self.source = QComboBox(); self.source.addItems(["All sources", "House figures", "Generic", "Workbook types", "My templates"]); self.source.setToolTip("Where the template comes from")
         self.state = QComboBox(); self.state.addItems(["Available", "Available and coming", "Coming"]); self.state.setToolTip("Available: can be drawn now. Coming: in the catalogue, not built yet")
         for c in (self.field, self.source, self.state): c.currentIndexChanged.connect(lambda _i: self.filter_templates()); f.addWidget(c)
         v.addLayout(f)
@@ -283,6 +294,7 @@ class TemplatePage(QWidget):
         for text, tip, fn in (("From the graph I made here (kept preview)…", "Keep a preview you ticked - template, style, variants, parameters, your texts - as a template of your own", lambda: self.save_my_template()),
                               ("As a copy of the ticked template…", "A copy of the first ticked template under your own name, with the variants and parameters set now", lambda: self._copy_ticked()),
                               ("From a template file (.opst)…", "Add a template someone gave you", lambda: self.import_opst()),
+                              ("Workbook for a workbook graph type (G01–G24, C01, C02)…", "Write a workbook in the layout of one of the 26 workbook graph types from a raw file of yours, then load it", lambda: self.ws.figtype_template_any()),
                               ("Open my template folder", "The folder on this computer where your own templates, styles and previews are kept", lambda: self._reveal(os.path.join(self.my_dir(True), "templates", "x")))):
             a_ = am.addAction(text, fn); a_.setToolTip(tip); a_.setStatusTip(tip)
         add.setMenu(am); self.add_btn = add; f2.addWidget(add)
@@ -355,7 +367,7 @@ class TemplatePage(QWidget):
             if r["available"]:
                 it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable); it.setCheckState(Qt.Checked if r["id"] in keep else Qt.Unchecked)
                 if r["preview"] and os.path.isfile(r["preview"]): it.setIcon(QIcon(r["preview"]))
-                badge = {"house": "from the house figures", "mine": "my template"}.get(r["source"], "generic")
+                badge = {"house": "from the house figures", "mine": "my template", "workbook": "workbook graph type (its own fixed look; styles do not apply)"}.get(r["source"], "generic")
                 roles = "\n".join(f"   {k}: {v}" for k, v in (r["roles"] or {}).items())
                 it.setToolTip(f"{r['name']}\n{r['use']}\n\n{badge}  ·  illustrative example (your graph is drawn from your data)\nColumns it needs:\n{roles}\n\nOrigin: {r['origin']}")
             else:
@@ -576,7 +588,7 @@ class TemplatePage(QWidget):
             it = self.grid.item(i); r = it.data(Qt.UserRole + 1)
             ok = (not q or q in (r["name"] + " " + r["use"] + " " + r["section"] + " " + r["origin"] + " " + r["id"] + " " + r["alias"]).lower())
             ok = ok and (sec is None or (sec == "__fam" and r["section"][:1] in FAMILIES and r["section"][1:2] == ".") or (sec == "__dom" and not (r["section"][:1] in FAMILIES and r["section"][1:2] == ".") and r["section"] != "My templates") or r["section"] == sec)
-            ok = ok and (src == "All sources" or (src == "House figures" and r["source"] == "house") or (src == "Generic" and r["source"] == "generic") or (src == "My templates" and r["source"] == "mine"))
+            ok = ok and (src == "All sources" or (src == "House figures" and r["source"] == "house") or (src == "Generic" and r["source"] == "generic") or (src == "Workbook types" and r["source"] == "workbook") or (src == "My templates" and r["source"] == "mine"))
             ok = ok and ((st == "Available" and r["available"]) or st == "Available and coming" or (st == "Coming" and not r["available"]))
             if self.fits.isChecked() and rank: ok = ok and r["id"] in rank
             it.setHidden(not ok); shown += ok
@@ -597,10 +609,13 @@ class TemplatePage(QWidget):
         files = checked(self.files); tpls = [t for t in checked(self.grid) if not str(t).startswith("coming:")]; styles = checked(self.styles) or [self.style0]
         groups = [files] if (self.together.isChecked() and files) else [[f] for f in files]; out = []; names = {r["id"]: r["name"] for r in self.catalogue}
         if not files:                           # no file ticked yet: the illustrative example of every ticked template, so that a tick always shows something
-            return [{"files": [], "template": t, "style": s, "sample": "example", "title": "Illustrative example (tick a file to see your data)", "caption": f"{names.get(t, t)}  ·  {s}", "demo": True} for t in tpls for s in styles]
+            return [{"files": [], "template": t, "style": s, "sample": "example", "title": "Illustrative example (tick a file to see your data)", "caption": f"{names.get(t, t)}  ·  {s}", "demo": True} for t in tpls for s in (styles[:1] if str(t).startswith("wb:") else styles)]
         for g in groups:
             sample = os.path.splitext(os.path.basename(g[0]))[0] if len(g) == 1 else f"{len(g)} files"
             for t in tpls:
+                if str(t).startswith("wb:"):               # a workbook graph type: one graph per workbook, in its own look
+                    out += [{"files": [f], "template": t, "style": styles[0], "sample": os.path.splitext(os.path.basename(f))[0], "title": os.path.splitext(os.path.basename(f))[0], "caption": f"{names.get(t, t)}  ·  own look"} for f in (g if len(g) > 1 or not self.together.isChecked() else g)]
+                    continue
                 for s in styles:
                     out.append({"files": list(g), "template": t, "style": s, "sample": sample, "title": f"{sample}", "caption": f"{names.get(t, t)}  ·  {s}"})
         return out
@@ -658,7 +673,27 @@ class TemplatePage(QWidget):
     def tables_for(self, files):
         return [self.table_of(p)[0] for p in files]
 
+    def draw_workbook_type(self, combo):
+        """A workbook graph type (G01-G24, C01, C02) drawn from a ticked workbook by the app's own drawing of that type."""
+        import gallery_graphs as TG
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib import image as mimg
+        code = combo["template"][3:]; fig = Figure(figsize=(TG.FIG_W, TG.FIG_H), dpi=100); FigureCanvasAgg(fig)
+        if combo.get("demo"):
+            p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gallery", f"type_{code}.png"); ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+            if os.path.isfile(p): ax.imshow(mimg.imread(p)); ax.set_aspect("auto")
+            return fig, [("data", "illustrative example - tick a workbook in the layout of this type")]
+        path = combo["files"][0]
+        try: TG.draw(code, TG.read_book(path), fig)
+        except TG.NeedInput as e: raise self.api.Unfit(f"{code} needs an answer first: {e} (open the workbook's Options sheet, or use Workspace)")
+        except Exception as e: raise self.api.Unfit(f"this file is not a workbook in the layout of {code}: {str(e)[:150]}. '+ Add template' > 'Workbook for a workbook graph type' writes one from a raw file.")
+        fig.canvas.draw(); return fig, [("workbook", os.path.basename(path)), ("graph type", f"{code} {TG.TYPES[code][0]}")]
+
     def draw_combo(self, combo, width=None, target=None):
+        if str(combo["template"]).startswith("wb:"):
+            if target is not None: raise self.api.Unfit("a workbook graph type cannot be a panel of a combined figure (it is a whole page of its own)")
+            return self.draw_workbook_type(combo)
         if combo.get("demo"):
             fig = self.api.demo_figure(combo["template"], combo["style"]); return fig, [("data", "illustrative example - tick a file to draw your own data")]
         return self.api.draw(combo["template"], self.tables_for(combo["files"]), style=combo["style"], params=self.params.get(combo["template"]) or None,
@@ -909,6 +944,7 @@ class TemplatePage(QWidget):
         tile = tile or (self.kept() or [None])[0]
         if tile is None and base is None: self.ws.set_status("Keep a preview first: it becomes your template (or right-click a template: Duplicate as my template)."); return None
         base = base or tile.combo["template"]; style = tile.combo["style"] if tile else (checked(self.styles) or [self.style0])[0]
+        if str(base).startswith("wb:"): self.ws.set_status("A workbook graph type has its own fixed layout: it cannot be saved as a template of yours. Use a template picture instead."); return None
         name = getattr(self, "next_name", None)
         if name is None:
             name, ok = QInputDialog.getText(self, "Save as my template", "Name of your template:", text=f"My {self.api.info(base)['name']}"[:60])

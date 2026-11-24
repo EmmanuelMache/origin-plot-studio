@@ -185,7 +185,7 @@ def analysis_tree():
     out = [(g, list(rows)) for g, rows in _analysis_tree_core()]
     for g, rows in out:
         if g == "FTIR": rows[0:0] = FIGURE_STYLES[0][1]                       # FTIR: the stacked / overlaid figures first
-    return out + [("Figures from several graphs", list(FIGURE_STYLES[1][1]))]
+    return out + [("Figures from several graphs", list(FIGURE_STYLES[1][1]))]      # the workbook graph types are pictures in the Graph gallery
 
 
 def figtype_tree():

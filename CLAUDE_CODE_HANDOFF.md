@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.53.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.54.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -31,7 +31,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 | `origin_plot_app/workspace_session.py` (new) | File far left, quick Save / Undo / Redo, command search, clear / start afresh with undo, save / recent, autosave timer, recovery flag, tooltips for buttons that had none, TGA menu entry | §3, §4 | `tests/test_session_basics.py` (32) |
 | `origin_plot_app/workspace_tga.py` (new) | `TgaAnalysis` (no Qt) and the dialog: zones, both methods, confirm labels, label memory, Excel, Origin | §9, §10 | `tests/test_tga_module.py` (37) |
 | `origin_plot_app/private_store.py` (new) | The user's private folder | publishing rules | used by the tests through `OPS_PRIVATE_DIR` |
-| `origin_plot_app/workspace_qt.py` | Page 5 "Templates" is shown inside Graph gallery (`GALLERY_PAGES = (5, 2)`, a switch at the top of both pages; `NAV_ORDER` lists the five top-bar sections); installs `workspace_session`; clears the running flag on close | §3, §6 | window tests |
+| `origin_plot_app/workspace_qt.py` | The gallery (page 5) is shown inside Analysis: `GALLERY_PAGES = (5, 1)` with a switch at the top of both pages (*Graphs and templates* · *Calculations*); `NAV_ORDER = [0, 1, 3, 4]` (four top-bar sections); page 2 (the old list of workbook graph types) is built but not shown – its 26 types are pictures in the gallery (`wb:G01` …); installs `workspace_session`; clears the running flag on close | §3, §6 | window tests |
 | `origin_plot_app/workspace_shell.py` | Top bar buttons follow `NAV_ORDER` | §3 | `tests/test_shell_layout.py` |
 | `origin_plot_app/workspace_ribbon.py` | `last_change` time stamp (for the one Undo), `quick_bar` (hidden: one visible Save / Undo / Redo) | §3 | `tests/test_ribbon_sketch.py` |
 | `origin_plot_app/workspace_actions.py` | Ctrl+S calls Save | §4 | `tests/test_workspace_actions.py` |
@@ -103,6 +103,6 @@ OPS_BANNED_TERMS=<private list> venv/bin/python tools/check_banned.py --all
 
 1. **Old commits on GitHub.** All branches now point to the clean commit, but GitHub can still show an old commit to someone who has its address until GitHub removes unreferenced commits. To be certain: ask GitHub Support to purge them, or delete the repository and create it again from the clean branch. The two old branch names could not be deleted from here; they now hold the clean commit and can be deleted in GitHub's branch list.
 2. **The account name is part of the repository address** (and of the updater's source). Changing it means a new address in `self_update.DEFAULT_SOURCE`.
-3. *(answered: the templates are inside Graph gallery since 5.52.2.)*
+3. *(answered by the owner: the gallery is inside Analysis since 5.54.0; no separate Graph gallery section.)*
 4. **EMF**: is Origin's own EMF export after "Draw in Origin like this" enough, or is an EMF writer in the app needed?
 5. **Amorphous content formula** (brief §11): not implemented as a tool yet; the formula in the brief will be used as written unless you say otherwise.

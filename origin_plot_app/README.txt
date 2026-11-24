@@ -1,3 +1,9 @@
+VERSION 5.54.0  -  THE GRAPH GALLERY IS INSIDE ANALYSIS
+  Top bar: Workspace, Analysis, Assistant, Settings. Analysis opens "Graphs and templates" (the picture gallery: tick your
+  files and the pictures, press "Draw my data like this"); the switch at its top shows "Calculations" (the analysis tools).
+  The 26 workbook graph types are pictures in the gallery, under their technique. Files you load appear in the gallery's
+  Files list at once.
+
 VERSION 5.53.0  -  PANELS YOU CAN CLOSE AND MOVE, DRAW MY DATA LIKE THIS, NEW FIGURE LAYOUTS
   - Every panel: a title strip with Fold, Float and Close. Drag the title strip to move a panel to another side or onto
     another panel (tabs). View > Panels brings a closed panel back; View > Side bar shows the side bar.

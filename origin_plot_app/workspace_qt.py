@@ -43,7 +43,7 @@ ACCENT, BLUE, INK, SOFT, LINE, GROUND = "#B4532A", "#2563EB", "#172B4D", "#52627
 NAVY, TEAL, SELECTED, PANEL = "#17324D", "#0F766E", "#EAF2FF", "#FFFFFF"
 SUCCESS, WARNING, ERROR = "#15803D", "#A16207", "#B91C1C"
 SECTIONS = [("workspace", "Workspace", None),
-            ("analysis", "Analysis", "Every analysis in one place: XRD, TGA, calorimetry and composition first, then the 44 data-analysis tools. "
+            ("analysis", "Analysis", "The calculations on your files: XRD, TGA, calorimetry and composition first, then the 44 data-analysis tools. (Every graph type is a picture in the Graph gallery.) "
                                      "Click one, set it, press Run: it works on the graphs ticked in Your graphs (or the one on show)."),
             ("figtype", "Graph gallery", "The 26 graph types that are drawn from a filled-in workbook, grouped by technique. Draw ticked workbooks as a type, or make a "
                                         "workbook template in that layout from a raw file. (The analyses are in Analysis.)"),
@@ -51,8 +51,8 @@ SECTIONS = [("workspace", "Workspace", None),
             ("settings", "Settings", ""),
             ("templates", "Templates", "Graph = template × style × your data. Tick files, templates and styles: every combination is drawn; keep the ones you want, "
                                        "then draw them in Origin, export them or combine them into one figure.")]
-NAV_ORDER = [0, 1, 2, 3, 4]             # the sections shown in the top bar. Section 5 (Templates) is inside Graph gallery: a switch at the top of both pages
-GALLERY_PAGES = (5, 2)                  # Graph gallery = the templates (first) and the 26 workbook graph types
+NAV_ORDER = [0, 1, 3, 4]                # the sections shown in the top bar: Workspace, Analysis, Assistant, Settings. The graph gallery is inside Analysis
+GALLERY_PAGES = (5, 1)                  # Analysis = the graphs and templates (page 5, first) and the calculations (page 1); a switch at the top of both. Page 2 (the old list) is not shown
 from workspace_tools import GALLERY_GROUPS, analysis_tree, figtype_tree  # noqa: E402,F401
 
 
@@ -455,7 +455,7 @@ class Workspace(QMainWindow):
             b = QPushButton(label, objectName="navbtn")
             b.setCheckable(True)
             b.setMinimumHeight(40)
-            b.clicked.connect(lambda _c=False, i=i: self.go(i))
+            b.clicked.connect(lambda _c=False, i=i: self.go((getattr(self, "gallery_last", GALLERY_PAGES[0]) if hasattr(getattr(self, "templates_page", None), "main") else 1) if i == 1 else i))
             self.navgroup.addButton(b, i)
             v.addWidget(b)
             if i == 0:
@@ -492,7 +492,7 @@ class Workspace(QMainWindow):
         else:
             self._assistant_to_dock()
         self.pages.setCurrentIndex(i)
-        nb = self.navgroup.button(2 if i in GALLERY_PAGES else i)
+        nb = self.navgroup.button(1 if i in (1, 2, 5) else i)
         if nb is not None: nb.setChecked(True)
         if i in GALLERY_PAGES: self.gallery_last = i
         if SECTIONS[i][0] == "assistant":

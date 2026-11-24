@@ -117,7 +117,7 @@ check("leaving the tab puts the chat back beside your work, with what you typed"
 w.show_assistant(False); w.go(3); w.go(1); app.processEvents()
 check("... and keeps it closed if it was closed", not w.dock.isVisible() and w.dock.widget() is w.assistant)
 w.go(0)
-check("one navigation: the five sections are in the top bar (no side bar, no second menu bar)", [b.text() for b in w.header_nav.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"]
+check("one navigation: the four sections are in the top bar (no side bar, no second menu bar)", [b.text() for b in w.header_nav.buttons()] == ["Workspace", "Analysis", "Assistant", "Settings"]
       and not w.navw.isVisible() and not w.menuBar().isVisible())
 fm = [a.text().split("\t")[0] for a in w.file_btn.menu().actions() if a.text()]
 check("one File menu (top bar): New, Refresh and the rest are in it", "New project" in fm and "Refresh previews" in fm and any(t.startswith("Save session") for t in fm), fm)
