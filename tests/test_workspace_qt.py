@@ -25,7 +25,7 @@ w = W.Workspace(files); w.resize(1440, 900); w.show()
 wait(lambda: w.thread is None and w.list.count() > 0)
 kinds = [it.kind for it in w.items]
 check("graphs read with the app's engine; combined figure made for the 3 TGA replicates", len(w.singles) == 5 and len(w.combined) >= 1 and w.list.item(0).text().startswith("★"), (len(w.singles), len(w.combined), kinds))
-check("six sections in the side bar: XRD and calorimetry are inside Analysis and Graph gallery", [b.text() for b in w.navgroup.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Templates", "Assistant", "Settings"], [b.text() for b in w.navgroup.buttons()])
+check("five sections in the side bar: XRD and calorimetry are inside Analysis and Graph gallery", [b.text() for b in w.navgroup.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"], [b.text() for b in w.navgroup.buttons()])
 import analysis_tools as at_
 ta = w.pages.widget(1).tree; groups = [ta.topLevelItem(i).text(0).split("  ")[0] for i in range(ta.topLevelItemCount())]
 n_tools = sum(ta.topLevelItem(i).childCount() for i in range(ta.topLevelItemCount()))

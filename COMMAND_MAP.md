@@ -20,7 +20,7 @@ Part 2 is the full inventory of the running window, written by `tools/command_in
 | Start afresh | File ▸ New project | File ▸ Clear / Start afresh ▸ Start afresh… (New project stays) | Ctrl+N | An empty session: keep settings and layout, or reset the layout too |
 | Reset layout | View ▸ Reset layout | View ▸ Reset layout; File ▸ Clear / Start afresh ▸ Reset layout | – | Put every panel back where it was at the first start |
 | Recover last session | File ▸ Resume last session | File ▸ Clear / Start afresh ▸ Recover last session (Resume stays) | Ctrl+Shift+R | Bring back the session the app saved by itself |
-| Templates (section) | – (new) | top bar, between Graph gallery and Assistant | – | Graph = template × style × your data |
+| Templates | – (new) | **Graph gallery** ▸ switch at the top: Templates · Workbook graph types (26) | – | Graph = template × style × your data. One Graph gallery entry in the top bar |
 | Preview | – (new) | Templates ▸ action bar | – | Draw every ticked combination of files, templates and styles from your data |
 | Open all in editor | – (new) | Templates ▸ action bar | – | Open every kept graph in the editor |
 | Draw all in Origin like this | – (new) | Templates ▸ action bar; right-click a preview | Ctrl+Shift+O (on Templates) | Send every kept graph to Origin as the same graph; each saved as {sample}_{template}.opju |

@@ -232,6 +232,8 @@ def install(w):
         a.setToolTip("TG + DTG in one graph, zones you can drag, stepwise and tangent mass loss side by side, Ca(OH)₂ / CaCO₃ from zones you confirmed, export to Excel"); a.setStatusTip(a.toolTip())
         tm.insertAction(tm.actions()[0] if tm.actions() else None, a); tm.setToolTipsVisible(True); w.tga_action = a
     except Exception: pass
+    try: _gallery_switch(w)
+    except Exception: pass
     try: w.buttons_without_tooltip = tooltips(w)
     except Exception: w.buttons_without_tooltip = []
     w.pages.currentChanged.connect(lambda _i: QTimer.singleShot(0, lambda: tooltips(w)))      # parts that are built when a section is opened
@@ -245,6 +247,28 @@ def install(w):
         if w.crashed_last_time:
             QTimer.singleShot(800, lambda: (recover_last(w) if QMessageBox.question(w, "Recover last session", "The app was not closed properly last time. Bring back the session that was saved by itself?") == QMessageBox.Yes else None))
     return w
+
+
+def _gallery_switch(w):
+    """Graph gallery is one section with two views: the templates (any template x any style x your data) and the 26
+    workbook graph types. The same two buttons sit at the top of both, so it reads as one place."""
+    import workspace_qt as WQ
+    from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel, QButtonGroup
+    names = {5: ("Templates", "Templates – Tick files, templates and styles: every combination is drawn from your data; draw them in Origin, export or combine them"),
+             2: ("Workbook graph types (26)", "Workbook graph types – The 26 graph types that are drawn from a filled-in workbook (G01–G24, C01, C02), and their workbook templates")}
+    w.gallery_switch = {}
+    for i in WQ.GALLERY_PAGES:
+        pg = w.pages.widget(i)
+        if pg is None or pg.layout() is None or not hasattr(pg, "main"): continue
+        bar = QWidget(); h = QHBoxLayout(bar); h.setContentsMargins(2, 0, 2, 2); h.setSpacing(6); h.addWidget(QLabel("Graph gallery:", objectName="soft")); grp = QButtonGroup(bar); grp.setExclusive(True)
+        for j in WQ.GALLERY_PAGES:
+            b = QPushButton(names[j][0], objectName="navbtn"); b.setCheckable(True); b.setChecked(j == i); b.setToolTip(names[j][1]); b.setStatusTip(names[j][1]); b.setMinimumHeight(30)
+            b.clicked.connect(lambda _c=False, j=j: w.go(j)); grp.addButton(b, j); h.addWidget(b)
+        h.addStretch(1); pg.layout().insertWidget(0, bar); w.gallery_switch[i] = grp
+    def keep(i):
+        g = w.gallery_switch.get(i)
+        if g is not None and g.button(i) is not None: g.button(i).setChecked(True)
+    w.pages.currentChanged.connect(keep)
 
 
 TIPS = {  # buttons that had no tooltip: name (shortcut) – what it does. Disabled: what enables it.

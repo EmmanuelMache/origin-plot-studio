@@ -22,7 +22,17 @@ for i, nm in enumerate(["Sample_A", "Sample_B", "Sample_C"]):
 sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest(); before = [sha(p) for p in files]
 w = W.Workspace([]); w.resize(1500, 900); w.show(); app.processEvents()
 pg = w.templates_page
-check("the Templates section is in the top bar, between Graph gallery and Assistant", [b.text() for b in w.header_nav.buttons()].index("Templates") == 3 and hasattr(pg, "main"))
+names_ = [b.text() for b in w.header_nav.buttons()]
+check("one Graph gallery entry in the top bar; the templates are inside it (no separate Templates section)", names_ == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"] and hasattr(pg, "main"), names_)
+w.header_nav.button(2).click(); app.processEvents()
+check("clicking Graph gallery opens the templates first", w.pages.currentWidget() is pg and w.header_nav.button(2).isChecked())
+sw = [b.text() for b in w.gallery_switch[5].buttons()]
+check("a switch at the top of the gallery: Templates | Workbook graph types (26)", sw == ["Templates", "Workbook graph types (26)"] and w.gallery_switch[5].button(5).isChecked(), sw)
+w.gallery_switch[5].button(2).click(); app.processEvents()
+check("the switch shows the 26 workbook graph types; Graph gallery stays the section", w.pages.currentIndex() == 2 and w.header_nav.button(2).isChecked() and w.gallery_switch[2].button(2).isChecked())
+w.header_nav.button(0).click(); w.header_nav.button(2).click(); app.processEvents()
+check("Graph gallery opens again where you left it", w.pages.currentIndex() == 2)
+w.gallery_switch[2].button(5).click(); app.processEvents()
 w.go(5); app.processEvents()
 names = [d.windowTitle().replace("⠿", "").strip() for d in pg.main.findChildren(QDockWidget)]
 check("six panels: Files, Columns, Templates, Styles, Previews, Variants - each movable, floatable, closable", sorted(names) == ["Columns", "Files", "Previews", "Styles", "Templates", "Variants"]

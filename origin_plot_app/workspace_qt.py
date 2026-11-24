@@ -51,7 +51,8 @@ SECTIONS = [("workspace", "Workspace", None),
             ("settings", "Settings", ""),
             ("templates", "Templates", "Graph = template × style × your data. Tick files, templates and styles: every combination is drawn; keep the ones you want, "
                                        "then draw them in Origin, export them or combine them into one figure.")]
-NAV_ORDER = [0, 1, 2, 5, 3, 4]          # how the sections are shown (the numbers of the sections stay as they were)
+NAV_ORDER = [0, 1, 2, 3, 4]             # the sections shown in the top bar. Section 5 (Templates) is inside Graph gallery: a switch at the top of both pages
+GALLERY_PAGES = (5, 2)                  # Graph gallery = the templates (first) and the 26 workbook graph types
 from workspace_tools import GALLERY_GROUPS, analysis_tree, figtype_tree  # noqa: E402,F401
 
 
@@ -491,7 +492,9 @@ class Workspace(QMainWindow):
         else:
             self._assistant_to_dock()
         self.pages.setCurrentIndex(i)
-        self.navgroup.button(i).setChecked(True)
+        nb = self.navgroup.button(2 if i in GALLERY_PAGES else i)
+        if nb is not None: nb.setChecked(True)
+        if i in GALLERY_PAGES: self.gallery_last = i
         if SECTIONS[i][0] == "assistant":
             self.assistant.input.setFocus()
 

@@ -121,10 +121,10 @@ def _header(w):
         _k, name, _t = WQ.SECTIONS[i]
         b = QPushButton(name, objectName="navtab"); b.setCheckable(True); b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(f"{name} (Ctrl+{i + 6})" if i < 4 else name)
-        b.clicked.connect(lambda _c=False, i=i: w.go(i))
+        b.clicked.connect(lambda _c=False, i=i: w.go(getattr(w, "gallery_last", WQ.GALLERY_PAGES[0]) if i == 2 else i))      # Graph gallery opens where you left it (templates first)
         w.header_nav.addButton(b, i); tb_lay.addWidget(b)
     w.header_nav.button(w.pages.currentIndex()).setChecked(True)
-    w.pages.currentChanged.connect(lambda i: w.header_nav.button(i).setChecked(True) if w.header_nav.button(i) else None)
+    w.pages.currentChanged.connect(lambda i: w.header_nav.button(2 if i in WQ.GALLERY_PAGES else i).setChecked(True) if w.header_nav.button(2 if i in WQ.GALLERY_PAGES else i) else None)
     tb_lay.addStretch(1)
     w.search.setMinimumWidth(170); w.search.setMaximumWidth(260); w.search.setPlaceholderText("Find a graph")
     tb_lay.addWidget(w.search)

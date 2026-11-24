@@ -1,3 +1,7 @@
+VERSION 5.52.2  -  ONE GRAPH GALLERY
+  The templates are inside Graph gallery (no separate Templates section in the top bar). A switch at the top of the
+  gallery shows "Templates" or "Workbook graph types (26)"; Graph gallery opens where you left it.
+
 VERSION 5.52.0  -  TEMPLATES (MULTIPLE SELECTION), THE SAME GRAPH IN ORIGIN, SESSION BASICS, TGA / DTG MODULE
   TEMPLATES (new section, between Graph gallery and Assistant)
     Graph = template x style x your data. Six panels you can move, float, close and reopen: Files, Columns, Templates,

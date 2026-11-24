@@ -2,6 +2,10 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.52.2
+
+* **One Graph gallery.** The templates are inside *Graph gallery* now; the separate *Templates* entry in the top bar is gone. A switch at the top of the gallery shows **Templates** or **Workbook graph types (26)**, and the gallery opens where you left it.
+
 ## 5.52.1
 
 * The app finishes its own update: when a part of a new version is still missing after an update (the template library), the button **Finish the update (one click)** appears at the top by itself.
@@ -9,7 +13,7 @@ What changed for the user, newest first. Versions are those of the app (Help ▸
 ## 5.52.0
 
 ### New: Templates (graph = template × style × your data)
-* A new section **Templates** between *Graph gallery* and *Assistant*, with six panels: Files, Columns, Templates, Styles, Previews, Variants.
+* A new view **Templates** (inside *Graph gallery* since 5.52.2), with six panels: Files, Columns, Templates, Styles, Previews, Variants.
 * **Multiple selection everywhere**: click, Ctrl+click, Shift+click, Ctrl+A and a tick box on every row, in every list. *Select all in this category*, *Clear selection*, and a count such as "3 files · 4 templates · 2 styles selected → 24 previews".
 * **Previews with my data**: every ticked combination files × templates × styles is drawn from your files. Double click a tile to enlarge and edit it. Tick the ones to keep.
 * **118 graph templates** can be drawn (104 from the template library, 14 new from Tier 1 of the catalogue). The other graph types of the catalogue are listed as *coming*.
