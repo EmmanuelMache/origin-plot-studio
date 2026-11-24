@@ -559,10 +559,12 @@ def startup_checks(self):
     def look():
         import self_update as su
         try:
-            r = su.find_update(src, sp.VERSION)
+            part = su.incomplete(str(HERE))                   # a folder of this version is missing here (the update came through an older updater)
+            r = su.find_update(src, "0.0.0" if part else sp.VERSION)
         except Exception:
             return
         if r:
+            if part: r = dict(r); r["completes"] = True
             self.pipe.msg.emit(("waiting", r))
     threading.Thread(target=look, daemon=True).start()
 
@@ -572,6 +574,11 @@ def _upd_msg(self, m):
     if kind == "waiting":
         self.upd_known = m[1]
         v = str(m[1].get("version") or "")
+        if m[1].get("completes"):
+            self.upd_btn.setText("↑ Finish the update (one click)")
+            self.upd_btn.show()
+            self.set_status("One part of the new version (the template library) is still to be installed: press 'Finish the update' at the top.")
+            return
         self.upd_btn.setText(f"↑ Update {v} available" if v else "↑ Update available")
         self.upd_btn.show()
         self.set_status(f"Version {v} is available: press 'Update {v} available' at the top to install it.")

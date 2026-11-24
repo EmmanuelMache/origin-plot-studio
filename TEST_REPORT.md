@@ -1,4 +1,4 @@
-# TEST_REPORT – upgrade v2, app version 5.52.0
+# TEST_REPORT – upgrade v2, app version 5.52.1
 
 Where it was run: a Linux container, Python 3.12, PySide6 with `QT_QPA_PLATFORM=offscreen`. **No Windows and no Origin were
 available.** Everything that needs Origin was run through the app's own Origin driver in dry-run mode (it records the
@@ -43,7 +43,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_opstudio.py` | 45 | 0 |  |
 | `tests/test_peak_correct_tab.py` | 18 | 0 |  |
 | `tests/test_ribbon_sketch.py` | 37 | 0 |  |
-| `tests/test_session_basics.py` | 32 | 0 |  |
+| `tests/test_session_basics.py` | 34 | 0 |  |
 | `tests/test_shell_layout.py` | 41 | 0 |  |
 | `tests/test_stop_analysis.py` | 9 | 0 |  |
 | `tests/test_templates_page.py` | 41 | 0 |  |
@@ -61,7 +61,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **823** | **1** | 30 files |
+| **Total** | **825** | **1** | 30 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.50.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

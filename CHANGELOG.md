@@ -2,6 +2,10 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.52.1
+
+* The app finishes its own update: when a part of a new version is still missing after an update (the template library), the button **Finish the update (one click)** appears at the top by itself.
+
 ## 5.52.0
 
 ### New: Templates (graph = template × style × your data)

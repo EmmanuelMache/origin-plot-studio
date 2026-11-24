@@ -80,5 +80,10 @@ if WM.LASTSES.exists(): os.remove(WM.LASTSES)
 WS.autosave_now(w); check("the autosave writes the session that 'Recover last session' reads", WM.LASTSES.exists())
 WS._flag().write_text("x"); check("after a crash (the running flag is left behind) the app knows there is a session to recover", w.needs_recovery())
 w.clear_all_graphs(); w.recover_last(); wait(w); check("Recover last session brings the graphs back", len(w.singles) == n0)
+# ---- the app finishes its own update
+import self_update as su
+check("the updater knows when a folder of the new version is missing here", su.incomplete(str(TMP)) and not su.incomplete(str(ROOT / "origin_plot_app")))
+w._upd_msg(("waiting", {"version": sp.VERSION, "completes": True}))
+check("… and then the button 'Finish the update (one click)' appears by itself", w.upd_btn.text().startswith("↑ Finish the update") and "Finish the update" in w.status.text(), w.upd_btn.text())
 w.close(); check("closing properly clears the flag: nothing to recover next time", not WS._flag().exists())
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)
