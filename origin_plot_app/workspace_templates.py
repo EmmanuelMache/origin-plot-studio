@@ -643,11 +643,19 @@ class TemplatePage(QWidget):
 
     def draw_my_data(self):
         """The ticked template pictures drawn from the user's data: asks for files when none is ticked."""
+        try:
+            return self._draw_my_data()
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            self.ws.set_status(f"'Draw my data like this' failed: {type(e).__name__}: {e}"); self.pmsg.setText(f"This did not work: {type(e).__name__}: {e}"); return None
+
+    def _draw_my_data(self):
         if not [t for t in checked(self.grid) if not str(t).startswith("coming:")]:
             self.ws.set_status("Click a template picture first (it gets a tick and a blue frame), then press 'Draw my data like this'."); self.pmsg.setText("Click a template picture on the left first: it gets a ✓ and a blue frame."); return None
         if not checked(self.files):
             if self.files.count(): set_checked(self.files, range(self.files.count()), True)
-            elif not getattr(self, "silent", False): self.add_files()
+            elif not getattr(self, "silent", False):
+                self.ws.set_status("No files are loaded yet: choose your data files."); self.window().raise_() if self.window() else None; self.add_files(); self.window().raise_() if self.window() else None
             if not checked(self.files): self.ws.set_status("Add your data files first (Add files…): they are drawn in the ticked templates."); return None
         self._timer.stop(); self.rebuild_previews(); return len(self.tiles)
 

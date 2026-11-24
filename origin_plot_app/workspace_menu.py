@@ -106,6 +106,7 @@ def install(w):
     h.addSeparator()
     add(h, "System Check", w.system_check)
     add(h, "Problem report…", w.problem_report)
+    add(h, "Open the error log…", w.open_error_log)
     add(h, "Mouse actions and keyboard shortcuts", w.show_shortcuts, shown_key="F1")
     add(h, "About Origin Plot Studio", w.about)
     w.menus = {"file": f, "draw": d, "analysis": a, "xrd": x, "view": v, "help": h}
@@ -790,7 +791,7 @@ def problem_report(self, folder=None):
     with zipfile.ZipFile(p, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("about.txt", "\n".join(about))
         z.writestr("details.txt", self.details.toPlainText())
-        for nm in ("settings.json", "settings_modern.json", "last_run_log.txt", "startup_error.txt", "console_output.txt"):
+        for nm in ("settings.json", "settings_modern.json", "last_run_log.txt", "startup_error.txt", "console_output.txt", "error_log.txt"):
             if (HERE / nm).exists():
                 txt = (HERE / nm).read_text(encoding="utf-8", errors="replace")
                 if nm.startswith("settings"):
@@ -803,6 +804,20 @@ def problem_report(self, folder=None):
                 z.writestr(nm, txt)
     self.set_status(f"Problem report written: {p} (messages, settings, the list of graphs; no tables, no key).")
     return p
+
+
+def open_error_log(self):
+    """A command that failed is written here (full error), even though the app has no console window. Problem report… includes it too."""
+    p = HERE / "error_log.txt"
+    if not p.exists() or not p.read_text(encoding="utf-8", errors="replace").strip():
+        self.set_status("No command has failed since the app was last installed: error_log.txt is empty or does not exist yet.")
+        return None
+    try:
+        if os.name == "nt": os.startfile(str(p))
+        else: __import__("subprocess").Popen(["xdg-open", str(p)])
+    except Exception:
+        self.set_status(f"The error log is here: {p}")
+    return str(p)
 
 
 def about(self):
@@ -818,4 +833,4 @@ def about(self):
 METHODS = {f.__name__: f for f in (new_project, autosave, resume_last, import_origin, convert_files, write_workbook, figtype_template_any, refresh_previews,
                                    open_entry, paper_figures, own_graph_dialog, typed_labels_dialog, phase_library, update_source, _upd_token,
                                    startup_checks, _upd_msg, _upd_install, check_updates, update_from_zip, undo_update, update_source_dialog, restart_app,
-                                   system_check, problem_report, about)}
+                                   system_check, problem_report, open_error_log, about)}

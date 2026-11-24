@@ -2073,6 +2073,41 @@ class Workspace(QMainWindow):
                 pass
 
 
+ERROR_LOG = HERE / "error_log.txt"
+_LAST_WINDOW = []                                       # the running Workspace, once it exists (for the exception hook below)
+
+
+def _install_excepthook():
+    """Without a console (the app is started with pythonw.exe) an exception in a button click is normally never seen: Qt
+    swallows it and the click just does nothing. This writes it to error_log.txt and shows it in the status bar / a message
+    box instead, so a broken command is visible rather than silent."""
+    default_hook = sys.excepthook
+
+    def hook(etype, value, tb):
+        msg = "".join(traceback.format_exception(etype, value, tb))
+        try:
+            with open(ERROR_LOG, "a", encoding="utf-8") as f:
+                f.write(f"\n--- {__import__('datetime').datetime.now().isoformat(timespec='seconds')}  version {sp.VERSION} ---\n{msg}")
+        except Exception:
+            pass
+        try:
+            default_hook(etype, value, tb)
+        except Exception:
+            pass
+        w_ = _LAST_WINDOW[0] if _LAST_WINDOW else None
+        one_line = (str(value) or etype.__name__)[:160]
+        try:
+            if w_ is not None:
+                w_.set_status(f"!! This command failed: {one_line}  (the full error is in error_log.txt next to the app)")
+                w_.log("!! " + msg.strip().splitlines()[-1] if msg.strip() else "!! " + one_line)
+            else:
+                QMessageBox.critical(None, "Origin Plot Studio", f"This did not work:\n\n{one_line}\n\nThe full error is in error_log.txt next to the app.")
+        except Exception:
+            pass
+
+    sys.excepthook = hook
+
+
 def main(argv=None):
     a = argparse.ArgumentParser(description=TITLE)
     a.add_argument("--files", help="JSON file with the paths of the graphs to open")
@@ -2093,6 +2128,7 @@ def main(argv=None):
         except Exception:
             paths = []
     paths += [str(Path(p).resolve()) for p in o.paths if Path(p).is_file()]
+    _install_excepthook()
     app = QApplication.instance() or QApplication(sys.argv)
     try:
         from PySide6.QtGui import QIcon
@@ -2107,6 +2143,7 @@ def main(argv=None):
     app.setPalette(pal)
     app.setStyleSheet(STYLE)
     w = Workspace(paths, o.ready_file or os.environ.get("OPS_READY_FILE"))
+    _LAST_WINDOW[:] = [w]
     w.show()
     QTimer.singleShot(200, w.mark_ready)
     if o.parent:

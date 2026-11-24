@@ -37,3 +37,4 @@ config/*.local.json
 origin_plot_app/config/*.local.json
 _upgrade_pack/
 dry_commands.txt
+origin_plot_app/error_log.txt

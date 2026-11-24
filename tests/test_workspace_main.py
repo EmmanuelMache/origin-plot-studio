@@ -33,7 +33,7 @@ check("File: new, add, open, resume, save, Origin project, convert, workbook, te
                                                      "Convert files to Excel", "Save everything as one workbook", "Workbook template", "Make a gallery graph template",
                                                      "Refresh previews", "Open results folder", "Exit")) and not any("Classic" in t for t in ft), ft)
 ht = [a.text().split("\t")[0] for a in w.menus["help"].actions() if a.text()]
-check("Help: updates (check, zip, undo, source), System Check, problem report, shortcuts, about", len(ht) == 8 and ht[0] == "Check for updates…", ht)
+check("Help: updates (check, zip, undo, source), System Check, problem report, error log, shortcuts, about", len(ht) == 9 and ht[0] == "Check for updates…" and "Open the error log…" in ht, ht)
 seqs = [a.shortcut().toString() for a in w.findChildren(type(w.menus["file"].actions()[0])) if a.shortcut().toString() and (a.isVisible() or True)]
 acts = {id(a): a for a in list(w.actions()) + [a for m in w.menus.values() for a in m.actions()]}      # the same action in two menus counts once
 win = [a.shortcut().toString() for a in acts.values() if a.shortcut().toString()]
@@ -222,4 +222,16 @@ check("setup keeps settings_modern.json when it installs again", "settings_moder
 check("the updater never replaces settings_modern.json", "settings_modern.json" in su.NEVER)
 r = W.main.__code__.co_varnames
 check("the main window opens files given at the start (dropped on the shortcut)", "paths" in r)
+# ---------------------------------------------------------------- a failed command is logged and shown, not silently swallowed
+check("the updater never touches the error log", "error_log.txt" in su.NEVER)
+if W.ERROR_LOG.exists(): W.ERROR_LOG.unlink()
+W._install_excepthook(); W._LAST_WINDOW[:] = [w]
+try: raise ValueError("synthetic test failure")
+except Exception: sys.excepthook(*sys.exc_info())
+check("an unhandled exception (as happens without a console on Windows) is written to error_log.txt and shown in the status bar",
+      W.ERROR_LOG.exists() and "synthetic test failure" in W.ERROR_LOG.read_text(encoding="utf-8") and "synthetic test failure" in w.status.text())
+p = w.open_error_log()
+check("Help > Open the error log… finds the file", p is not None and os.path.isfile(p))
+W.ERROR_LOG.unlink()
+check("with no error logged, Open the error log… says so instead of opening nothing", w.open_error_log() is None and "No command has failed" in w.status.text())
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)
