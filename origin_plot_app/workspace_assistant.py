@@ -18,8 +18,8 @@ import os
 import threading
 
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QTextBrowser, QVBoxLayout,
+from PySide6.QtGui import QColor, QKeySequence, QShortcut
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QTextBrowser, QVBoxLayout,
                                QWidget)
 
 import assistant as ai
@@ -417,6 +417,8 @@ class AssistantPanel(QWidget):
                           "QPlainTextEdit { border: none; background: transparent; } "
                           "QPushButton#plus { border: 1px solid #C9D2DC; border-radius: 17px; background: #F4F6F8; font-size: 16pt; font-weight: 600; "
                           "color: #2563EB; padding: 0px; min-width: 0px; } QPushButton#plus:hover { background: #EAF2FF; }")
+        shadow = QGraphicsDropShadowEffect(box); shadow.setBlurRadius(18); shadow.setOffset(0, 3); shadow.setColor(QColor(23, 50, 77, 55))
+        box.setGraphicsEffect(shadow)       # a soft lift under the box you type into (a plain child widget here, so it renders correctly - never on a floating/top-level window)
         bl = QHBoxLayout(box)
         bl.setContentsMargins(4, 4, 6, 4)
         from PySide6.QtWidgets import QToolButton

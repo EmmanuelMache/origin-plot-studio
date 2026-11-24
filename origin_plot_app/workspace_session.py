@@ -9,7 +9,7 @@
 import json, os, time
 from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QStringListModel
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QColor, QKeySequence, QPalette
 from PySide6.QtWidgets import QCompleter, QLineEdit, QMenu, QMessageBox, QPushButton, QToolButton, QAbstractButton, QFileDialog
 
 import smart_plots as sp
@@ -348,6 +348,7 @@ def _header(w):
     w.cmd = QLineEdit(placeholderText="Search commands…  (Ctrl+Q)"); w.cmd.setObjectName("cmdsearch"); w.cmd.setMinimumWidth(170); w.cmd.setMaximumWidth(240); w.cmd.setClearButtonEnabled(True)
     w.cmd.setToolTip("Command search (Ctrl+Q) – Type a part of a command's name and press Enter to run it: 'export', 'origin', 'reset layout', 'clear all graphs' …")
     w.cmd.setStyleSheet("QLineEdit#cmdsearch { background: #24486B; color: white; border: 1px solid #3A6088; border-radius: 6px; padding: 5px 8px; }")
+    pal = w.cmd.palette(); pal.setColor(QPalette.PlaceholderText, QColor("#B9C9DE")); w.cmd.setPalette(pal)      # readable on the dark header (Qt ignores it in style sheets)
     w._cmd_model = QStringListModel(w); comp = QCompleter(w._cmd_model, w); comp.setCaseSensitivity(Qt.CaseInsensitive); comp.setFilterMode(Qt.MatchContains); comp.setMaxVisibleItems(14); w.cmd.setCompleter(comp)
     def refresh(): w._cmd_model.setStringList(sorted(commands(w)))
     def go():

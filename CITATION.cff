@@ -5,4 +5,4 @@ type: software
 authors:
   - name: "Origin Plot Studio authors"
 license: MIT
-version: "5.54.4"
+version: "5.54.5"

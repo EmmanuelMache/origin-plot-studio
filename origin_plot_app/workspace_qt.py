@@ -134,16 +134,34 @@ QTabWidget::pane {{ border: 0; }}
 QTabBar::tab {{ padding: 6px 14px; border: 0; background: transparent; color: {SOFT}; margin-right: 2px; }}
 QTabBar::tab:hover {{ color: {INK}; }}
 QTabBar::tab:selected {{ color: {BLUE}; font-weight: 600; border-bottom: 2px solid {BLUE}; }}
-QTableView {{ border: 1px solid #E3E9F1; gridline-color: #E3E9F1; font-family: "IBM Plex Mono", Consolas, monospace; selection-background-color: {SELECTED}; selection-color: {INK}; }}
+QTableView {{ border: 1px solid #E3E9F1; gridline-color: #E3E9F1; font-family: "IBM Plex Mono", Consolas, monospace; selection-background-color: {SELECTED}; selection-color: {INK}; alternate-background-color: #F8FAFC; }}
 QHeaderView::section {{ background: #F3F6FA; color: {NAVY}; border: 0; border-right: 1px solid {LINE}; border-bottom: 1px solid {LINE}; padding: 4px 6px; font-weight: 600; }}
 QScrollArea {{ border: 0; background: transparent; }}
+/* scroll bars: thin and flat everywhere, instead of the operating system's own (which look out of place beside the rest) */
+QScrollBar:vertical {{ background: transparent; width: 12px; margin: 2px; }}
+QScrollBar::handle:vertical {{ background: #C7D2E0; min-height: 28px; border-radius: 5px; margin: 0 3px; }}
+QScrollBar::handle:vertical:hover {{ background: #9DB3CF; }}
+QScrollBar::handle:vertical:pressed {{ background: {BLUE}; }}
+QScrollBar:horizontal {{ background: transparent; height: 12px; margin: 2px; }}
+QScrollBar::handle:horizontal {{ background: #C7D2E0; min-width: 28px; border-radius: 5px; margin: 3px 0; }}
+QScrollBar::handle:horizontal:hover {{ background: #9DB3CF; }}
+QScrollBar::handle:horizontal:pressed {{ background: {BLUE}; }}
+QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; border: 0; background: none; }}
+QScrollBar::add-page, QScrollBar::sub-page {{ background: none; }}
+/* menus (File ▾, right-click, ... ▾): a flat card instead of the operating system's own menu look */
+QMenu {{ background: {PANEL}; border: 1px solid {LINE}; border-radius: 8px; padding: 4px; }}
+QMenu::item {{ padding: 6px 28px 6px 12px; border-radius: 6px; color: {INK}; }}
+QMenu::item:selected {{ background: {SELECTED}; color: {BLUE}; }}
+QMenu::item:disabled {{ color: #AEB9C7; }}
+QMenu::separator {{ height: 1px; background: {LINE}; margin: 4px 8px; }}
+QMenu::icon {{ padding-left: 4px; }}
 #selbar {{ background: {PANEL}; border: 1px solid #C5D0DE; border-radius: 8px; }}
 #section {{ text-align: left; padding: 6px 4px; border: 0; border-bottom: 1px solid {LINE}; border-radius: 0; background: transparent; font-weight: 600; color: {NAVY}; }}
 #section:hover {{ background: #F1F6FD; }}
 QToolButton#step {{ padding: 3px 8px; color: {SOFT}; border-radius: 12px; }}
 QToolButton#step:checked {{ color: {BLUE}; background: {SELECTED}; font-weight: 600; }}
 #thumb {{ background: {PANEL}; border: 1px solid {LINE}; border-radius: 8px; padding: 6px; }}
-#thumb:hover {{ border-color: #9DB3CF; }}
+#thumb:hover {{ border-color: #9DB3CF; background: #FAFCFE; }}
 #thumb:checked {{ border: 2px solid {BLUE}; background: {SELECTED}; }}
 /* the ribbon (Workspace only): compact, light */
 #ribbody {{ background: {PANEL}; border: 1px solid {LINE}; border-radius: 8px; }}
@@ -163,6 +181,12 @@ QTabBar#ribtabs::tab:selected {{ color: {BLUE}; border-bottom: 2px solid {BLUE};
 QProgressBar#busy {{ border: 1px solid {LINE}; border-radius: 6px; background: white; text-align: center; font-size: 8pt; }}
 QProgressBar#busy::chunk {{ background: {BLUE}; border-radius: 5px; }}
 """
+
+
+def _light_placeholder(edit, colour="#B9C9DE"):
+    """A search field on the dark header: its placeholder text defaults to a faint grey derived from the field's own text
+    colour, which is nearly unreadable on navy. Qt only takes a placeholder colour from the palette, not the style sheet."""
+    pal = edit.palette(); pal.setColor(QPalette.PlaceholderText, QColor(colour)); edit.setPalette(pal)
 
 
 def parent_alive(pid):
@@ -415,6 +439,7 @@ class Workspace(QMainWindow):
         h.addStretch(1)
         self.search = QLineEdit(placeholderText="Find a graph by name")
         self.search.setMinimumWidth(200)
+        _light_placeholder(self.search)
         self.search.textChanged.connect(self.filter_graphs)
         h.addWidget(self.search)
         h.addStretch(1)
@@ -1161,11 +1186,13 @@ class Workspace(QMainWindow):
         dv = self.dataview = QTableView()
         dv.setModel(self.datamodel)
         dv.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        dv.setAlternatingRowColors(True)
         self.tabs.addTab(dv, "Data")
         self.resmodel = DataFrameModel()
         rv = self.resview = QTableView()
         rv.setModel(self.resmodel)
         rv.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        rv.setAlternatingRowColors(True)
         rw = QWidget()
         rl = QVBoxLayout(rw)
         rl.setContentsMargins(0, 6, 0, 0)

@@ -2,6 +2,15 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.54.5
+
+* **Visual polish pass**, after a review of the window against modern desktop conventions:
+  * The header's two search fields ("Search commands…", "Find a graph") now show readable placeholder text on the dark bar - it used to be almost invisible.
+  * Scroll bars and right-click / dropdown menus now follow the app's own flat style everywhere, instead of the operating system's own look.
+  * Analysis ▸ Graphs and templates: the Files panel's "Add files…" button was being clipped at the panel's default width ("dd files…"); it is now the clear, full-width first action, with "Tick selected" / "Clear" below it.
+  * Data and Results tables read more easily with faint alternating row shading.
+  * A template picture now lifts slightly (a soft background tint) on hover, and the box you type into in the Assistant has a subtle drop shadow under it - a touch of depth, never blur or transparency, so nothing loses contrast.
+
 ## 5.54.4
 
 * **Fixed: a multi-sheet workbook could draw the wrong sheet.** When a file has many sheets and none is called "Data", the sheet picked is now the one that actually fits the ticked template (tried against it directly), not just the sheet with the most numeric columns or the first sheet - which could be a text-only guide page.
