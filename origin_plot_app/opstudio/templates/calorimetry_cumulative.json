@@ -11,7 +11,9 @@
   "series": "cumulative heat per sample",
   "regimes": "user-defined groups"
  },
- "default_params": {},
+ "default_params": {
+  "cum_factor": 3.6
+ },
  "origin_hint": "Origin: Line plot + bracket via Insert > Line objects.",
  "recommended_for": [
   "calorimetry"

@@ -12,8 +12,8 @@ def check(name, ok, extra=""):
     N[0 if ok else 1] += 1; print(("PASS  " if ok else "FAIL  ") + name + (f"   [{extra}]" if extra != "" else ""))
 
 LIB = os.path.join(ROOT, "origin_plot_app", "opstudio")
-check("118 templates registered (104 of the pack + 14 of Tier 1), each with a JSON (opstudio.template/1) and a preview",
-      len(opstudio.REGISTRY) == 118 and all(os.path.isfile(os.path.join(LIB, "templates", t + ".json")) and os.path.isfile(os.path.join(LIB, "previews", t + ".png")) for t in opstudio.REGISTRY))
+check("121 templates registered (104 of the pack + 14 of Tier 1 + 3 composed figures), each with a JSON (opstudio.template/1) and a preview",
+      len(opstudio.REGISTRY) == 121 and all(os.path.isfile(os.path.join(LIB, "templates", t + ".json")) and os.path.isfile(os.path.join(LIB, "previews", t + ".png")) for t in opstudio.REGISTRY))
 j = json.load(open(os.path.join(LIB, "templates", "xrd_stacked_offset.json"), encoding="utf-8"))
 check("template JSON carries the contract keys and origin_template", j["schema"] == "opstudio.template/1" and all(k in j for k in ("data_roles", "default_params", "origin_hint", "origin_template", "label_policy")))
 st = api.styles(); ids = [s[0] for s in st]
@@ -35,7 +35,7 @@ for tid in opstudio.REGISTRY:
         except api.Unfit: pass
         except Exception as e: crashed.append((tid, k, repr(e)[:60]))
 check("every template draws from a plain user table or says what it needs (no crash)", not crashed, crashed[:3])
-check("at least 116 of 118 templates draw from one of the plain test tables (the image grid needs images)", len(ok) >= 116, (len(ok), sorted(set(opstudio.REGISTRY) - ok)))
+check("at least 118 of 121 templates draw from one of the plain test tables (the image grid needs images)", len(ok) >= 118, (len(ok), sorted(set(opstudio.REGISTRY) - ok)))
 try: api.draw("sem_panel_layout", sets["xy"]); msg = ""
 except api.Unfit as e: msg = str(e)
 check("a template that cannot use the file says why in plain words", "image" in msg, msg)
@@ -78,6 +78,35 @@ csvp = os.path.join(d, "a.csv"); xy.to_csv(csvp, index=False); xp = os.path.join
 h = lambda p: __import__("hashlib").sha256(open(p, "rb").read()).hexdigest(); h0 = (h(csvp), h(xp))
 ta, tb = D.read_tables(csvp), D.read_tables(xp); api.draw("xrd_stacked_offset", ta); api.draw("scatter_linear_fit", tb)
 check("CSV and Excel files are read as tables and never written", len(ta) == 1 and len(tb) == 1 and (h(csvp), h(xp)) == h0)
+# ---------------------------------------------------------------- zoom and inset can be switched off
+ri = pd.DataFrame({"2theta": x, "obs": xy["Sample A"], "calc": xy["Sample A"] * 0.98}); rt = [D.Table("fit", ri)]
+on, _ = api.draw("rietveld_fit_diff_ticks", rt, params={"inset": True, "zoom": [28, 31]}); off, _ = api.draw("rietveld_fit_diff_ticks", rt, params={"inset": False, "zoom": [28, 31]})
+band = lambda f: sum(1 for pt in f.axes[0].patches if type(pt).__name__ in ("Rectangle", "Polygon"))
+check("XRD fit: inset ticked = grey band + inset; unticked = neither", len(on.axes[0].child_axes) == 1 and band(on) == 1 and len(off.axes[0].child_axes) == 0 and band(off) == 0, (band(on), band(off)))
+far, _ = api.draw("rietveld_fit_diff_ticks", rt, params={"inset": True, "zoom": [90, 95]}); check("a zoom window outside the data is left out (no empty inset, no error)", len(far.axes[0].child_axes) == 0 and band(far) == 0)
+z_on, _ = api.draw("xrd_stack_with_zoom", sets["xy"], params={"zoom": [28, 34]}); z_off, _ = api.draw("xrd_stack_with_zoom", sets["xy"], params={"show_zoom": False}); z_far, _ = api.draw("xrd_stack_with_zoom", sets["small"])
+check("stacked XRD: zoom panel on = two panels, 'show zoom' unticked = the stack alone; a window without data = the stack alone", len(z_on.axes) == 2 and len(z_off.axes) == 1 and len(z_far.axes) == 1, (len(z_on.axes), len(z_off.axes), len(z_far.axes)))
+ci_on, _ = api.draw("calorimetry_heatflow_inset", [D.Table("cal", pd.DataFrame({"Time (h)": np.linspace(0.01, 100, 400), "A": np.exp(-np.linspace(0.01, 100, 400) / 30)}))]); ci_off, _ = api.draw("calorimetry_heatflow_inset", [D.Table("cal", pd.DataFrame({"Time (h)": np.linspace(0.01, 100, 400), "A": np.exp(-np.linspace(0.01, 100, 400) / 30)}))], params={"inset": False})
+check("heat flow: inset ticked / unticked", len(ci_on.axes[0].child_axes) == 1 and len(ci_off.axes[0].child_axes) == 0)
+
+# ---------------------------------------------------------------- composed figures
+t_h = np.linspace(0.01, 168, 800); hfA = 2 * np.exp(-0.5 * ((t_h - 12) / 6) ** 2) + 0.1; cal = pd.DataFrame({"Time (h)": t_h, "Mix 1 (mW/g)": hfA, "Mix 2 (mW/g)": hfA * 0.5})
+fc, mpc = api.draw("calorimetry_pair_inset_groups", [D.Table("cal", cal)], overrides={"regimes": [{"name": "Group I", "members": ["Mix 1 (mW/g)"]}]})
+exp_J = float(np.sum(0.5 * (hfA[1:] + hfA[:-1]) * np.diff(t_h)) * 3.6); got = float(fc.axes[1].get_lines()[0].get_ydata()[-1])
+check("calorimetry figure: (a) heat flow with inset, (b) cumulative heat; J/g = integral of mW/g over hours x 3.6", len(fc.axes) == 2 and len(fc.axes[0].child_axes) == 1 and abs(got - exp_J) / exp_J < 1e-6, (round(got, 1), round(exp_J, 1)))
+check("group brackets are drawn only for the groups the user gave", [t.get_text() for t in fc.axes[1].texts] == ["Group I"] and [t.get_text() for t in api.draw("calorimetry_pair_inset_groups", [D.Table("cal", cal)])[0].axes[1].texts] == [])
+f2p, _ = api.draw("calorimetry_two_panel", [D.Table("cal", cal)]); got2 = max(float(l.get_ydata()[-1]) for l in f2p.axes[1].get_lines())
+check("the older two-panel calorimetry template uses the same unit factor for the user's data", abs(got2 - exp_J) / exp_J < 0.01, round(got2, 1))
+dsz = np.logspace(-1, 3, 120); psd = lambda d50: pd.DataFrame({"Size (um)": dsz, "M1": np.exp(-0.5 * ((np.log(dsz) - np.log(d50)) / 0.9) ** 2), "M2": np.exp(-0.5 * ((np.log(dsz) - np.log(d50 * 3)) / 0.7) ** 2)})
+fp, _ = api.draw("psd_groups_2x2", [D.Table("Raw materials", psd(20)), D.Table("Ground products", psd(12))]); tt = [ax.get_title(loc="left") for ax in fp.axes]
+check("size distributions of two files: 2 x 2 panels (a)-(d), titled after the files, one legend per row", len(fp.axes) == 4 and tt[0].startswith("(a) Raw materials") and tt[3].startswith("(d) Ground products") and len(fp.legends) == 2, tt)
+cumA = np.cumsum(psd(20)["M1"]); cumA = cumA / cumA.iloc[-1] * 100; d50 = float(np.interp(50, cumA, dsz)); tabtxt = [t.get_text() for t in fp.axes[1].texts]
+check("the d-value table holds d10 / d50 / d90 calculated from the cumulative curve (d50 near 20 um)", abs(d50 - 20) < 2.5 and f"{d50:.2f}" in tabtxt and "Material" in tabtxt, (round(d50, 2), tabtxt[:6]))
+flow = pd.DataFrame({"Stage": [1, 1, 2], "Step": ["Mix", "Mill", "Fire"], "Conditions": ["two parts", "1 h", "hot"]}); ff, mpf = api.draw("process_flow_steps", [D.Table("procedure", flow)])
+ft = [t.get_text() for t in ff.axes[0].texts]; check("flow diagram: boxes and texts come from the user's table of steps", {"Mix", "Mill", "Fire", "two parts", "1", "2"} <= set(ft), ft)
+tgs, _ = api.draw("tga_stacked_panels", sets["tg"], params={"ref_lines": [573]}, overrides={"notes": [{"panel": 1, "text": "my note", "at": [460, 92], "text_at": [200, 90]}]})
+t0 = [t.get_text() for t in tgs.axes[0].texts]; check("TG-DTG panels: total mass loss calculated, the user's reference line and note with an arrow", any(x.startswith("Total mass loss:") for x in t0) and "my note" in t0 and any(abs(l.get_xdata()[0] - 573) < 1e-9 for l in tgs.axes[0].get_lines() if len(l.get_xdata()) == 2), t0)
+
 # ---------------------------------------------------------------- Tier 1: kinetics with known answers
 from opstudio import kinetics as K
 runs = []; E0 = 180.0
@@ -129,6 +158,6 @@ n_ok = 0; bad = []
 for tid in opstudio.REGISTRY:
     try: O.send(mk(os.path.join(od, "all")), api.demo_figure(tid), tid); n_ok += 1
     except Exception as e: bad.append((tid, repr(e)[:60]))
-check("Origin: all 118 templates go through the driver without an error", n_ok == 118, bad[:3])
+check("Origin: all 121 templates go through the driver without an error", n_ok == 121, bad[:3])
 check("every template has its Origin script and names it in its JSON (origin_template)", all(os.path.isfile(os.path.join(LIB, "origin", t + ".ogs")) for t in opstudio.REGISTRY) and json.load(open(os.path.join(LIB, "templates", "tga_dtg_single.json"), encoding="utf-8"))["origin_template"]["script"] == "origin/tga_dtg_single.ogs")
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)

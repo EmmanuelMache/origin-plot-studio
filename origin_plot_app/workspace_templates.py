@@ -19,10 +19,20 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushB
                                QToolButton, QSizePolicy, QInputDialog, QPlainTextEdit, QApplication)
 
 FAMILIES = "ABCDEFGH"            # catalogue sections A-H are graph families, I-X are domain packs
+SHORT = {"A": "Lines and scatter", "B": "Bars, pies and areas", "C": "Several panels or axes", "D": "Statistics", "E": "Maps, contours, images", "F": "Ternary, polar, special", "G": "Flows and hierarchies", "H": "3D",
+         "I": "XRD", "J": "FTIR, Raman, NMR, XRF", "K": "Microscopy (SEM, EDS)", "L": "Particle size and porosity", "M": "Rheology and mechanics", "N": "TGA, DTG, DSC, kinetics", "O": "Calorimetry",
+         "P": "Thermodynamic modelling", "Q": "Strength and durability", "R": "CO2 and sustainability", "S": "Electrochemistry", "T": "Life science", "U": "Analytical chemistry", "V": "Physics and signals",
+         "W": "Environment", "X": "Chemical kinetics"}
+CAT_LETTER = {"XRD & Rietveld": "I", "Phase & chemical composition": "P", "Thermal analysis (TGA / DTG / DSC)": "N", "Isothermal calorimetry": "O", "Particle size, porosity & surface": "L",
+              "Spectroscopy (FTIR / Raman / NMR)": "J", "Thermodynamic modelling": "P", "Cement & concrete engineering": "Q", "Microstructure & SEM-EDS": "K", "Sustainability & CO2": "R",
+              "General scientific & statistics": "D", "Basic 2D & layout": "A", "Rheology & mechanics": "M", "Electrochemistry & energy": "S", "Life science & medicine": "T", "Analytical chemistry": "U",
+              "Physics & signal": "V", "Environment & geoscience": "W"}
 TILE_W = 300
 
 
-def _clean(name): return re.sub(r"^[A-Z]\.\s*", "", str(name))
+def _clean(name):
+    """The short name of a class of templates (by instrument or by graph type)."""
+    m = re.match(r"^([A-Z])\.\s*(.*)", str(name)); return SHORT.get(m.group(1), m.group(2)) if m else str(name)
 
 
 class Tile(QFrame):
@@ -154,6 +164,8 @@ class TemplatePage(QWidget):
         self.styles_dock = mk("Styles", "templatesStylesDock", self._styles_panel(), Qt.RightDockWidgetArea, self.main)
         self.preview_dock = mk("Previews", "templatesPreviewDock", self._preview_panel(), Qt.RightDockWidgetArea, self.main)
         self.variants_dock = mk("Variants", "templatesVariantsDock", self._variants_panel(), Qt.RightDockWidgetArea, self.main)
+        self.templates_dock.widget().setMinimumWidth(650)      # room for the classes and two to three pictures side by side
+        self.files_dock.widget().setMinimumWidth(190); self.preview_dock.widget().setMinimumWidth(330)
         self.docks = [self.files_dock, self.columns_dock, self.templates_dock, self.styles_dock, self.preview_dock, self.variants_dock]
         self.gallery_dock = self.templates_dock
         self.main.splitDockWidget(self.files_dock, self.columns_dock, Qt.Vertical)
@@ -183,9 +195,10 @@ class TemplatePage(QWidget):
             else:
                 rows.append(dict(id="coming:" + str(r.get("catalogue_id")), name=r["name"], section=r["section"], use=f"Roles: {r.get('data_roles', '')}", source="generic", available=False,
                                  roles={}, origin=r.get("origin_path", ""), preview=None, kind="", tier=r["status"], alias=""))
+        by_letter = {r_["section"][:1]: r_["section"] for r_ in cat if r_["section"][1:2] == "."}
         for tid, t in info.items():
-            if tid not in seen:
-                rows.append(dict(id=tid, name=t["name"], section="My templates" if t.get("source") == "mine" else t.get("category", "Other"), use=t["use_case"], source=t.get("source", "generic"),
+            if tid not in seen:                          # a template without a row in the catalogue: classed by its own category
+                rows.append(dict(id=tid, name=t["name"], section="My templates" if t.get("source") == "mine" else by_letter.get(CAT_LETTER.get(t.get("category", ""), ""), t.get("category", "Other")), use=t["use_case"], source=t.get("source", "generic"),
                                  available=True, roles=t["data_roles"], origin=t.get("origin_hint", ""), preview=t["preview"], kind=t.get("data_kind", ""), tier="implemented", alias=""))
         return rows
 
@@ -202,7 +215,8 @@ class TemplatePage(QWidget):
         self.live = QCheckBox("Preview with my data"); self.live.setChecked(True)
         self.live.setToolTip("On: every ticked combination is drawn from your ticked files as you tick. Off: nothing is drawn until you press Preview")
         self.live.toggled.connect(lambda on: self.schedule() if on else None); h.addWidget(self.live)
-        h.addWidget(self._btn("Preview", "Draw every ticked combination of files, templates and styles from your data", self.rebuild_previews))
+        self.b_draw = self._btn("Draw my data like this", "Draw your ticked files in every ticked template and style. No file ticked yet: it asks for your data files first. No template ticked: click a template picture first", self.draw_my_data, "primary")
+        h.addWidget(self.b_draw)
         self.b_open = self._btn("Open all in editor", "Open every kept graph in the editor: variants, parameters, texts, style. Disabled: no graph is kept (tick previews)", self.open_all)
         self.b_origin = self._btn("Draw all in Origin like this", "Send every kept graph to Origin as the same graph: same layout, panels, ranges, colours, fonts; your data in worksheets; each saved as {sample}_{template}.opju. Disabled: no graph is kept", self.draw_all_in_origin, "origin", "Ctrl+Shift+O")
         self.b_export = self._btn("Export all…", "Save every kept graph as PNG / TIFF / PDF / SVG / EPS at the journal size and dpi of its style. Disabled: no graph is kept", self.export_all, None, "Ctrl+Shift+E")
@@ -263,19 +277,28 @@ class TemplatePage(QWidget):
         v.addLayout(f)
         f2 = QHBoxLayout(); self.fits = QCheckBox("Works with the ticked files"); self.fits.setToolTip("Show only the templates the ticked files can fill, best fit first (by columns, headers and units)")
         self.fits.toggled.connect(lambda _c: self.filter_templates()); f2.addWidget(self.fits); f2.addStretch(1)
+        add = QToolButton(); add.setText("+ Add template ▾"); add.setObjectName("teal"); add.setPopupMode(QToolButton.InstantPopup)
+        add.setToolTip("Add a template of your own to the gallery: from the graph you made here, from a template file someone gave you, or as a copy of a ticked template. It appears under 'My templates' and can be drawn like any other")
+        am = QMenu(add); am.setToolTipsVisible(True)
+        for text, tip, fn in (("From the graph I made here (kept preview)…", "Keep a preview you ticked - template, style, variants, parameters, your texts - as a template of your own", lambda: self.save_my_template()),
+                              ("As a copy of the ticked template…", "A copy of the first ticked template under your own name, with the variants and parameters set now", lambda: self._copy_ticked()),
+                              ("From a template file (.opst)…", "Add a template someone gave you", lambda: self.import_opst()),
+                              ("Open my template folder", "The folder on this computer where your own templates, styles and previews are kept", lambda: self._reveal(os.path.join(self.my_dir(True), "templates", "x")))):
+            a_ = am.addAction(text, fn); a_.setToolTip(tip); a_.setStatusTip(tip)
+        add.setMenu(am); self.add_btn = add; f2.addWidget(add)
         f2.addWidget(self._btn("Select all in this category", "Tick every template that is shown now", lambda: self._tick_shown(True)))
         f2.addWidget(self._btn("Clear selection", "Untick every template", lambda: set_checked(self.grid, range(self.grid.count()), False))); v.addLayout(f2)
         self.grid = multi_list("Click a template to tick it (click again to untick); Shift+click ticks a range; Ctrl+A ticks all that are shown. Every ticked template is drawn in Previews. Hover: what it is for, the columns it needs and its Origin name")
-        self.grid.setViewMode(QListWidget.IconMode); self.grid.setIconSize(QSize(190, 124)); self.grid.setResizeMode(QListWidget.Adjust); self.grid.setMovement(QListWidget.Static)
-        self.grid.setSpacing(6); self.grid.setWordWrap(True); self.grid.setGridSize(QSize(206, 186))
+        self.grid.setViewMode(QListWidget.IconMode); self.grid.setIconSize(QSize(168, 110)); self.grid.setResizeMode(QListWidget.Adjust); self.grid.setMovement(QListWidget.Static)
+        self.grid.setSpacing(6); self.grid.setWordWrap(True); self.grid.setGridSize(QSize(184, 170))
         self.grid.setStyleSheet("QListWidget::item { border: 1px solid #D8E1EC; border-radius: 8px; background: white; } QListWidget::item:selected { border: 3px solid #2563EB; background: #DCE9FF; color: #172B4D; font-weight: bold; }")
         self.grid.itemChanged.connect(lambda _i: (self._marks(), self.update_count(), self.schedule(), self._show_variants()))
         self.grid.setContextMenuPolicy(Qt.CustomContextMenu); self.grid.customContextMenuRequested.connect(self._grid_menu)
         # ---- the classes: by instrument / technique and by graph type (click one: the grid shows that class)
         from PySide6.QtWidgets import QSplitter
-        self.classes = QTreeWidget(); self.classes.setHeaderHidden(True); self.classes.setMinimumWidth(150); self.classes.setToolTip("The templates in classes: by instrument or technique, and by graph type. Click a class to see its templates; the numbers are 'can be drawn now' of 'in the catalogue'")
+        self.classes = QTreeWidget(); self.classes.setHeaderHidden(True); self.classes.setMinimumWidth(215); self.classes.setIndentation(12); self.classes.setToolTip("The templates in classes: by instrument or technique, and by graph type. Click a class to see its templates; the numbers are 'can be drawn now' of 'in the catalogue'")
         self.classes.itemClicked.connect(self._class_clicked)
-        sp_ = QSplitter(Qt.Horizontal); sp_.addWidget(self.classes); sp_.addWidget(self.grid); sp_.setStretchFactor(1, 1); sp_.setSizes([235, 520]); self.field.hide()
+        sp_ = QSplitter(Qt.Horizontal); sp_.addWidget(self.classes); sp_.addWidget(self.grid); sp_.setStretchFactor(1, 1); sp_.setSizes([240, 560]); sp_.setCollapsible(0, False); self.field.hide()
         v.addWidget(sp_, 1)
         sc = QShortcut(QKeySequence("Ctrl+F"), w); sc.setContext(Qt.WidgetWithChildrenShortcut); sc.activated.connect(self.find.setFocus)
         return w
@@ -324,7 +347,10 @@ class TemplatePage(QWidget):
     def fill_templates(self):
         self.catalogue = self._catalogue(); keep = set(checked(self.grid)) if hasattr(self, "grid") else set()
         self.grid.blockSignals(True); self.grid.clear(); sections = []
-        for r in self.catalogue:
+        order = {}
+        for r in self.catalogue: order.setdefault(r["section"], len(order))
+        dom_first = lambda r: (0 if not (r["section"][:1] in FAMILIES and r["section"][1:2] == ".") and r["section"] != "My templates" else 1, order[r["section"]], not r["available"])
+        for r in sorted(self.catalogue, key=dom_first):                    # instruments first, then graph types; inside a class the drawable ones first
             it = QListWidgetItem(r["name"]); it.setData(Qt.UserRole, r["id"]); it.setData(Qt.UserRole + 1, r)
             if r["available"]:
                 it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable); it.setCheckState(Qt.Checked if r["id"] in keep else Qt.Unchecked)
@@ -336,7 +362,7 @@ class TemplatePage(QWidget):
                 it.setFlags(Qt.ItemIsEnabled); it.setForeground(QBrush(QColor("#8A97A8")))
                 it.setToolTip(f"{r['name']}\nComing: this graph type is in the catalogue ({r['tier']}) and is not built yet.\n{r['use']}\nOrigin: {r['origin']}")
                 it.setText(r["name"] + "\n(coming)")
-            it.setSizeHint(QSize(200, 180)); self.grid.addItem(it)
+            it.setSizeHint(QSize(178, 164)); self.grid.addItem(it)
             if r["section"] not in sections: sections.append(r["section"])
         self.grid.blockSignals(False)
         fam = [s for s in sections if s[:1] in FAMILIES and s[1:2] == "."]; dom = [s for s in sections if s not in fam and s != "My templates"]
@@ -347,11 +373,11 @@ class TemplatePage(QWidget):
         self.field.addItem(f"My templates  ({n('My templates')})", "My templates")
         i = self.field.findData(cur); self.field.setCurrentIndex(max(0, i)); self.field.blockSignals(False)
         self.classes.clear(); bold = lambda it: (it.setFont(0, (lambda f: (f.setBold(True), f)[1])(it.font(0))), it)[1]
-        na = sum(1 for r in self.catalogue if r["available"]); top = bold(QTreeWidgetItem([f"All templates  ({na} of {len(self.catalogue)})"])); top.setData(0, Qt.UserRole, None); self.classes.addTopLevelItem(top)
+        na = sum(1 for r in self.catalogue if r["available"]); top = bold(QTreeWidgetItem([f"All templates  ({na})"])); top.setData(0, Qt.UserRole, None); self.classes.addTopLevelItem(top)
         for title, key, secs in (("By instrument / technique", "__dom", dom), ("By graph type", "__fam", fam)):
-            g = bold(QTreeWidgetItem([f"{title}  ({sum(n(x) for x in secs)} of {sum(tot(x) for x in secs)})"])); g.setData(0, Qt.UserRole, key); self.classes.addTopLevelItem(g)
+            g = bold(QTreeWidgetItem([f"{title}  ({sum(n(x) for x in secs)})"])); g.setData(0, Qt.UserRole, key); self.classes.addTopLevelItem(g)
             for x in secs:
-                c = QTreeWidgetItem([f"{_clean(x)}  ({n(x)} of {tot(x)})"]); c.setData(0, Qt.UserRole, x); c.setToolTip(0, f"{_clean(x)}: {n(x)} template(s) can be drawn now, {tot(x)} graph types in the catalogue"); g.addChild(c)
+                c = QTreeWidgetItem([f"{_clean(x)}  ({n(x)})"]); c.setData(0, Qt.UserRole, x); c.setToolTip(0, f"{re.sub(r'^[A-Z][.] *', '', x)}: {n(x)} template(s) can be drawn now; {tot(x)} graph types of this class are in the catalogue"); g.addChild(c)
             g.setExpanded(True)
         mine = bold(QTreeWidgetItem([f"My templates  ({n('My templates')})"])); mine.setData(0, Qt.UserRole, "My templates"); self.classes.addTopLevelItem(mine)
         self.filter_templates()
@@ -399,6 +425,9 @@ class TemplatePage(QWidget):
 
     def showEvent(self, e):
         super().showEvent(e); self.refresh_files()
+        if not getattr(self, "_sized", False) and "page5" not in ((__import__("workspace_qt").load_cfg().get("panel_layout") or {}) if isinstance(__import__("workspace_qt").load_cfg().get("panel_layout"), dict) else {}):
+            self._sized = True; W_ = max(900, self.width())      # the first time: files narrow, the gallery wide enough for the classes and three pictures, the previews the rest
+            QTimer.singleShot(0, lambda: self.main.resizeDocks([self.files_dock, self.templates_dock, self.preview_dock], [int(W_ * 0.13), int(W_ * 0.47), int(W_ * 0.40)], Qt.Horizontal))
 
     # ------------------------------------------------------------------------------------------------ files and columns
     def add_files(self, paths=None):
@@ -590,6 +619,16 @@ class TemplatePage(QWidget):
     def schedule(self):
         if self.live.isChecked(): self._timer.start()
 
+    def draw_my_data(self):
+        """The ticked template pictures drawn from the user's data: asks for files when none is ticked."""
+        if not [t for t in checked(self.grid) if not str(t).startswith("coming:")]:
+            self.ws.set_status("Click a template picture first (it gets a tick and a blue frame), then press 'Draw my data like this'."); self.pmsg.setText("Click a template picture on the left first: it gets a ✓ and a blue frame."); return None
+        if not checked(self.files):
+            if self.files.count(): set_checked(self.files, range(self.files.count()), True)
+            elif not getattr(self, "silent", False): self.add_files()
+            if not checked(self.files): self.ws.set_status("Add your data files first (Add files…): they are drawn in the ticked templates."); return None
+        self._timer.stop(); self.rebuild_previews(); return len(self.tiles)
+
     def cancel(self):
         self.cancelled = True; self.queue = []; self._done_drawing("Cancelled: the previews drawn so far are kept.")
 
@@ -659,6 +698,7 @@ class TemplatePage(QWidget):
             m.addAction("Preview with the ticked files", lambda: (it.setCheckState(Qt.Checked), self.rebuild_previews())); m.addAction("Add to selection" if it.checkState() != Qt.Checked else "Remove from selection", lambda: it.setCheckState(Qt.Unchecked if it.checkState() == Qt.Checked else Qt.Checked))
             m.addAction("Details", lambda: QMessageBox.information(self, it.data(Qt.UserRole + 1)["name"], it.toolTip()))
             m.addAction("Duplicate as my template…", lambda: self.save_my_template(None, base=it.data(Qt.UserRole)))
+        if it and (it.flags() & Qt.ItemIsUserCheckable): m.addAction("Draw my data like this (only this template)", lambda: (set_checked(self.grid, range(self.grid.count()), False), it.setCheckState(Qt.Checked), self.draw_my_data()))
         m.addAction("Tick the highlighted templates", lambda: self._tick_selected(self.grid, True)); m.addAction("Select all in this category", lambda: self._tick_shown(True)); m.addAction("Clear selection", lambda: set_checked(self.grid, range(self.grid.count()), False))
         m.exec(self.grid.mapToGlobal(pos))
 
@@ -885,7 +925,14 @@ class TemplatePage(QWidget):
                 r = O.draw_in_origin(lambda f: opa.Driver(f, lambda m: None, dry=True), tile.fig, "demo", tid, tempfile.mkdtemp())
                 O.write_ogs(r["commands"], os.path.join(od, tid + ".ogs"), f"My template {tid}")
             except Exception: pass
-        self.fill_templates(); self.ws.set_status(f"Template '{name}' saved in your private folder ({folder}). It is under 'My templates'."); return tid
+        self.fill_templates(); self.ws.set_status(f"Template '{name}' saved in your private folder ({folder}). It is under 'My templates': click it to draw your data like it."); return tid
+
+    def _copy_ticked(self):
+        t = [x for x in checked(self.grid) if not str(x).startswith("coming:")]
+        if not t: self.ws.set_status("Click a template picture first; it becomes the base of your own template."); return None
+        tid = self.save_my_template(None, base=t[0])
+        if tid: i = self.field.findData("My templates"); self.field.setCurrentIndex(max(0, i))
+        return tid
 
     def export_opst(self):
         mine = self.api.user_templates()
@@ -1024,6 +1071,8 @@ class Editor(QDialog):
         right.addLayout(f)
         right.addWidget(QLabel("Names of the curves (one per line: name in the file = name on the graph):", objectName="soft"))
         self.names = QPlainTextEdit(); self.names.setMaximumHeight(110); self.names.setToolTip("Renaming changes the graph only, never your file"); right.addWidget(self.names)
+        right.addWidget(QLabel("Notes with an arrow (one per line: panel; your text; x; y; text x; text y):", objectName="soft"))
+        self.notes = QPlainTextEdit(); self.notes.setMaximumHeight(80); self.notes.setToolTip("Your own notes on the graph, e.g.  1; my note; 460; 92; 200; 90  - the arrow points to (x, y), the text sits at (text x, text y). Only for templates with notes (TG-DTG panels)"); right.addWidget(self.notes)
         b = QPushButton("Apply"); b.clicked.connect(self.apply); right.addWidget(b)
         self.style = QComboBox(); [self.style.addItem(n, s) for s, n, _w in page.api.styles()]; self.style.currentIndexChanged.connect(lambda _i: self.apply()); right.addWidget(QLabel("Style:", objectName="soft")); right.addWidget(self.style)
         self.all = QCheckBox("Apply these edits to all open graphs"); self.all.setToolTip("Style, texts and names go to every graph opened in this editor"); right.addWidget(self.all)
@@ -1057,6 +1106,13 @@ class Editor(QDialog):
         ov = {k: e.text() for k, e in self.txt.items() if e.text().strip()}; ren = {}
         for line in self.names.toPlainText().splitlines():
             if "=" in line: a, b = line.split("=", 1); ren[a.strip()] = b.strip()
+        notes = []
+        for line in self.notes.toPlainText().splitlines():
+            q = [x.strip() for x in line.split(";")]
+            try:
+                if len(q) >= 4: notes.append({"panel": int(float(q[0])), "text": q[1], "at": [float(q[2]), float(q[3])], **({"text_at": [float(q[4]), float(q[5])]} if len(q) >= 6 else {})})
+            except ValueError: self.page.ws.set_status(f"This note line could not be read: {line}")
+        if notes: ov["notes"] = notes
         for t in (self.tiles if self.all.isChecked() else [self.t]):
             t.combo["overrides"] = dict(ov); t.combo["renames"] = dict(ren); t.combo["style"] = self.style.currentData(); t.combo["switches"] = self.page.current_switches()
             t.combo["caption"] = re.sub(r"·\s*\S+$", "· " + t.combo["style"], t.combo["caption"]); t.cap.setText(t.combo["caption"])

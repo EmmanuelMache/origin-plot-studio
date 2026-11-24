@@ -11,13 +11,16 @@
   "series": "heat flow (cumulative computed)"
  },
  "default_params": {
-  "x_max": 168
+  "x_max": 168,
+  "cum_factor": 3.6
  },
  "origin_hint": "Origin: two graphs merged 1 × 2.",
  "recommended_for": [
   "calorimetry"
  ],
- "calculations": [],
+ "calculations": [
+  "cumulative heat (J/g) = integral of heat flow (mW/g) over time (h) × 3.6"
+ ],
  "preview": "previews/calorimetry_two_panel.png",
  "orientation": "landscape",
  "styles": "any (styles/*.json)",

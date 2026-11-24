@@ -29,7 +29,7 @@
  "styles": "any (styles/*.json)",
  "label_policy": "labels/peak names only from user files or user confirmation",
  "origin_template": {
-  "script": "",
+  "script": "origin/ofw_kas_plot.ogs",
   "otpu": "origin/ofw_kas_plot.otpu"
  }
 }

@@ -3,18 +3,26 @@
  "id": "tga_stacked_panels",
  "name": "TG–DTG panels stacked (one material per panel)",
  "category": "Thermal analysis (TGA / DTG / DSC)",
- "use_case": "Raw materials: each panel one TG–DTG graph (twin axis, DTG not inverted) with event notes.",
+ "use_case": "One TG–DTG graph per material (twin axis, DTG at its natural sign), the total mass loss written in each panel, your reference lines and your notes with arrows.",
  "source": "house",
  "data_kind": "thermal",
  "data_roles": {
-  "samples": "one per panel"
+  "samples": "one per panel",
+  "notes": "your notes (typed in the editor): panel; text; x; y; text x; text y",
+  "ref_lines": "your reference temperatures"
  },
- "default_params": {},
- "origin_hint": "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column).",
+ "default_params": {
+  "show_total_loss": true,
+  "ref_lines": []
+ },
+ "origin_hint": "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column); notes via Insert > Text and Arrow.",
  "recommended_for": [
   "TGA raw materials"
  ],
- "calculations": [],
+ "calculations": [
+  "total mass loss = first mass − last mass",
+  "DTG = smoothed derivative of the mass"
+ ],
  "preview": "previews/tga_stacked_panels.png",
  "orientation": "landscape",
  "styles": "any (styles/*.json)",

@@ -2,6 +2,28 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.53.0
+
+### Panels
+* **Every panel has a clear title strip** with three buttons: **▾ Fold** (only the title stays), **⧉ Float**, **✕ Close**. View ▸ Panels brings a closed panel back. (The close button had been hidden by the style of the window.)
+* **Dragging a panel moves it.** Drag the title strip and drop the panel on another side, or on another panel to make tabs. Before, a panel turned into a separate window the moment it was dragged and could not be dropped anywhere. *View ▸ … as its own window* still makes a normal window with minimise and maximise.
+* **View ▸ Side bar** shows the side bar again.
+
+### Graph gallery
+* **Draw my data like this** (the blue button): your ticked files are drawn in every ticked template picture. With no file ticked it ticks your files, or asks for them. Right-click a picture: *Draw my data like this (only this template)*.
+* **+ Add template**: from a graph you made here, as a copy of a ticked template, or from a template file. It appears under *My templates* and is drawn like any other.
+* Classes with short names: XRD · FTIR, Raman, NMR, XRF · Microscopy · Particle size and porosity · Rheology and mechanics · TGA, DTG, DSC, kinetics · Calorimetry · Thermodynamic modelling · Strength and durability · CO2 and sustainability · … and by graph type.
+* **New figure layouts** (121 templates now):
+  * particle size of two groups, 2 × 2: differential and cumulative per group, the legend above each row, d10 / d50 / d90 in a coloured table;
+  * heat flow with inset (a) beside cumulative heat with group brackets (b) – the groups are yours;
+  * TG–DTG panels: the total mass loss in each panel, your reference lines, your own notes with arrows (typed in the editor);
+  * a flow diagram of a procedure from a table of steps (boxes and arrows; photographs are not drawn).
+* **Zoom and inset can be switched off**: in the XRD fit the grey band goes with the inset; the stacked XRD has *show zoom*; a zoom window without data is left out instead of failing. The calorimetry insets have a switch too.
+
+### Fixed
+* Cumulative heat drawn from your own heat-flow files was in mW·h/g; it is now in J/g (× 3.6), as the axis says.
+* Previews of some templates failed on computers with an older numpy.
+
 ## 5.52.3
 
 * **Selecting is ticking.** A click on a template, a file or a style ticks it (✓ before the name and a blue frame); click again to untick, Shift+click ticks a range, Ctrl+A ticks all that are shown.

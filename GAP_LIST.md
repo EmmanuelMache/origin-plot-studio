@@ -1,4 +1,4 @@
-# GAP_LIST – brief v2.1 against the app (version 5.52.3)
+# GAP_LIST – brief v2.1 against the app (version 5.53.0)
 
 Status: **done** = works and is tested · **partly** = some of it exists · **missing** = not there.
 Evidence for every "done" is in `TEST_REPORT.md`. Wording is neutral on purpose (no names of anyone's work).
@@ -50,7 +50,7 @@ Evidence for every "done" is in `TEST_REPORT.md`. Wording is neutral on purpose 
 |---|---|---|
 | 3 | File far left, Quick Access, command search, tooltips | **done**. Ribbon tabs as in the brief (Home · Insert · Graph · Data · …), right-click customise and compact size: **missing** |
 | 4 | Session basics with undo, save / save as / recent, autosave, recovery | **done** |
-| 5 | Panels in every section | **partly**: Workspace, Analysis, Graph gallery, Templates. Assistant, Settings, collapse, named layouts: **missing** |
+| 5 | Panels in every section | **partly**: Workspace, Analysis, Graph gallery, Templates. Fold / float / close buttons on every panel: done. Assistant and Settings as panels, named layouts: **missing** |
 | 7 | Mouse / keys, right-click menus, Insert menu, object model | **partly** (as before the upgrade, plus menus on files, templates, previews and TGA zones) |
 | 8 | Import, Export dialog, convert, save | **partly**: export dialog on the Templates page (no EMF); the rest as before |
 | 9 | Confirm labels | **partly**: TGA zones done; FTIR and other bands missing |

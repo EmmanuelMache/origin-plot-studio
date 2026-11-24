@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "process_flow_steps",
+ "name": "Flow diagram of a procedure (numbered stages, boxes and arrows)",
+ "category": "General scientific & statistics",
+ "use_case": "The experimental procedure as a diagram: one row per stage, one box per step, arrows between the steps. Texts come from your table. Photographs and icons are not drawn (add them in Origin or PowerPoint).",
+ "source": "generic",
+ "data_kind": "steps",
+ "data_roles": {
+  "title": "first text column: the step",
+  "detail": "second text column (optional): conditions",
+  "stage": "a number column (optional): the row of the diagram"
+ },
+ "default_params": {
+  "arrows": true
+ },
+ "origin_hint": "Origin: Insert > Text and Insert > Arrow on an empty graph page (no plot type of its own).",
+ "recommended_for": [
+  "methods section",
+  "graphical abstract"
+ ],
+ "calculations": [],
+ "preview": "previews/process_flow_steps.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/process_flow_steps.ogs",
+  "otpu": "origin/process_flow_steps.otpu"
+ }
+}

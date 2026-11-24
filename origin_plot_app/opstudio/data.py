@@ -230,6 +230,14 @@ def bundle(template, tables, overrides=None):
         else:                                                               # x, then one column per pattern: y = column number
             _need(3, t, "x and two or more columns"); d["x"] = t.arr(t.x); d["z"] = np.vstack([t.arr(c) for c in t.ys]); d["y"] = np.arange(len(t.ys), dtype=float)
             mp += [("x", t.x), ("rows of the map", ", ".join(t.ys))]
+    elif "flow_steps" in k_set:
+        if not t.text: raise NeedData("needs a column with the text of each step (and, if you like, a column with the conditions and a number column for the stage)")
+        ti = t.text[0]; de = t.text[1] if len(t.text) > 1 else None; sg = t.numeric[0] if t.numeric else None; fs_ = []
+        for i_, row in t.df.iterrows():
+            if str(row[ti]).strip() in ("", "nan"): continue
+            v_ = row[sg] if sg else 1
+            fs_.append({"stage": int(v_) if sg and str(v_) not in ("", "nan") and float(v_) == int(float(v_)) else (v_ if sg else 1), "title": str(row[ti]), "detail": "" if de is None or str(row[de]) == "nan" else str(row[de])})
+        d["flow_steps"] = fs_; mp += [("step", ti), ("conditions", de or "none"), ("stage (row of the diagram)", sg or "one row")]
     elif "steps" in k_set:
         if not t.cat or not t.numeric: raise NeedData("needs a column of step names and a column of values")
         d["steps"] = [(str(a), float(b)) for a, b in zip(t.df[t.cat], t.arr(t.numeric[0]))]; mp += [("step", t.cat), ("value", t.numeric[0])]
@@ -261,6 +269,11 @@ def bundle(template, tables, overrides=None):
                 for a in ak[1:]: e = t.err_of(c); it[a] = t.arr(e) if e else np.zeros(len(t.df))
                 items.append(it)
             d[k] = items; mp.append((k, ", ".join(rest) or "none"))
+    cf = getattr(template, "params", {}).get("cum_factor")
+    if cf and cf != 1:                       # the unit factor of the template's cumulative curve (e.g. mW/g x h -> J/g: x 3.6)
+        for s_ in (d.get("series") or []) + [q for pn in (d.get("panels") or []) for q in pn.get("series", [])]:
+            if isinstance(s_, dict) and "cum" in s_: s_["cum"] = np.asarray(s_["cum"], float) * float(cf)
+        mp.append(("cumulative curve: unit factor", f"x {cf:g} (heat flow in mW/g over hours gives J/g)"))
     # ---- labels and decorations
     for k in keys:
         if k in d: continue

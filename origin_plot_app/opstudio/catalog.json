@@ -77,6 +77,7 @@
    "series": "one Y column per sample"
   },
   "default_params": {
+   "show_zoom": true,
    "zoom": [
     31.0,
     35.0
@@ -723,18 +724,26 @@
   "id": "tga_stacked_panels",
   "name": "TG–DTG panels stacked (one material per panel)",
   "category": "Thermal analysis (TGA / DTG / DSC)",
-  "use_case": "Raw materials: each panel one TG–DTG graph (twin axis, DTG not inverted) with event notes.",
+  "use_case": "One TG–DTG graph per material (twin axis, DTG at its natural sign), the total mass loss written in each panel, your reference lines and your notes with arrows.",
   "source": "house",
   "data_kind": "thermal",
   "data_roles": {
-   "samples": "one per panel"
+   "samples": "one per panel",
+   "notes": "your notes (typed in the editor): panel; text; x; y; text x; text y",
+   "ref_lines": "your reference temperatures"
   },
-  "default_params": {},
-  "origin_hint": "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column).",
+  "default_params": {
+   "show_total_loss": true,
+   "ref_lines": []
+  },
+  "origin_hint": "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column); notes via Insert > Text and Arrow.",
   "recommended_for": [
    "TGA raw materials"
   ],
-  "calculations": [],
+  "calculations": [
+   "total mass loss = first mass − last mass",
+   "DTG = smoothed derivative of the mass"
+  ],
   "preview": "previews/tga_stacked_panels.png",
   "orientation": "landscape",
   "styles": "any (styles/*.json)",
@@ -941,6 +950,7 @@
    "series": "heat flow per sample"
   },
   "default_params": {
+   "inset": true,
    "inset_range": [
     0,
     12
@@ -977,7 +987,9 @@
    "series": "cumulative heat per sample",
    "regimes": "user-defined groups"
   },
-  "default_params": {},
+  "default_params": {
+   "cum_factor": 3.6
+  },
   "origin_hint": "Origin: Line plot + bracket via Insert > Line objects.",
   "recommended_for": [
    "calorimetry"
@@ -1007,13 +1019,16 @@
    "series": "heat flow (cumulative computed)"
   },
   "default_params": {
-   "x_max": 168
+   "x_max": 168,
+   "cum_factor": 3.6
   },
   "origin_hint": "Origin: two graphs merged 1 × 2.",
   "recommended_for": [
    "calorimetry"
   ],
-  "calculations": [],
+  "calculations": [
+   "cumulative heat (J/g) = integral of heat flow (mW/g) over time (h) × 3.6"
+  ],
   "preview": "previews/calorimetry_two_panel.png",
   "orientation": "landscape",
   "styles": "any (styles/*.json)",
@@ -3172,7 +3187,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/ofw_kas_plot.ogs",
    "otpu": "origin/ofw_kas_plot.otpu"
   }
  },
@@ -3202,7 +3217,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/friedman_plot.ogs",
    "otpu": "origin/friedman_plot.otpu"
   }
  },
@@ -3233,7 +3248,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/xrd_ref_ticks.ogs",
    "otpu": "origin/xrd_ref_ticks.otpu"
   }
  },
@@ -3266,7 +3281,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/xrd_peak_area_vs_t.ogs",
    "otpu": "origin/xrd_peak_area_vs_t.otpu"
   }
  },
@@ -3295,7 +3310,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/calorimetry_log_time.ogs",
    "otpu": "origin/calorimetry_log_time.otpu"
   }
  },
@@ -3322,7 +3337,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/sulfate_balance.ogs",
    "otpu": "origin/sulfate_balance.otpu"
   }
  },
@@ -3353,7 +3368,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/hydration_degree.ogs",
    "otpu": "origin/hydration_degree.otpu"
   }
  },
@@ -3385,7 +3400,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/strength_vs_cumheat.ogs",
    "otpu": "origin/strength_vs_cumheat.otpu"
   }
  },
@@ -3416,7 +3431,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/r3_heat_vs_bw.ogs",
    "otpu": "origin/r3_heat_vs_bw.otpu"
   }
  },
@@ -3446,7 +3461,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/qpa_vs_age_area.ogs",
    "otpu": "origin/qpa_vs_age_area.otpu"
   }
  },
@@ -3478,7 +3493,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/bogue_vs_qpa.ogs",
    "otpu": "origin/bogue_vs_qpa.otpu"
   }
  },
@@ -3508,7 +3523,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/free_lime_vs_T.ogs",
    "otpu": "origin/free_lime_vs_T.otpu"
   }
  },
@@ -3542,7 +3557,7 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/eds_ternary_cloud.ogs",
    "otpu": "origin/eds_ternary_cloud.otpu"
   }
  },
@@ -3573,8 +3588,111 @@
   "styles": "any (styles/*.json)",
   "label_policy": "labels/peak names only from user files or user confirmation",
   "origin_template": {
-   "script": "",
+   "script": "origin/eco_efficiency.ogs",
    "otpu": "origin/eco_efficiency.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "psd_groups_2x2",
+  "name": "Particle size, two groups: differential + cumulative with d-value tables (2 × 2)",
+  "category": "Particle size, porosity & surface",
+  "use_case": "One row per group of materials (one file per group): differential and cumulative curves, the legend above the row, d10 / d50 / d90 in a table in the cumulative panel.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "size (µm)",
+   "series": "volume % per material",
+   "panels": "one file (or sheet) per row"
+  },
+  "default_params": {
+   "table": true,
+   "dashed": []
+  },
+  "origin_hint": "Origin: four line graphs, X log10, merged 2 × 2 (Graph > Merge Graph Windows); table via Insert > Table.",
+  "recommended_for": [
+   "laser diffraction"
+  ],
+  "calculations": [
+   "cumulative = running sum of the volume % per size class, scaled to 100",
+   "d10 / d50 / d90 by interpolation of the cumulative curve"
+  ],
+  "preview": "previews/psd_groups_2x2.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/psd_groups_2x2.ogs",
+   "otpu": "origin/psd_groups_2x2.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "calorimetry_pair_inset_groups",
+  "name": "Heat flow with inset (a) + cumulative heat with group brackets (b)",
+  "category": "Isothermal calorimetry",
+  "use_case": "The complete calorimetry figure: heat flow with the first hours as an inset, beside cumulative heat with brackets that group the samples. Groups are yours; without groups no bracket is drawn.",
+  "source": "house",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "time (h)",
+   "series": "heat flow per sample",
+   "regimes": "your groups: a name and the samples in it"
+  },
+  "default_params": {
+   "inset": true,
+   "inset_range": [
+    0,
+    12
+   ],
+   "x_max": 168,
+   "cum_factor": 3.6
+  },
+  "origin_hint": "Origin: two line graphs merged 1 × 2; inset via Graph > New Layer; brackets via Insert > Line.",
+  "recommended_for": [
+   "isothermal calorimetry"
+  ],
+  "calculations": [
+   "cumulative heat (J/g) = integral of heat flow (mW/g) over time (h) × 3.6"
+  ],
+  "preview": "previews/calorimetry_pair_inset_groups.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/calorimetry_pair_inset_groups.ogs",
+   "otpu": "origin/calorimetry_pair_inset_groups.otpu"
+  }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "process_flow_steps",
+  "name": "Flow diagram of a procedure (numbered stages, boxes and arrows)",
+  "category": "General scientific & statistics",
+  "use_case": "The experimental procedure as a diagram: one row per stage, one box per step, arrows between the steps. Texts come from your table. Photographs and icons are not drawn (add them in Origin or PowerPoint).",
+  "source": "generic",
+  "data_kind": "steps",
+  "data_roles": {
+   "title": "first text column: the step",
+   "detail": "second text column (optional): conditions",
+   "stage": "a number column (optional): the row of the diagram"
+  },
+  "default_params": {
+   "arrows": true
+  },
+  "origin_hint": "Origin: Insert > Text and Insert > Arrow on an empty graph page (no plot type of its own).",
+  "recommended_for": [
+   "methods section",
+   "graphical abstract"
+  ],
+  "calculations": [],
+  "preview": "previews/process_flow_steps.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/process_flow_steps.ogs",
+   "otpu": "origin/process_flow_steps.otpu"
   }
  }
 ]

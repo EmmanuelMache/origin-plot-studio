@@ -1,0 +1,38 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "calorimetry_pair_inset_groups",
+ "name": "Heat flow with inset (a) + cumulative heat with group brackets (b)",
+ "category": "Isothermal calorimetry",
+ "use_case": "The complete calorimetry figure: heat flow with the first hours as an inset, beside cumulative heat with brackets that group the samples. Groups are yours; without groups no bracket is drawn.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "time (h)",
+  "series": "heat flow per sample",
+  "regimes": "your groups: a name and the samples in it"
+ },
+ "default_params": {
+  "inset": true,
+  "inset_range": [
+   0,
+   12
+  ],
+  "x_max": 168,
+  "cum_factor": 3.6
+ },
+ "origin_hint": "Origin: two line graphs merged 1 × 2; inset via Graph > New Layer; brackets via Insert > Line.",
+ "recommended_for": [
+  "isothermal calorimetry"
+ ],
+ "calculations": [
+  "cumulative heat (J/g) = integral of heat flow (mW/g) over time (h) × 3.6"
+ ],
+ "preview": "previews/calorimetry_pair_inset_groups.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/calorimetry_pair_inset_groups.ogs",
+  "otpu": "origin/calorimetry_pair_inset_groups.otpu"
+ }
+}

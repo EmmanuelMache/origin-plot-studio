@@ -552,7 +552,7 @@ class Workspace(QMainWindow):
         m.addAction(a)
         m.addSeparator()
         for d, t in ((self.graphs_dock, "Your graphs"), (self.settings_dock, "Graph settings"), (self.dock, "Assistant")):
-            m.addAction(f"{t} as its own window", lambda d=d: (d.show(), d.setFloating(True), d.raise_()))
+            m.addAction(f"{t} as its own window", lambda d=d: self.panel_as_window(d))
         b = QAction("Put the panels back in place", self)
         b.triggered.connect(self.dock_back)
         m.addAction(b)
@@ -564,6 +564,10 @@ class Workspace(QMainWindow):
             if self.dock.isVisible() != on:
                 self.show_assistant(on)
             return
+        if key == "nav":                                       # the side bar with the sections (they are also in the top bar)
+            self.navw.setMaximumWidth(360 if on else 0)
+            if on:
+                self.navw.setMinimumWidth(150); s_ = self.bodysplit.sizes(); self.bodysplit.setSizes([190, max(400, sum(s_) - 190)])
         self._panel_widget(key).setVisible(on)
         hidden = [k for k, _l, _s in self.PANELS if k != "assistant" and not self.panel_actions[k].isChecked()]
         save_cfg({"hidden_panels": hidden})
@@ -1345,17 +1349,47 @@ class Workspace(QMainWindow):
         d.setObjectName(name)
         d.setWidget(widget)
         d.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetClosable)
-        d.setToolTip("Drag the title bar to move this panel to another side, or out as its own window; double click the title to float it")
+        d.setToolTip("Drag the title bar (the ⠿ strip) to move this panel: drop it on another side, or on another panel to make tabs. Double click the title to float it or put it back")
         win.addDockWidget(area, d)
         d.topLevelChanged.connect(lambda floating, d=d: self._float_window(d, floating))
+        try: self._panel_titlebar(d, title)
+        except Exception: pass
         return d
 
+    def _panel_titlebar(self, d, title):
+        """The title strip of a panel: its name (drag it to move the panel) and three clear buttons - fold, float, close."""
+        from PySide6.QtWidgets import QToolButton
+        bar = QWidget(objectName="paneltitle"); h = QHBoxLayout(bar); h.setContentsMargins(10, 3, 4, 3); h.setSpacing(2)
+        lab = QLabel("⠿  " + title, objectName="paneltitlelabel"); lab.setToolTip("Drag here to move the panel: drop it on another side, or on another panel to make tabs"); h.addWidget(lab, 1)
+        def btn(text, tip, fn):
+            b = QToolButton(objectName="panelbtn"); b.setText(text); b.setToolTip(tip); b.setStatusTip(tip); b.setAutoRaise(True); b.setFixedSize(26, 22); b.setCursor(Qt.PointingHandCursor); b.clicked.connect(fn); h.addWidget(b); return b
+        def fold():
+            w_ = d.widget(); on = not w_.isVisible(); w_.setVisible(on); d._folded = not on
+            d.setMaximumHeight(16777215 if on else bar.sizeHint().height() + 6); d.fold_btn.setText("▾" if on else "▸"); d.fold_btn.setToolTip(f"Fold {title} away (only its title stays)" if on else f"Unfold {title}")
+        d.fold_btn = btn("▾", f"Fold {title} away (only its title stays)", fold); d.fold = fold
+        d.float_btn = btn("⧉", f"Float {title} as a loose panel, or put it back (double click on the title does the same)", lambda: d.setFloating(not d.isFloating()))
+        d.close_btn = btn("✕", f"Close {title}. Bring it back with View ▸ Panels", d.close)
+        bar.setStyleSheet("#paneltitle { background: #E7EEF7; border-bottom: 1px solid #D8E1EC; } #paneltitlelabel { font-weight: 600; color: #17324D; } "
+                          "#panelbtn { border: 0; border-radius: 4px; font-size: 11pt; color: #17324D; } #panelbtn:hover { background: #C9D9EE; }")
+        d.setTitleBarWidget(bar)
+
     def _float_window(self, d, floating):
-        """A floating panel is a normal window: it can be minimised and maximised (Panels > Put the panels back docks it again)."""
-        if floating and not getattr(d, "_popped", False):
-            d._popped = True
+        """A panel that you DRAG stays a panel: it floats while you move it and docks where you drop it (another side, or on
+        another panel to make tabs). Only 'as its own window' (View menu) makes it a normal window with minimise / maximise.
+        (Making every floating panel a window at once stopped the drag: a panel could not be moved to another side.)"""
+        if not floating:
+            d._popped = False; return
+        if getattr(d, "_as_window", False) and not getattr(d, "_popped", False):
+            d._popped = True; d._as_window = False
             d.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint | Qt.WindowTitleHint)
             d.show()
+
+    def panel_as_window(self, d):
+        """View > '… as its own window': a normal window (minimise, maximise). 'Put the panels back in place' docks it again."""
+        d._as_window = True; d._popped = False; d.show()
+        if d.isFloating(): self._float_window(d, True)
+        else: d.setFloating(True)
+        d.raise_()
 
     def dock_back(self):
         """Every panel back in its place: Your graphs left, Graph settings and the assistant right."""

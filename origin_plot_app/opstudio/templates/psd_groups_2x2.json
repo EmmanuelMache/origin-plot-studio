@@ -1,0 +1,34 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "psd_groups_2x2",
+ "name": "Particle size, two groups: differential + cumulative with d-value tables (2 × 2)",
+ "category": "Particle size, porosity & surface",
+ "use_case": "One row per group of materials (one file per group): differential and cumulative curves, the legend above the row, d10 / d50 / d90 in a table in the cumulative panel.",
+ "source": "house",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "size (µm)",
+  "series": "volume % per material",
+  "panels": "one file (or sheet) per row"
+ },
+ "default_params": {
+  "table": true,
+  "dashed": []
+ },
+ "origin_hint": "Origin: four line graphs, X log10, merged 2 × 2 (Graph > Merge Graph Windows); table via Insert > Table.",
+ "recommended_for": [
+  "laser diffraction"
+ ],
+ "calculations": [
+  "cumulative = running sum of the volume % per size class, scaled to 100",
+  "d10 / d50 / d90 by interpolation of the cumulative curve"
+ ],
+ "preview": "previews/psd_groups_2x2.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "origin/psd_groups_2x2.ogs",
+  "otpu": "origin/psd_groups_2x2.otpu"
+ }
+}

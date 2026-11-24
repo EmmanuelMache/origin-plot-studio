@@ -25,7 +25,7 @@
  "styles": "any (styles/*.json)",
  "label_policy": "labels/peak names only from user files or user confirmation",
  "origin_template": {
-  "script": "",
+  "script": "origin/xrd_ref_ticks.ogs",
   "otpu": "origin/xrd_ref_ticks.otpu"
  }
 }

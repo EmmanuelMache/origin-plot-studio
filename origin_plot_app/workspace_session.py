@@ -232,6 +232,10 @@ def install(w):
         a.setToolTip("TG + DTG in one graph, zones you can drag, stepwise and tangent mass loss side by side, Ca(OH)₂ / CaCO₃ from zones you confirmed, export to Excel"); a.setStatusTip(a.toolTip())
         tm.insertAction(tm.actions()[0] if tm.actions() else None, a); tm.setToolTipsVisible(True); w.tga_action = a
     except Exception: pass
+    try:                                                    # the side bar starts hidden (the sections are in the top bar); View > Side bar shows it
+        a_ = w.panel_actions.get("nav")
+        if a_ is not None: a_.blockSignals(True); a_.setChecked(False); a_.blockSignals(False); a_.setToolTip("Show the sections as a side bar on the left as well")
+    except Exception: pass
     try: _gallery_switch(w)
     except Exception: pass
     try: w.buttons_without_tooltip = tooltips(w)

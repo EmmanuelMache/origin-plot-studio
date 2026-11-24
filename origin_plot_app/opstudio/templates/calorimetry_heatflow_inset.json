@@ -11,6 +11,7 @@
   "series": "heat flow per sample"
  },
  "default_params": {
+  "inset": true,
   "inset_range": [
    0,
    12

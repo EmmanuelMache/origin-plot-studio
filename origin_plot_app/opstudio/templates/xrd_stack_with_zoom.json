@@ -11,6 +11,7 @@
   "series": "one Y column per sample"
  },
  "default_params": {
+  "show_zoom": true,
   "zoom": [
    31.0,
    35.0

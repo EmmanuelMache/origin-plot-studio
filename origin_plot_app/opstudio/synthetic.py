@@ -1,5 +1,6 @@
 """Synthetic demo data for template previews. ILLUSTRATIVE ONLY - never shown as user results."""
 import numpy as np
+_trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")      # numpy 2 / numpy 1
 
 RNG = np.random.default_rng(7)
 SAMPLES = ["Sample A", "Sample B", "Sample C", "Sample D", "Sample E", "Sample F"]
@@ -52,6 +53,6 @@ def heat_flow(t, amp=2.0, t_peak=10, w=5, dormant=2, seed=0):
 
 def lognormal_psd(d, d50, sigma):
     q = np.exp(-0.5 * ((np.log(d) - np.log(d50)) / sigma) ** 2)
-    q = q / np.trapezoid(q, np.log10(d)) * 100
+    q = q / _trapz(q, np.log10(d)) * 100
     cum = np.cumsum(q * np.gradient(np.log10(d)))
     return q, cum / cum[-1] * 100

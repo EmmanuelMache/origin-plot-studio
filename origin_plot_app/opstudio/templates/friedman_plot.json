@@ -24,7 +24,7 @@
  "styles": "any (styles/*.json)",
  "label_policy": "labels/peak names only from user files or user confirmation",
  "origin_template": {
-  "script": "",
+  "script": "origin/friedman_plot.ogs",
   "otpu": "origin/friedman_plot.otpu"
  }
 }

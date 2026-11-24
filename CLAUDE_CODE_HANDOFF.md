@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.52.3** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.53.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -23,6 +23,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 | `opstudio/api.py` | `draw`, `export`, `min_size_warnings`, `recommend`, `combine`, variant `SWITCHES`, user templates, `.opst` | §6.2–6.6, §6.8 | same |
 | `opstudio/origin.py` | `read_figure` (figure → layers), `send` (layers → the app's Origin driver), `draw_in_origin` (`{sample}_{template}.opju` + `.ogs`), `write_ogs` | §6.7 | `tests/test_opstudio.py` (17 Origin checks) |
 | `opstudio/templates_materials.py`, `templates_general.py` | The pack's 104 draw functions with neutral illustrative data | §6.5.2 | every template draws; previews rebuilt |
+| `opstudio/templates_figures.py` | Composed figures: particle size 2 × 2 with tables, calorimetry pair with inset and group brackets, flow diagram | owner's reference layouts | `tests/test_opstudio.py` |
 | `opstudio/templates_tier1.py`, `kinetics.py` | 14 Tier-1 templates; OFW / KAS / Friedman / Kissinger | §6.5.3, §11 | known-answer checks in `tests/test_opstudio.py` |
 | `opstudio/tga_core.py` | The pack's TGA calculations, unchanged | §10 | `tests/test_tga_core.py` |
 | `opstudio/templates/*.json`, `styles/*.json`, `previews/*.png`, `origin/*.ogs`, `catalog.json`, `catalogue_all_graph_types.json` | Built by `tools/build_template_library.py` and `tools/build_origin_scripts.py`; styles carry `limits` | §6.5–6.7 | `tests/test_opstudio.py` |
@@ -67,6 +68,7 @@ See `COMMAND_MAP.md`. Commands removed: **none**. Ctrl+Q moved from Exit to the 
 | Assistant: providers, key storage, history, upload, what is sent out | user workflow |
 | The Origin driver in `origin_plot_app.py` (`Driver`, `run_items`) and the updater's check (`self_update.check`): the 10 example files must give the same Origin commands | user workflow, update safety |
 | Section numbers 0–4 of `SECTIONS` (tests and shortcuts use them); new sections are appended and ordered with `NAV_ORDER` | stability |
+| Panels: `_float_window` must not change window flags while a panel is dragged (that stops the drag); only `panel_as_window` makes a normal window | panels must be movable |
 | Git history: no rewriting, no force push, unless the owner says so in those words | owner's rule |
 
 ## 5. Instructions for Claude Code (next tasks, in order)

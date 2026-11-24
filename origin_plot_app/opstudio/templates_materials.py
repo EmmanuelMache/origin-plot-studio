@@ -118,13 +118,17 @@ def _stack(ax, d, st, p, names=True):
 @template("xrd_stack_with_zoom", "Stacked XRD + zoom panel", CAT_XRD,
           "Full range stack (a) next to a zoom of a diagnostic window (b), e.g. 31-35° for C3S/C2S.", "xy_series",
           {"x": "2θ", "series": "one Y column per sample"}, demo_stack,
-          {"zoom": [31.0, 35.0], "width_ratio": [3, 1], "already_offset": False},
+          {"show_zoom": True, "zoom": [31.0, 35.0], "width_ratio": [3, 1], "already_offset": False},
           "Origin: two layers (Graph > Merge or Layer Management) sharing Y offset; second layer rescaled X.",
           "house", ["XRD"])
 def draw_xrd_stack_zoom(d, st, p):
+    z0, z1 = sorted(p["zoom"]) if p.get("zoom") else (0, 0)
+    has = z1 > z0 and any(np.any((np.asarray(s["x"]) >= z0) & (np.asarray(s["x"]) <= z1)) for s in d["series"])
+    if not p.get("show_zoom", True) or not has:            # zoom unticked (or no data in the window): the full-range stack alone
+        fig, a = new_fig(st); _stack(a, d, st, p); a.set_yticks([]); a.set_xlabel(d["x_label"]); a.set_ylabel(d["y_label"]); finish(a, st)
+        return fig
     fig, (a, b) = new_fig(st, 1, 2, gridspec_kw={"width_ratios": p["width_ratio"], "wspace": 0.04})
     _stack(a, d, st, p)
-    z0, z1 = p["zoom"]
     dz = {"series": [{**s, "x": s["x"][(s["x"] >= z0) & (s["x"] <= z1)], "y": s["y"][(s["x"] >= z0) & (s["x"] <= z1)]}
                      for s in d["series"]]}
     _stack(b, dz, st, {**p, "offset": "auto"}, names=False)
@@ -181,10 +185,12 @@ def draw_rietveld(d, st, p):
     a = fig.add_subplot(gs[0]); b = fig.add_subplot(gs[1], sharex=a); c = fig.add_subplot(gs[2], sharex=a) if has_ticks else b
     a.plot(d["x"], d["obs"], ls="none", marker="o", ms=1.6, mfc="none", mec="#555555", mew=0.4, label="Observed")
     a.plot(d["x"], d["calc"], color="#C0141E", lw=0.8, label="Calculated")
-    z0, z1 = p["zoom"]; a.axvspan(z0, z1, color="#DDDDDD", alpha=0.6, lw=0)
+    z0, z1 = sorted(p["zoom"]) if p.get("zoom") else (0, 0); x_ = np.asarray(d["x"], float)
+    zoom_on = bool(p.get("inset")) and z1 > z0 and np.any((x_ >= z0) & (x_ <= z1))      # unticked, or no data in the window: no band and no inset
+    if zoom_on: a.axvspan(z0, z1, color="#DDDDDD", alpha=0.6, lw=0)
     ttl = d.get("name", "") + (f", $R_{{wp}}$ = {d['rwp']:.2f} %" if d.get("rwp") else "")
     panel_title(a, 0, ttl); a.set_ylabel(d.get("y_label", "Intensity (counts)")); a.legend(loc="upper left", bbox_to_anchor=(0, 0.9))
-    if p["inset"]:
+    if zoom_on:
         ins = a.inset_axes([0.6, 0.55, 0.38, 0.4])
         m = (d["x"] >= z0) & (d["x"] <= z1)
         ins.plot(d["x"][m], d["obs"][m], "o", ms=1.5, mfc="none", mec="#555555", mew=0.4)
@@ -620,15 +626,28 @@ def draw_tg_multi(d, st, p):
 
 
 @template("tga_stacked_panels", "TG–DTG panels stacked (one material per panel)", CAT_TH,
-          "Raw materials: each panel one TG–DTG graph (twin axis, DTG not inverted) with event notes.", "thermal",
-          {"samples": "one per panel"}, lambda: demo_tg(["Material 2", "Material 1", "Additive"]), {},
-          "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column).", "house", ["TGA raw materials"])
+          "One TG–DTG graph per material (twin axis, DTG at its natural sign), the total mass loss written in each panel, your reference lines and your notes with arrows.", "thermal",
+          {"samples": "one per panel", "notes": "your notes (typed in the editor): panel; text; x; y; text x; text y", "ref_lines": "your reference temperatures"},
+          lambda: demo_tg(["Material 2", "Material 1", "Additive"]), {"show_total_loss": True, "ref_lines": []},
+          "Origin: Double-Y graphs merged vertically (Merge Graph Windows, 1 column); notes via Insert > Text and Arrow.", "house", ["TGA raw materials"],
+          ["total mass loss = first mass − last mass", "DTG = smoothed derivative of the mass"])
 def draw_tga_panels(d, st, p):
-    n = len(d["samples"]); fig, axs = new_fig(st, n, 1, sharex=True, aspect=1.2, gridspec_kw={"hspace": 0.25})
-    for k, (ax, s) in enumerate(zip(np.atleast_1d(axs), d["samples"])):
-        ax2 = ax.twinx(); ax.plot(s["T"], s["mass"], "k"); ax2.plot(s["T"], _dtg(s), color="#C0141E")
-        panel_title(ax, k, s["name"]); ax.set_ylabel("Mass (%)"); ax2.set_ylabel("DTG (% °C$^{-1}$)", color="#C0141E"); finish(ax, st); ax.tick_params(right=False)
-    np.atleast_1d(axs)[-1].set_xlabel(d["x_label"])
+    n = len(d["samples"]); fig, axs = new_fig(st, n, 1, sharex=True, aspect=1.2, gridspec_kw={"hspace": 0.25}); fa = st["font"]["size_pt"]["annotation"]; red = "#C0141E"; pan = list(np.atleast_1d(axs))
+    for k, (ax, s) in enumerate(zip(pan, d["samples"])):
+        ax2 = ax.twinx(); ax.plot(s["T"], s["mass"], "k", label="TG"); ax2.plot(s["T"], _dtg(s), color=red, label="DTG")
+        panel_title(ax, k, s["name"]); ax.set_ylabel("Mass (%)"); ax2.set_ylabel("DTG (% °C$^{-1}$)", color=red); ax2.tick_params(axis="y", colors=red); finish(ax, st); ax.tick_params(right=False)
+        if p.get("show_total_loss"):
+            m_ = np.asarray(s["mass"], float); T_ = np.asarray(s["T"], float); ok = np.isfinite(m_)
+            ax.text(0.02, 0.95, f"Total mass loss: {m_[ok][0] - m_[ok][-1]:.2f} % (up to {T_[ok][-1]:.0f} °C)", transform=ax.transAxes, va="top", fontsize=fa)
+        for x_ in p.get("ref_lines") or []: ax.axvline(float(x_), color="#8A97A8", ls="--", lw=0.8)
+        h = ax.get_lines()[:1] + ax2.get_lines()[:1]; ax.legend(h, ["TG", "DTG"], loc="lower left")
+    for q in d.get("notes") or []:                        # the user's own notes, with an arrow to the point they are about
+        try:
+            ax = pan[int(q.get("panel", 1)) - 1]; kw = dict(fontsize=fa, color=q.get("color", red), fontstyle="italic")
+            if q.get("text_at"): ax.annotate(str(q["text"]), xy=tuple(q["at"]), xytext=tuple(q["text_at"]), arrowprops=dict(arrowstyle="->", color=kw["color"], lw=0.8), **kw)
+            else: ax.text(q["at"][0], q["at"][1], str(q["text"]), **kw)
+        except Exception: continue
+    pan[-1].set_xlabel(d["x_label"])
     return fig
 
 
@@ -741,13 +760,14 @@ def demo_cal():
 
 @template("calorimetry_heatflow_inset", "Heat flow with early-age inset", CAT_CAL,
           "Normalised heat flow vs time; inset zooms the first hours; exclusion window respected.", "xy_series",
-          {"x": "time (h)", "series": "heat flow per sample"}, demo_cal, {"inset_range": [0, 12], "x_max": 168},
+          {"x": "time (h)", "series": "heat flow per sample"}, demo_cal, {"inset": True, "inset_range": [0, 12], "x_max": 168},
           "Origin: Line plot + Graph > New Layer (inset) via Plot > Multi-Panel > Inset.", "house",
           ["TAM Air / TAM III"], ["mW/g = mW / sample mass", "exclude first X h (user-set)"])
 def draw_cal_inset(d, st, p):
     fig, ax = new_fig(st); _xy_lines(ax, d, st)
-    ins = ax.inset_axes([0.45, 0.45, 0.33, 0.45]); _xy_lines(ins, d, st); ins.set_xlim(*p["inset_range"]); ins.tick_params(labelsize=6)
-    ins.set_ylim(0, max(np.nanmax(s["y"][(s["x"] > 0.5) & (s["x"] < p["inset_range"][1])]) for s in d["series"]) * 1.15)
+    if p.get("inset", True) and any(np.any((s["x"] > 0.5) & (s["x"] < p["inset_range"][1])) for s in d["series"]):
+        ins = ax.inset_axes([0.45, 0.45, 0.33, 0.45]); _xy_lines(ins, d, st); ins.set_xlim(*p["inset_range"]); ins.tick_params(labelsize=6)
+        ins.set_ylim(0, max(np.nanmax(s["y"][(s["x"] > 0.5) & (s["x"] < p["inset_range"][1])]) for s in d["series"] if np.any((s["x"] > 0.5) & (s["x"] < p["inset_range"][1]))) * 1.15)
     ax.set_xlim(0, p["x_max"]); ax.set_ylim(0, max(np.nanmax(s["y"][s["x"] > 0.5]) for s in d["series"]) * 1.1)
     ax.set_xlabel(d["x_label"]); ax.set_ylabel(d["y_label"]); ax.legend(loc="upper right"); finish(ax, st)
     return fig
@@ -758,7 +778,7 @@ def draw_cal_inset(d, st, p):
           {"x": "time", "series": "cumulative heat per sample", "regimes": "user-defined groups"},
           lambda: {**demo_cal(), "regimes": [{"name": "Group I", "members": ["Sample A", "Sample B", "Sample C"]},
                                              {"name": "Group II", "members": ["Sample D"]}, {"name": "Group III", "members": ["Sample E", "Sample F"]}]},
-          {}, "Origin: Line plot + bracket via Insert > Line objects.", "house", ["calorimetry"], ["∫ heat flow dt"])
+          {"cum_factor": 3.6}, "Origin: Line plot + bracket via Insert > Line objects.", "house", ["calorimetry"], ["∫ heat flow dt"])
 def draw_cal_cum(d, st, p):
     fig, ax = new_fig(st)
     for i, s in enumerate(d["series"]):
@@ -774,7 +794,7 @@ def draw_cal_cum(d, st, p):
 
 @template("calorimetry_two_panel", "Heat flow (a) + cumulative heat (b)", CAT_CAL,
           "Standard two-panel calorimetry figure.", "xy_series", {"x": "time", "series": "heat flow (cumulative computed)"},
-          demo_cal, {"x_max": 168}, "Origin: two graphs merged 1 × 2.", "house", ["calorimetry"])
+          demo_cal, {"x_max": 168, "cum_factor": 3.6}, "Origin: two graphs merged 1 × 2.", "house", ["calorimetry"], ["cumulative heat (J/g) = integral of heat flow (mW/g) over time (h) × 3.6"])
 def draw_cal_two(d, st, p):
     fig, (a, b) = new_fig(st, 1, 2, gridspec_kw={"wspace": 0.28})
     _xy_lines(a, d, st); a.set_ylim(0, max(np.nanmax(s["y"][s["x"] > 0.5]) for s in d["series"]) * 1.1)

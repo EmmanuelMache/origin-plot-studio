@@ -25,7 +25,7 @@
  "styles": "any (styles/*.json)",
  "label_policy": "labels/peak names only from user files or user confirmation",
  "origin_template": {
-  "script": "",
+  "script": "origin/eco_efficiency.ogs",
   "otpu": "origin/eco_efficiency.otpu"
  }
 }

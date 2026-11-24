@@ -27,7 +27,7 @@
  "styles": "any (styles/*.json)",
  "label_policy": "labels/peak names only from user files or user confirmation",
  "origin_template": {
-  "script": "",
+  "script": "origin/xrd_peak_area_vs_t.ogs",
   "otpu": "origin/xrd_peak_area_vs_t.otpu"
  }
 }

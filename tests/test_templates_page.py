@@ -23,6 +23,8 @@ def settle(pg, extra=lambda: True, timeout=240):
         QTest.qWait(15)
     return False
 import workspace_qt as W
+def tick(lst, ids):
+    for i in range(lst.count()): lst.item(i).setCheckState(Qt.Checked if lst.item(i).data(Qt.UserRole) in ids else Qt.Unchecked)
 app.setStyle("Fusion"); app.setStyleSheet(W.STYLE)
 # three plain data files (row 1 headers, column 1 = x)
 x = np.linspace(5, 70, 300); files = []
@@ -73,20 +75,26 @@ settle(pg, lambda: bool(pg.tiles) and not pg.tiles[0].combo.get("demo"))
 check("ticking a file redraws the preview from that file by itself", len(pg.tiles) == 1 and pg.tiles[0].fig is not None and pg.tiles[0].combo["sample"] == "Sample_A" and pg.tiles[0].keep.isEnabled(), pg.tiles[0].combo["title"] if pg.tiles else "")
 QTest.mouseClick(pg.grid.viewport(), Qt.LeftButton, Qt.NoModifier, ctr(pg.grid, g0)); app.processEvents(); check("a second click unticks the template", pg.grid.item(g0).checkState() == Qt.Unchecked and not pg.grid.item(g0).text().startswith("✓"))
 pg.live.setChecked(False); settle(pg); set_checked(pg.files, range(3), True)
+# "Draw my data like this": the ticked template pictures drawn from the files
+set_checked(pg.grid, range(pg.grid.count()), False); r0 = pg.draw_my_data(); check("'Draw my data like this' without a ticked template says what to do", r0 is None and "Click a template picture" in pg.pmsg.text())
+tick(pg.grid, {"scatter_linear_fit"}); set_checked(pg.files, range(3), False); n_d = pg.draw_my_data(); settle(pg)
+check("'Draw my data like this' ticks your files when none is ticked and draws them in the ticked template", n_d == 3 and len(checked(pg.files)) == 3 and all(t.fig is not None and not t.combo.get("demo") for t in pg.tiles), (n_d, [t.error for t in pg.tiles]))
+check("it is the primary button of the page", pg.b_draw.objectName() == "primary" and pg.b_draw.text() == "Draw my data like this")
+set_checked(pg.grid, range(pg.grid.count()), False)
 # the classes: by instrument / technique and by graph type
 tops = [pg.classes.topLevelItem(i).text(0) for i in range(pg.classes.topLevelItemCount())]; inst = pg.classes.topLevelItem(1); kids = [inst.child(i).text(0) for i in range(inst.childCount())]
-check("the templates are in classes: by instrument / technique and by graph type, with counts", tops[0].startswith("All templates") and tops[1].startswith("By instrument / technique") and tops[2].startswith("By graph type") and any(k.startswith("XRD and diffraction") for k in kids) and any("Thermal analysis" in k for k in kids), tops)
+check("the templates are in classes: by instrument / technique and by graph type, with counts", tops[0].startswith("All templates") and tops[1].startswith("By instrument / technique") and tops[2].startswith("By graph type") and any(k.startswith("XRD  (") for k in kids) and any(k.startswith("TGA, DTG, DSC") for k in kids) and any(k.startswith("Calorimetry") for k in kids), tops)
 xr = next(inst.child(i) for i in range(inst.childCount()) if inst.child(i).text(0).startswith("XRD")); pg._class_clicked(xr); app.processEvents()
 vis = [pg.grid.item(i).data(Qt.UserRole + 1)["section"] for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()]
 check("clicking a class shows only its templates", 6 <= len(vis) <= 19 and all(v.startswith("I. XRD") for v in vis), (len(vis), set(vis)))
 pg._class_clicked(pg.classes.topLevelItem(0)); app.processEvents()
 # ---- the gallery: every catalogue row, filters, search
 cat = pg.catalogue; avail = [r for r in cat if r["available"]]; coming = [r for r in cat if not r["available"]]
-check("all 118 templates are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 118 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
+check("all 121 templates are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 121 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
 pg.state.setCurrentIndex(1); shown = lambda: sum(1 for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden())
-check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 118))
+check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 121))
 fields = [pg.field.itemText(i) for i in range(pg.field.count())]
-check("fields: graph families and domain packs with counts, and My templates", any("Graph families" in f for f in fields) and any("Domain packs" in f for f in fields) and any("My templates" in f for f in fields) and any("XRD" in f and "of" in f for f in fields), fields[:4])
+check("fields: graph families and domain packs with counts, and My templates", any("Graph families" in f for f in fields) and any("Domain packs" in f for f in fields) and any("My templates" in f for f in fields) and any("XRD" in f for f in fields), fields[:4])
 pg.find.setText("rietveld"); n_find = shown(); pg.find.setText("zzzz-no-such"); n_none = shown(); pg.find.setText("")
 check("search finds by name; no result is an empty list, not an error", n_find >= 2 and n_none == 0, (n_find, n_none))
 pg.fits.setChecked(True); app.processEvents(); first = [pg.grid.item(i).data(Qt.UserRole) for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()][:3]
@@ -96,8 +104,6 @@ check("a 'coming' graph type cannot be ticked and says so", not (coming_item.fla
 tip = next(pg.grid.item(i) for i in range(pg.grid.count()) if pg.grid.item(i).data(Qt.UserRole) == "xrd_stacked_offset").toolTip()
 check("hover on a template: use, the columns it needs, its Origin name, 'illustrative example'", "Columns it needs" in tip and "Origin:" in tip and "illustrative example" in tip)
 # ---- acceptance check 14: 3 files + 4 templates + 2 styles -> 24 previews
-def tick(lst, ids):
-    for i in range(lst.count()): lst.item(i).setCheckState(Qt.Checked if lst.item(i).data(Qt.UserRole) in ids else Qt.Unchecked)
 tick(pg.grid, {"xrd_stacked_offset", "xrd_dspacing_top", "scatter_linear_fit", "broken_axis"}); tick(pg.styles, {"house_style_1", "nature"}); app.processEvents()
 check("the count is visible: '3 files · 4 templates · 2 styles selected → 24 previews'", pg.count.text().startswith("3 files · 4 templates · 2 styles selected  →  24 previews"), pg.count.text())
 pg.rebuild_previews()
@@ -158,6 +164,13 @@ check("typed axis title and curve name are used on the graph", one.fig.axes[0].g
 pg.next_name = "My stack"; tid = pg.save_my_template(one); mine = pg.api.user_templates()
 check("Save as my template: JSON + preview + Origin script in the private folder, listed under My templates", tid == "my_stack" and (TMP / "private" / "templates" / "my_stack.json").is_file() and (TMP / "private" / "previews" / "my_stack.png").is_file()
       and (TMP / "private" / "origin" / "my_stack.ogs").is_file() and any(r["id"] == "my_stack" and r["source"] == "mine" for r in pg.catalogue))
+acts = [a.text() for a in pg.add_btn.menu().actions()]
+check("'+ Add template' in the gallery: from my graph, as a copy of a ticked template, from a file, open my folder", pg.add_btn.text().startswith("+ Add template") and len(acts) == 4 and acts[0].startswith("From the graph I made here") and acts[2].startswith("From a template file"), acts)
+tick(pg.grid, {"scatter_linear_fit"}); pg.next_name = "My copy"; cp = pg._copy_ticked(); mine_ids = [r["id"] for r in pg.catalogue if r["source"] == "mine"]
+shown_ = [pg.grid.item(i).data(Qt.UserRole) for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()]
+check("a copy of a ticked template is added under My templates and shown at once", cp == "my_copy" and "my_copy" in mine_ids and "my_copy" in shown_ and all(x in mine_ids for x in shown_), (cp, shown_))
+fcp, _ = pg.api.draw("my_copy", pg.tables_for([files[0]])); check("the added template can be used for drawing my data", fcp is not None and len(fcp.axes) >= 1)
+pg._class_clicked(pg.classes.topLevelItem(0)); pg.next_name = "My stack"
 w2 = W.Workspace([]); pg2 = w2.templates_page
 check("after a restart the template is there with its preview", any(r["id"] == "my_stack" and os.path.isfile(r["preview"]) for r in pg2.catalogue)); w2.close()
 op = str(TMP / "t.opst"); pg.api.export_opst(str(TMP / "private"), "my_stack", op); os.remove(TMP / "private" / "templates" / "my_stack.json"); back = pg.import_opst(op)

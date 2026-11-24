@@ -23,7 +23,7 @@
  "styles": "any (styles/*.json)",
  "label_policy": "labels/peak names only from user files or user confirmation",
  "origin_template": {
-  "script": "",
+  "script": "origin/calorimetry_log_time.ogs",
   "otpu": "origin/calorimetry_log_time.otpu"
  }
 }

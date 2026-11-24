@@ -3,6 +3,7 @@ opstudio_templates_general.py - general-science templates (any field), added aft
 (03_template_library/GRAPH_TYPE_CATALOGUE.md). Same contract as opstudio_templates.py.
 """
 import numpy as np
+_trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")      # numpy 2 / numpy 1
 import matplotlib.pyplot as plt
 from .core import template, new_fig, finish, panel_title, series_color, fig_size, distinct_colors
 
@@ -518,7 +519,7 @@ def draw_roc(d, st, p):
     for q, c in zip(d["scores"], cols):
         th = np.sort(np.unique(q["s"]))[::-1]; P = d["truth"].sum(); N = len(d["truth"]) - P
         tpr = np.r_[0, [((q["s"] >= t) & (d["truth"] == 1)).sum() / P for t in th]]; fpr = np.r_[0, [((q["s"] >= t) & (d["truth"] == 0)).sum() / N for t in th]]
-        ax.plot(fpr, tpr, color=c, label=f"{q['name']} (AUC = {np.trapezoid(tpr, fpr):.2f})")
+        ax.plot(fpr, tpr, color=c, label=f"{q['name']} (AUC = {_trapz(tpr, fpr):.2f})")
     ax.plot([0, 1], [0, 1], ":", color="#888888"); ax.set_aspect("equal"); ax.set_xlabel("False positive rate"); ax.set_ylabel("True positive rate"); ax.legend(loc="lower right"); finish(ax, st)
     return fig
 

@@ -376,7 +376,7 @@ check("Program and database: written under the figure, in the record and in the 
 check("the list of programs: GEMS, CEMGEMS, FactSage, Thermo-Calc, PHREEQC, HCh, Perple_X, OLI, MTDATA, ChemApp",
       all(pa.fields["software"].findText(k, Qt.MatchContains) >= 0 for k in ("GEMS", "CEMGEMS", "FactSage", "Thermo-Calc", "PHREEQC", "HCh", "Perple_X", "OLI", "MTDATA", "ChemApp")))
 # movable panels
-w.go(0); w.panels_btn.menu(); w.graphs_dock.setFloating(True); app.processEvents()
+w.go(0); w.panels_btn.menu(); w.panel_as_window(w.graphs_dock); app.processEvents()
 check("a panel as its own window, with minimise and maximise", w.graphs_dock.isWindow() and bool(w.graphs_dock.windowFlags() & Qt.WindowMaximizeButtonHint) and w.graphs_dock.isVisible())
 w.graphs_dock.showMaximized(); app.processEvents(); w.graphs_dock.showMinimized(); app.processEvents()
 w.dock_back(); app.processEvents()

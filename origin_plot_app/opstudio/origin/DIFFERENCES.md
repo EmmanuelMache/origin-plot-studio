@@ -122,3 +122,6 @@ Written by `tools/build_origin_scripts.py`. An empty cell means: the same graph.
 | `free_lime_vs_T` | fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar) |
 | `eds_ternary_cloud` |  |
 | `eco_efficiency` |  |
+| `psd_groups_2x2` |  |
+| `calorimetry_pair_inset_groups` |  |
+| `process_flow_steps` |  |

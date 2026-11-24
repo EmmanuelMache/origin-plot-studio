@@ -1,3 +1,12 @@
+VERSION 5.53.0  -  PANELS YOU CAN CLOSE AND MOVE, DRAW MY DATA LIKE THIS, NEW FIGURE LAYOUTS
+  - Every panel: a title strip with Fold, Float and Close. Drag the title strip to move a panel to another side or onto
+    another panel (tabs). View > Panels brings a closed panel back; View > Side bar shows the side bar.
+  - Graph gallery: the blue button "Draw my data like this" draws your ticked files in the ticked template pictures.
+    "+ Add template" adds a template of your own (from your graph, as a copy, or from a .opst file).
+  - New layouts: particle size 2 x 2 with d-value tables; heat flow with inset + cumulative heat with group brackets;
+    TG-DTG panels with total mass loss, your reference lines and notes with arrows; a flow diagram from a table of steps.
+  - Zoom / inset can be switched off (XRD fit, stacked XRD, calorimetry). Cumulative heat of your files is in J/g.
+
 VERSION 5.52.3  -  CLICK TO TICK, PREVIEW AT ONCE, TEMPLATES IN CLASSES
   Graph gallery > Templates: a click on a template, a file or a style ticks it (a tick before the name and a blue frame);
   click again to untick; Shift+click ticks a range; Ctrl+A ticks all shown. A ticked template is drawn at once - from
