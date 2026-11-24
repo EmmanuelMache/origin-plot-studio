@@ -29,7 +29,42 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 
 ## 2. Test files (all run on the final code)
 
-@@TESTS@@
+| Test file | Passed | Failed | Note |
+|---|---|---|---|
+| `tests/test_analysis_tools.py` | 17 | 0 |  |
+| `tests/test_assistant.py` | 35 | 0 |  |
+| `tests/test_calorimetry.py` | 26 | 0 |  |
+| `tests/test_drag_labels.py` | 8 | 0 |  |
+| `tests/test_edit_dialog.py` | 10 | 0 |  |
+| `tests/test_edit_graph.py` | 30 | 0 |  |
+| `tests/test_gallery_graphs.py` | 34 | 0 |  |
+| `tests/test_highscore.py` | 25 | 0 |  |
+| `tests/test_look_progress.py` | 14 | 0 |  |
+| `tests/test_opstudio.py` | 45 | 0 |  |
+| `tests/test_peak_correct_tab.py` | 18 | 0 |  |
+| `tests/test_ribbon_sketch.py` | 37 | 0 |  |
+| `tests/test_session_basics.py` | 32 | 0 |  |
+| `tests/test_shell_layout.py` | 41 | 0 |  |
+| `tests/test_stop_analysis.py` | 9 | 0 |  |
+| `tests/test_templates_page.py` | 41 | 0 |  |
+| `tests/test_tga_core.py` | 1 | 0 | 3 known-answer functions (prints OK) |
+| `tests/test_tga_module.py` | 37 | 0 |  |
+| `tests/test_thermal_photo.py` | 18 | 0 |  |
+| `tests/test_workspace_actions.py` | 30 | 0 |  |
+| `tests/test_workspace_main.py` | 69 | 0 |  |
+| `tests/test_workspace_qt.py` | 29 | 0 |  |
+| `tests/test_workspace_steps34.py` | 89 | 0 |  |
+| `tests/test_xrd_background.py` | 14 | 0 |  |
+| `tests/test_xrd_correction.py` | 19 | 0 |  |
+| `tests/test_xrd_generator.py` | 16 | 1 | 1 check fails only with the bundled fixture, whose internal name is SAMPLE (the check wants a scan with another name); not caused by this upgrade |
+| `tests/test_xrd_generator_actions.py` | 19 | 0 |  |
+| `tests/test_xrd_window_origin.py` | 10 | 0 |  |
+| `tests/test_zoom_pen.py` | 24 | 0 |  |
+| `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
+| **Total** | **823** | **1** | 30 files |
+
+The updater's own regression (`self_update.check`, the new program against 5.50.0): **the same Origin commands for 10 of 10 example files.**
+`tools/check_banned.py --all`: clean.
 
 ## 3. Catalogue coverage (implemented / total per section)
 
