@@ -1,0 +1,34 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "eds_ternary_cloud",
+ "name": "Point analyses in a ternary diagram with density shading",
+ "category": "Microstructure & SEM-EDS",
+ "use_case": "Hundreds of point analyses as a cloud; the shading shows where they are dense.",
+ "source": "generic",
+ "data_kind": "ternary",
+ "data_roles": {
+  "a,b,c": "three component columns",
+  "name": "optional label column"
+ },
+ "default_params": {
+  "grid_step": 20,
+  "shade": true
+ },
+ "origin_hint": "Origin: Plot > Specialized > Ternary (scatter); density: Ternary Contour.",
+ "recommended_for": [
+  "SEM-EDS",
+  "microprobe"
+ ],
+ "calculations": [
+  "normalisation of the three components to 100",
+  "kernel density of the points"
+ ],
+ "preview": "previews/eds_ternary_cloud.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/eds_ternary_cloud.otpu"
+ }
+}

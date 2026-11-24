@@ -12,8 +12,8 @@ def check(name, ok, extra=""):
     N[0 if ok else 1] += 1; print(("PASS  " if ok else "FAIL  ") + name + (f"   [{extra}]" if extra != "" else ""))
 
 LIB = os.path.join(ROOT, "origin_plot_app", "opstudio")
-check("104 templates registered, each with a JSON (opstudio.template/1) and a preview",
-      len(opstudio.REGISTRY) == 104 and all(os.path.isfile(os.path.join(LIB, "templates", t + ".json")) and os.path.isfile(os.path.join(LIB, "previews", t + ".png")) for t in opstudio.REGISTRY))
+check("118 templates registered (104 of the pack + 14 of Tier 1), each with a JSON (opstudio.template/1) and a preview",
+      len(opstudio.REGISTRY) == 118 and all(os.path.isfile(os.path.join(LIB, "templates", t + ".json")) and os.path.isfile(os.path.join(LIB, "previews", t + ".png")) for t in opstudio.REGISTRY))
 j = json.load(open(os.path.join(LIB, "templates", "xrd_stacked_offset.json"), encoding="utf-8"))
 check("template JSON carries the contract keys and origin_template", j["schema"] == "opstudio.template/1" and all(k in j for k in ("data_roles", "default_params", "origin_hint", "origin_template", "label_policy")))
 st = api.styles(); ids = [s[0] for s in st]
@@ -35,7 +35,7 @@ for tid in opstudio.REGISTRY:
         except api.Unfit: pass
         except Exception as e: crashed.append((tid, k, repr(e)[:60]))
 check("every template draws from a plain user table or says what it needs (no crash)", not crashed, crashed[:3])
-check("at least 103 of 104 templates draw from one of five plain test tables (the image grid needs images)", len(ok) >= 103, len(ok))
+check("at least 116 of 118 templates draw from one of the plain test tables (the image grid needs images)", len(ok) >= 116, (len(ok), sorted(set(opstudio.REGISTRY) - ok)))
 try: api.draw("sem_panel_layout", sets["xy"]); msg = ""
 except api.Unfit as e: msg = str(e)
 check("a template that cannot use the file says why in plain words", "image" in msg, msg)
@@ -78,6 +78,29 @@ csvp = os.path.join(d, "a.csv"); xy.to_csv(csvp, index=False); xp = os.path.join
 h = lambda p: __import__("hashlib").sha256(open(p, "rb").read()).hexdigest(); h0 = (h(csvp), h(xp))
 ta, tb = D.read_tables(csvp), D.read_tables(xp); api.draw("xrd_stacked_offset", ta); api.draw("scatter_linear_fit", tb)
 check("CSV and Excel files are read as tables and never written", len(ta) == 1 and len(tb) == 1 and (h(csvp), h(xp)) == h0)
+# ---------------------------------------------------------------- Tier 1: kinetics with known answers
+from opstudio import kinetics as K
+runs = []; E0 = 180.0
+for beta in (2, 5, 10, 20):
+    Tc, al, _ = K.simulate_first_order(E0, 1e10, beta, 600, 1200); runs.append({"beta": beta, "T": Tc, "alpha": al})
+r = K.isoconversional(runs); ek = np.array([q["Ea_kJ_mol"] for q in r["KAS"]]); eo = np.array([q["Ea_kJ_mol"] for q in r["OFW"]]); ef = np.array([q["Ea_kJ_mol"] for q in r["Friedman"]])
+check("KAS recovers the activation energy of a simulated first-order reaction (180 kJ/mol) within 2 %", np.all(abs(ek - E0) / E0 < 0.02), np.round(ek, 1).tolist())
+check("OFW (Doyle) within 3 %, Friedman within 2 %", np.all(abs(eo - E0) / E0 < 0.03) and np.all(abs(ef - E0) / E0 < 0.02), (np.round(eo, 1).tolist()[:3], np.round(ef, 1).tolist()[:3]))
+Tp = [float(c["T"][np.argmax(np.gradient(c["alpha"], c["T"]))]) for c in runs]; kz = K.kissinger([c["beta"] for c in runs], Tp)
+check("Kissinger from the peak temperatures within 2 %", abs(kz["Ea_kJ_mol"] - E0) / E0 < 0.02 and kz["r2"] > 0.999, round(kz["Ea_kJ_mol"], 1))
+try: K.isoconversional(runs[:2]); two = False
+except ValueError: two = True
+check("fewer than three heating rates: refused with the reason, no number invented", two)
+kin = pd.DataFrame({"Temperature (C)": runs[0]["T"], **{f"alpha at {c['beta']} K/min": np.interp(runs[0]["T"], c["T"], c["alpha"]) for c in runs}})
+fk, mpk = api.draw("ofw_kas_plot", [D.Table("runs", kin)]); leg = fk.axes[0].get_legend().get_texts()[4].get_text()
+check("the heating rates are read from the headers of the user's table; the legend gives Eα ± its standard error", len(fk.axes[0].get_lines()) == 18 and "α = 0.5" in leg and "180" in leg, leg)
+sticks = pd.DataFrame({"Phase": ["P1", "P1", "P2"], "2theta": [29.4, 47.5, 32.2]})
+fs, mps = api.draw("xrd_ref_ticks", [D.Table("fileA", xy[["2theta (deg)", "Sample A"]]), D.Table("peaks", sticks)])
+rows_ = [t.get_text() for t in fs.axes[1].texts]; f0, _ = api.draw("xrd_ref_ticks", [D.Table("fileA", xy[["2theta (deg)", "Sample A"]])])
+check("reference stick rows come only from the user's peak list; without one there are no rows", rows_ == ["P1", "P2"] and "no reference positions" in f0.axes[1].texts[0].get_text(), rows_)
+cat2 = json.load(open(os.path.join(LIB, "catalogue_all_graph_types.json"), encoding="utf-8")); import collections
+cnt = collections.Counter(r["status"] for r in cat2); check("catalogue statuses: Tier 1 rows built are 'implemented' with their template; 3 Tier 1 rows remain", cnt["tier1"] == 3 and cnt["implemented"] == 135 and all(r["template_id"] in opstudio.REGISTRY for r in cat2 if r["status"] == "implemented"), dict(cnt))
+
 # ---------------------------------------------------------------- Draw in Origin like this (through the driver's dry run)
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from opstudio import origin as O
@@ -106,6 +129,6 @@ n_ok = 0; bad = []
 for tid in opstudio.REGISTRY:
     try: O.send(mk(os.path.join(od, "all")), api.demo_figure(tid), tid); n_ok += 1
     except Exception as e: bad.append((tid, repr(e)[:60]))
-check("Origin: all 104 templates go through the driver without an error", n_ok == 104, bad[:3])
+check("Origin: all 118 templates go through the driver without an error", n_ok == 118, bad[:3])
 check("every template has its Origin script and names it in its JSON (origin_template)", all(os.path.isfile(os.path.join(LIB, "origin", t + ".ogs")) for t in opstudio.REGISTRY) and json.load(open(os.path.join(LIB, "templates", "tga_dtg_single.json"), encoding="utf-8"))["origin_template"]["script"] == "origin/tga_dtg_single.ogs")
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)

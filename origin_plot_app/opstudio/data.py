@@ -156,6 +156,15 @@ def bundle(template, tables, overrides=None):
         if "x" in k_set and _is_arr(ex.get("x")):                         # stacked area: one x, series of y
             d["x"] = t.arr(t.x); d["series"] = [{"name": short_name(c), "y": t.arr(c)} for c in t.ys]; mp += [("x", t.x), ("series", ", ".join(t.ys))]
             if not d["series"]: raise NeedData("needs at least one series column beside x")
+        elif "sticks" in k_set:                                            # pattern(s) from the tables of curves; reference positions from a table with a name column
+            lists = [x for x in tables if x.cat is not None and x.numeric]; curves = [x for x in tables if x not in lists] or tables[:1]
+            d["series"] = _series(curves, exs, mp); st_ = {}
+            for x in lists:
+                for nm_, v_ in zip(x.df[x.cat], x.arr(x.numeric[0])):
+                    if np.isfinite(v_): st_.setdefault(str(nm_), []).append(float(v_))
+                mp.append((f"reference positions ({x.name})", f"{x.cat} + {x.numeric[0]}"))
+            d["sticks"] = st_
+            if not lists: mp.append(("reference positions", "none in the ticked files (tick a peak list as well: a name column and a position column)"))
         else:
             d["series"] = _series(tables, exs, mp)
         if "series2" in k_set:

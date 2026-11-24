@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "xrd_ref_ticks",
+ "name": "Pattern(s) with reference stick rows per phase",
+ "category": "XRD & Rietveld",
+ "use_case": "Measured pattern above one row of reference positions per phase. The positions come from your peak list or reference file.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "2θ",
+  "y": "intensity per pattern",
+  "sticks": "phase name + position from a second table (a peak list); none in the file = no rows"
+ },
+ "default_params": {
+  "row_height": 0.06
+ },
+ "origin_hint": "Origin: line plot + one scatter layer per phase with vertical-bar symbols (Plot Details > Symbol).",
+ "recommended_for": [
+  "XRD",
+  "phase identification"
+ ],
+ "calculations": [],
+ "preview": "previews/xrd_ref_ticks.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/xrd_ref_ticks.otpu"
+ }
+}

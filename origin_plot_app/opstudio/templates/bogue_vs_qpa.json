@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "bogue_vs_qpa",
+ "name": "Calculated against measured composition (parity)",
+ "category": "Phase & chemical composition",
+ "use_case": "Every phase as a point; the 1:1 line and a ± band show where the calculation departs from the measurement.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "measured",
+  "y": "calculated"
+ },
+ "default_params": {
+  "band": 5.0
+ },
+ "origin_hint": "Origin: Scatter + a y = x reference line (Insert > Straight Line).",
+ "recommended_for": [
+  "phase composition"
+ ],
+ "calculations": [
+  "difference to the 1:1 line",
+  "mean absolute difference"
+ ],
+ "preview": "previews/bogue_vs_qpa.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/bogue_vs_qpa.otpu"
+ }
+}

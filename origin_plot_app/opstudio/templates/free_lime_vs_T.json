@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "free_lime_vs_T",
+ "name": "Burnability curve: free lime against burning temperature",
+ "category": "Phase & chemical composition",
+ "use_case": "One curve per mix; a limit line is drawn only when you give one.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "temperature",
+  "y": "free lime per mix",
+  "yerr": "optional"
+ },
+ "default_params": {
+  "limit": null
+ },
+ "origin_hint": "Origin: Line + Symbol with Y error (+ Insert > Straight Line for your limit).",
+ "recommended_for": [
+  "burnability"
+ ],
+ "calculations": [],
+ "preview": "previews/free_lime_vs_T.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/free_lime_vs_T.otpu"
+ }
+}

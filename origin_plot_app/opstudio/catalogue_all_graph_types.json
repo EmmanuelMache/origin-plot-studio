@@ -2071,9 +2071,9 @@
   "origin_path": "Drop-line / tick layer",
   "calculations": "d→2θ",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "xrd_ref_ticks",
+  "preview": "previews/xrd_ref_ticks.png"
  },
  {
   "catalogue_id": "xrd_dspacing_top",
@@ -2155,9 +2155,9 @@
   "origin_path": "Line+symbol",
   "calculations": "peak integration",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "xrd_peak_area_vs_t",
+  "preview": "previews/xrd_peak_area_vs_t.png"
  },
  {
   "catalogue_id": "xrd_peak_shift",
@@ -2455,9 +2455,9 @@
   "origin_path": "Ternary + KDE",
   "calculations": "normalisation",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "eds_ternary_cloud",
+  "preview": "previews/eds_ternary_cloud.png"
  },
  {
   "catalogue_id": "eds_map_grid",
@@ -3019,9 +3019,9 @@
   "origin_path": "multi-fit",
   "calculations": "Eα",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "ofw_kas_plot",
+  "preview": "previews/ofw_kas_plot.png"
  },
  {
   "catalogue_id": "friedman_plot",
@@ -3031,9 +3031,9 @@
   "origin_path": "multi-fit",
   "calculations": "Eα",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "friedman_plot",
+  "preview": "previews/friedman_plot.png"
  },
  {
   "catalogue_id": "ea_vs_alpha",
@@ -3139,9 +3139,9 @@
   "origin_path": "log X",
   "calculations": "max slope",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "calorimetry_log_time",
+  "preview": "previews/calorimetry_log_time.png"
  },
  {
   "catalogue_id": "calorimetry_multi_T",
@@ -3163,9 +3163,9 @@
   "origin_path": "scatter + fit",
   "calculations": "—",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "r3_heat_vs_bw",
+  "preview": "previews/r3_heat_vs_bw.png"
  },
  {
   "catalogue_id": "sulfate_balance",
@@ -3175,9 +3175,9 @@
   "origin_path": "colour-mapped",
   "calculations": "peak timing",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "sulfate_balance",
+  "preview": "previews/sulfate_balance.png"
  },
  {
   "catalogue_id": "hydration_degree",
@@ -3187,9 +3187,9 @@
   "origin_path": "line + band",
   "calculations": "α = Q/Q∞",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "hydration_degree",
+  "preview": "previews/hydration_degree.png"
  },
  {
   "catalogue_id": "chem_shrinkage",
@@ -3211,9 +3211,9 @@
   "origin_path": "scatter + fit",
   "calculations": "R²",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "strength_vs_cumheat",
+  "preview": "previews/strength_vs_cumheat.png"
  },
  {
   "catalogue_id": "phase_assemblage_stacked_area",
@@ -3319,9 +3319,9 @@
   "origin_path": "stacked area / lines",
   "calculations": "—",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "qpa_vs_age_area",
+  "preview": "previews/qpa_vs_age_area.png"
  },
  {
   "catalogue_id": "raw_meal_moduli",
@@ -3343,9 +3343,9 @@
   "origin_path": "grouped / parity",
   "calculations": "Bogue",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "bogue_vs_qpa",
+  "preview": "previews/bogue_vs_qpa.png"
  },
  {
   "catalogue_id": "free_lime_vs_T",
@@ -3355,9 +3355,9 @@
   "origin_path": "line + symbol",
   "calculations": "—",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "free_lime_vs_T",
+  "preview": "previews/free_lime_vs_T.png"
  },
  {
   "catalogue_id": "free_lime_bar",
@@ -3751,9 +3751,9 @@
   "origin_path": "scatter + iso-lines",
   "calculations": "ratio",
   "relevance": "H",
-  "status": "tier1",
-  "template_id": null,
-  "preview": null
+  "status": "implemented",
+  "template_id": "eco_efficiency",
+  "preview": "previews/eco_efficiency.png"
  },
  {
   "catalogue_id": "pareto_front",

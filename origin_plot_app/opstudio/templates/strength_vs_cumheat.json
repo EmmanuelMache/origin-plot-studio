@@ -1,0 +1,32 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "strength_vs_cumheat",
+ "name": "Strength against cumulative heat (or degree of reaction)",
+ "category": "Isothermal calorimetry",
+ "use_case": "A straight line through strength and heat links the calorimeter to the press.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "cumulative heat or α",
+  "y": "strength"
+ },
+ "default_params": {
+  "fit": true
+ },
+ "origin_hint": "Origin: Scatter + Linear Fit.",
+ "recommended_for": [
+  "calorimetry",
+  "mechanical testing"
+ ],
+ "calculations": [
+  "least squares line, R²"
+ ],
+ "preview": "previews/strength_vs_cumheat.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/strength_vs_cumheat.otpu"
+ }
+}

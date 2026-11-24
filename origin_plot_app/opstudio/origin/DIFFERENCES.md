@@ -77,7 +77,7 @@ Written by `tools/build_origin_scripts.py`. An empty cell means: the same graph.
 | `bubble_colormap` | points coloured by a value are sent in one colour (map the colour in Origin: Plot Details > Symbol > Colour > Map)<br>fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar)<br>a colour map is sent as a picture of the app's figure (use Plot > Contour > Colour Fill in Origin on the worksheet that is sent) |
 | `lollipop` | fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar) |
 | `bar_line_combo` | category names on the axis are sent as texts under the columns (in Origin, set the names column as X to get tick labels) |
-| `xrd_dspacing_top` |  |
+| `xrd_dspacing_top` | a second axis with its own scale (for example d-spacing on top) is not sent: add it in Origin (Axis dialog > Show the top axis, with a formula) |
 | `violin` | a filled band is sent as an area under its upper edge (fill between two curves in Origin: Plot Details > Line > Fill Area Under Curve > Fill to next data plot)<br>category names on the axis are sent as texts under the columns (in Origin, set the names column as X to get tick labels) |
 | `raincloud` | a filled band is sent as an area under its upper edge (fill between two curves in Origin: Plot Details > Line > Fill Area Under Curve > Fill to next data plot) |
 | `ridgeline` | a filled band is sent as an area under its upper edge (fill between two curves in Origin: Plot Details > Line > Fill Area Under Curve > Fill to next data plot) |
@@ -91,7 +91,7 @@ Written by `tools/build_origin_scripts.py`. An empty cell means: the same graph.
 | `kissinger_plot` |  |
 | `ea_vs_alpha` | a filled band is sent as an area under its upper edge (fill between two curves in Origin: Plot Details > Line > Fill Area Under Curve > Fill to next data plot) |
 | `dta_raw_meal` |  |
-| `arrhenius_plot` |  |
+| `arrhenius_plot` | a second axis with its own scale (for example d-spacing on top) is not sent: add it in Origin (Axis dialog > Show the top axis, with a formula) |
 | `rheo_flow_curve` |  |
 | `rheo_amp_sweep` |  |
 | `eis_nyquist` |  |
@@ -108,3 +108,17 @@ Written by `tools/build_origin_scripts.py`. An empty cell means: the same graph.
 | `pareto_front` | points coloured by a value are sent in one colour (map the colour in Origin: Plot Details > Symbol > Colour > Map)<br>fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar)<br>a colour map is sent as a picture of the app's figure (use Plot > Contour > Colour Fill in Origin on the worksheet that is sent) |
 | `sankey_mass_energy` |  |
 | `sensitivity_tornado` | horizontal bars are sent as columns over the category positions (turn the graph in Origin with Graph > Exchange X-Y Axes) |
+| `ofw_kas_plot` |  |
+| `friedman_plot` |  |
+| `xrd_ref_ticks` |  |
+| `xrd_peak_area_vs_t` | fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar) |
+| `calorimetry_log_time` |  |
+| `sulfate_balance` |  |
+| `hydration_degree` | fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar) |
+| `strength_vs_cumheat` |  |
+| `r3_heat_vs_bw` |  |
+| `qpa_vs_age_area` | a filled band is sent as an area under its upper edge (fill between two curves in Origin: Plot Details > Line > Fill Area Under Curve > Fill to next data plot) |
+| `bogue_vs_qpa` | a filled band is sent as an area under its upper edge (fill between two curves in Origin: Plot Details > Line > Fill Area Under Curve > Fill to next data plot) |
+| `free_lime_vs_T` | fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar) |
+| `eds_ternary_cloud` |  |
+| `eco_efficiency` |  |

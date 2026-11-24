@@ -1,0 +1,27 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "sulfate_balance",
+ "name": "Heat-flow curves against sulfate dosage",
+ "category": "Isothermal calorimetry",
+ "use_case": "Overlays coloured by the dosage: the position of the sulfate-depletion shoulder shows the balance.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "time",
+  "y": "heat flow per dosage (the dosage is read from the header)"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Line plot with Colour Mapped lines (Plot Details > Line > Colour > By Points / Map).",
+ "recommended_for": [
+  "sulfate optimisation"
+ ],
+ "calculations": [],
+ "preview": "previews/sulfate_balance.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/sulfate_balance.otpu"
+ }
+}

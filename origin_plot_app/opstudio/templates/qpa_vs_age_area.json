@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "qpa_vs_age_area",
+ "name": "Phase evolution against age (stacked areas)",
+ "category": "Phase & chemical composition",
+ "use_case": "Anhydrous phases shrink and hydrates grow, stacked to the total; log age shows the first day.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "age",
+  "y": "one column per phase"
+ },
+ "default_params": {
+  "logx": true
+ },
+ "origin_hint": "Origin: Stacked Area (Plot > Basic 2D > Stacked Area), X axis log10.",
+ "recommended_for": [
+  "quantitative XRD",
+  "hydration"
+ ],
+ "calculations": [],
+ "preview": "previews/qpa_vs_age_area.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/qpa_vs_age_area.otpu"
+ }
+}

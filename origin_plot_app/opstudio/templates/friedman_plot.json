@@ -1,0 +1,30 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "friedman_plot",
+ "name": "Friedman plot: ln(dα/dt) vs 1/T at each conversion",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "Differential isoconversional method; no approximation of the temperature integral.",
+ "source": "generic",
+ "data_kind": "kinetics",
+ "data_roles": {
+  "T": "temperature",
+  "alpha per heating rate": "one conversion column per run (the heating rate is read from the header)"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: scatter + Linear Fit per conversion level.",
+ "recommended_for": [
+  "thermal kinetics"
+ ],
+ "calculations": [
+  "dα/dt = β dα/dT",
+  "ln(dα/dt) vs 1/T, slope = −E/R"
+ ],
+ "preview": "previews/friedman_plot.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/friedman_plot.otpu"
+ }
+}

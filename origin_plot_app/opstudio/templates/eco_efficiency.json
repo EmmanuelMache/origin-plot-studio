@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "eco_efficiency",
+ "name": "Intensity against performance (eco-efficiency)",
+ "category": "Sustainability & CO2",
+ "use_case": "Each option as a labelled point: lower and further right is better.",
+ "source": "generic",
+ "data_kind": "scatter",
+ "data_roles": {
+  "x": "performance",
+  "y": "intensity",
+  "name": "one series per option"
+ },
+ "default_params": {},
+ "origin_hint": "Origin: Scatter with data labels (Plot Details > Label).",
+ "recommended_for": [
+  "mix design",
+  "life-cycle assessment"
+ ],
+ "calculations": [
+  "intensity = impact / performance when both are in the file"
+ ],
+ "preview": "previews/eco_efficiency.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/eco_efficiency.otpu"
+ }
+}

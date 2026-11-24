@@ -1,0 +1,35 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "ofw_kas_plot",
+ "name": "Isoconversional lines (OFW / KAS) for α = 0.1 … 0.9",
+ "category": "Thermal analysis (TGA / DTG / DSC)",
+ "use_case": "One straight line per conversion level from runs at three or more heating rates; the slopes give Eα.",
+ "source": "generic",
+ "data_kind": "kinetics",
+ "data_roles": {
+  "T": "temperature",
+  "alpha per heating rate": "one conversion column per run (the heating rate is read from the header)"
+ },
+ "default_params": {
+  "method": "KAS"
+ },
+ "origin_hint": "Origin: scatter + Linear Fit per conversion level (Analysis > Fitting > Linear Fit).",
+ "recommended_for": [
+  "thermal kinetics",
+  "TGA",
+  "DSC"
+ ],
+ "calculations": [
+  "T at each α by interpolation",
+  "OFW: ln β vs 1/T, slope = −1.052 E/R",
+  "KAS: ln(β/T²) vs 1/T, slope = −E/R"
+ ],
+ "preview": "previews/ofw_kas_plot.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/ofw_kas_plot.otpu"
+ }
+}

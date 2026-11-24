@@ -44,9 +44,9 @@ check("Shift+click selects the range, Ctrl+click takes one out, Ctrl+A selects a
 pg._tick_selected(pg.files, True); check("'Tick selected' ticks the highlighted rows", len(checked(pg.files)) == 3)
 # ---- the gallery: every catalogue row, filters, search
 cat = pg.catalogue; avail = [r for r in cat if r["available"]]; coming = [r for r in cat if not r["available"]]
-check("all 104 templates are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 104 and len(coming) == 348 - 121 and pg.grid.count() == len(cat), (len(avail), len(coming)))
+check("all 118 templates are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 118 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
 pg.state.setCurrentIndex(1); shown = lambda: sum(1 for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden())
-check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 104))
+check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 118))
 fields = [pg.field.itemText(i) for i in range(pg.field.count())]
 check("fields: graph families and domain packs with counts, and My templates", any("Graph families" in f for f in fields) and any("Domain packs" in f for f in fields) and any("My templates" in f for f in fields) and any("XRD" in f and "of" in f for f in fields), fields[:4])
 pg.find.setText("rietveld"); n_find = shown(); pg.find.setText("zzzz-no-such"); n_none = shown(); pg.find.setText("")

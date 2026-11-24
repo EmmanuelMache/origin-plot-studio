@@ -1,0 +1,31 @@
+{
+ "schema": "opstudio.template/1",
+ "id": "hydration_degree",
+ "name": "Degree of reaction against time (methods compared)",
+ "category": "Isothermal calorimetry",
+ "use_case": "The same quantity from several methods on one time axis, with error bars.",
+ "source": "generic",
+ "data_kind": "xy_series",
+ "data_roles": {
+  "x": "time",
+  "y": "degree of reaction per method",
+  "yerr": "optional"
+ },
+ "default_params": {
+  "logx": true
+ },
+ "origin_hint": "Origin: Line + Symbol with Y error; X axis log10.",
+ "recommended_for": [
+  "hydration",
+  "reactivity"
+ ],
+ "calculations": [],
+ "preview": "previews/hydration_degree.png",
+ "orientation": "landscape",
+ "styles": "any (styles/*.json)",
+ "label_policy": "labels/peak names only from user files or user confirmation",
+ "origin_template": {
+  "script": "",
+  "otpu": "origin/hydration_degree.otpu"
+ }
+}
