@@ -75,7 +75,7 @@ check("Analysis: XRD comes with the drawing first, correcting and generating sca
       tree[names.index("XRD")][1][0][0].startswith("Decide for me") and names.index("XRD: correct and generate scans") == names.index("XRD") + 1
       and any(r[0] == "XRD Scan Generator" for r in tree[names.index("XRD: correct and generate scans")][1]) and not any(r[0] == "XRD Scan Generator" for r in tree[names.index("XRD")][1]))
 th = WT.figtype_tree()
-check("Graph gallery: XRD starts with the drawing entries too", th[0][0] == "XRD" and th[0][1][0][0].startswith("Decide for me"))
+check("the XRD drawing entries are listed once (Analysis), not a second time with the workbook graph types", th[0][0] == "XRD" and not any(r[0].startswith("Decide for me") for r in th[0][1]) and all(r[3].get("do") == "figtype" for r in th[0][1]))
 w = WQ.Workspace([]); w.show(); app.processEvents()
 w.load_sync([str(f) for f in files]); app.processEvents()
 det = w.details.toPlainText() if hasattr(w, "details") else ""
