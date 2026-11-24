@@ -13,6 +13,15 @@ from PySide6.QtWidgets import QApplication, QDockWidget
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtTest import QTest
 app = QApplication.instance() or QApplication(sys.argv)
+import time as _time
+def settle(pg, extra=lambda: True, timeout=240):
+    """Wait until the previews are drawn (the preview timer has fired and the queue is empty)."""
+    t0 = _time.time(); QTest.qWait(30)
+    while _time.time() - t0 < timeout:
+        app.processEvents()
+        if not pg._timer.isActive() and not pg.queue and not pg.bar.isVisible() and extra(): return True
+        QTest.qWait(15)
+    return False
 import workspace_qt as W
 app.setStyle("Fusion"); app.setStyleSheet(W.STYLE)
 # three plain data files (row 1 headers, column 1 = x)
@@ -43,15 +52,34 @@ from workspace_templates import checked, set_checked
 check("files added on the page are listed and ticked", pg.files.count() == 3 and len(checked(pg.files)) == 3)
 # ---- the same multiple selection in every list
 from PySide6.QtWidgets import QAbstractItemView
-check("every list selects the same way: click, Ctrl+click, Shift+click, Ctrl+A, and a tick box per row",
-      all(l.selectionMode() == QAbstractItemView.ExtendedSelection for l in (pg.files, pg.cols, pg.grid, pg.styles)) and all(l.item(0).flags() & Qt.ItemIsUserCheckable for l in (pg.files, pg.styles)))
-set_checked(pg.files, range(3), False); pg.files.clearSelection()
-r0 = pg.files.visualItemRect(pg.files.item(0)).center(); r2 = pg.files.visualItemRect(pg.files.item(2)).center()
-QTest.mouseClick(pg.files.viewport(), Qt.LeftButton, Qt.NoModifier, r0); QTest.mouseClick(pg.files.viewport(), Qt.LeftButton, Qt.ShiftModifier, r2); app.processEvents()
-n_shift = len(pg.files.selectedItems()); QTest.mouseClick(pg.files.viewport(), Qt.LeftButton, Qt.ControlModifier, pg.files.visualItemRect(pg.files.item(1)).center()); n_ctrl = len(pg.files.selectedItems())
-pg.files.setFocus(); QTest.keyClick(pg.files, Qt.Key_A, Qt.ControlModifier); n_all = len(pg.files.selectedItems())
-check("Shift+click selects the range, Ctrl+click takes one out, Ctrl+A selects all", (n_shift, n_ctrl, n_all) == (3, 2, 3), (n_shift, n_ctrl, n_all))
-pg._tick_selected(pg.files, True); check("'Tick selected' ticks the highlighted rows", len(checked(pg.files)) == 3)
+from workspace_templates import TickList
+check("every list ticks the same way: a click ticks, Shift+click a range, Ctrl+A all; a tick box per row", all(isinstance(l, TickList) for l in (pg.files, pg.grid, pg.styles)) and all(l.item(0).flags() & Qt.ItemIsUserCheckable for l in (pg.files, pg.styles)))
+set_checked(pg.files, range(3), False); app.processEvents(); ctr = lambda lst, i: lst.visualItemRect(lst.item(i)).center()
+QTest.mouseClick(pg.files.viewport(), Qt.LeftButton, Qt.NoModifier, ctr(pg.files, 0)); app.processEvents(); n1 = len(checked(pg.files))
+QTest.mouseClick(pg.files.viewport(), Qt.LeftButton, Qt.ShiftModifier, ctr(pg.files, 2)); app.processEvents(); n_shift = len(checked(pg.files))
+QTest.mouseClick(pg.files.viewport(), Qt.LeftButton, Qt.NoModifier, ctr(pg.files, 1)); app.processEvents(); n_off = len(checked(pg.files))
+pg.files.setFocus(); QTest.keyClick(pg.files, Qt.Key_A, Qt.ControlModifier); app.processEvents(); n_all = len(checked(pg.files))
+check("a click ticks a file, Shift+click ticks the range, a click on a ticked one unticks it, Ctrl+A ticks all", (n1, n_shift, n_off, n_all) == (1, 3, 2, 3), (n1, n_shift, n_off, n_all))
+check("the ticked rows are the highlighted ones", len(pg.files.selectedItems()) == 3)
+# a click on a thumbnail ticks the template and it is drawn at once - as an example when no file is ticked
+pg.live.setChecked(True); set_checked(pg.files, range(3), False); app.processEvents()
+g0 = next(i for i in range(pg.grid.count()) if pg.grid.item(i).data(Qt.UserRole) == "scatter_linear_fit"); pg.grid.scrollToItem(pg.grid.item(g0)); app.processEvents()
+QTest.mouseClick(pg.grid.viewport(), Qt.LeftButton, Qt.NoModifier, ctr(pg.grid, g0)); app.processEvents()
+check("clicking a thumbnail ticks the template: a tick before its name and the highlight", pg.grid.item(g0).checkState() == Qt.Checked and pg.grid.item(g0).text().startswith("✓ ") and pg.grid.item(g0).isSelected(), pg.grid.item(g0).text())
+settle(pg, lambda: bool(pg.tiles))
+check("with no file ticked the preview shows the example of the ticked template at once (it cannot be kept)", len(pg.tiles) == 1 and pg.tiles[0].fig is not None and "example" in pg.tiles[0].combo["title"].lower() and not pg.tiles[0].keep.isEnabled(), [t.error for t in pg.tiles])
+pg.files.item(0).setCheckState(Qt.Checked)
+settle(pg, lambda: bool(pg.tiles) and not pg.tiles[0].combo.get("demo"))
+check("ticking a file redraws the preview from that file by itself", len(pg.tiles) == 1 and pg.tiles[0].fig is not None and pg.tiles[0].combo["sample"] == "Sample_A" and pg.tiles[0].keep.isEnabled(), pg.tiles[0].combo["title"] if pg.tiles else "")
+QTest.mouseClick(pg.grid.viewport(), Qt.LeftButton, Qt.NoModifier, ctr(pg.grid, g0)); app.processEvents(); check("a second click unticks the template", pg.grid.item(g0).checkState() == Qt.Unchecked and not pg.grid.item(g0).text().startswith("✓"))
+pg.live.setChecked(False); settle(pg); set_checked(pg.files, range(3), True)
+# the classes: by instrument / technique and by graph type
+tops = [pg.classes.topLevelItem(i).text(0) for i in range(pg.classes.topLevelItemCount())]; inst = pg.classes.topLevelItem(1); kids = [inst.child(i).text(0) for i in range(inst.childCount())]
+check("the templates are in classes: by instrument / technique and by graph type, with counts", tops[0].startswith("All templates") and tops[1].startswith("By instrument / technique") and tops[2].startswith("By graph type") and any(k.startswith("XRD and diffraction") for k in kids) and any("Thermal analysis" in k for k in kids), tops)
+xr = next(inst.child(i) for i in range(inst.childCount()) if inst.child(i).text(0).startswith("XRD")); pg._class_clicked(xr); app.processEvents()
+vis = [pg.grid.item(i).data(Qt.UserRole + 1)["section"] for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()]
+check("clicking a class shows only its templates", 6 <= len(vis) <= 19 and all(v.startswith("I. XRD") for v in vis), (len(vis), set(vis)))
+pg._class_clicked(pg.classes.topLevelItem(0)); app.processEvents()
 # ---- the gallery: every catalogue row, filters, search
 cat = pg.catalogue; avail = [r for r in cat if r["available"]]; coming = [r for r in cat if not r["available"]]
 check("all 118 templates are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 118 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
@@ -73,9 +101,7 @@ def tick(lst, ids):
 tick(pg.grid, {"xrd_stacked_offset", "xrd_dspacing_top", "scatter_linear_fit", "broken_axis"}); tick(pg.styles, {"house_style_1", "nature"}); app.processEvents()
 check("the count is visible: '3 files · 4 templates · 2 styles selected → 24 previews'", pg.count.text().startswith("3 files · 4 templates · 2 styles selected  →  24 previews"), pg.count.text())
 pg.rebuild_previews()
-for _ in range(4000):
-    app.processEvents()
-    if not pg.queue and not pg.bar.isVisible(): break
+settle(pg)
 drawn = [t for t in pg.tiles if t.fig is not None]
 check("check 14a: 24 previews drawn from the files (files x templates x styles)", len(pg.tiles) == 24 and len(drawn) == 24, (len(pg.tiles), len(drawn), [t.error for t in pg.tiles if t.error][:2]))
 t0 = drawn[0]; lab = " ".join(ax.get_xlabel() for ax in t0.fig.axes)
@@ -121,9 +147,7 @@ check("unticking a column leaves it out; the choice is remembered for files with
 set_checked(pg.files, range(pg.files.count()), False); tick(pg.files, set(files)); pg.together.setChecked(True); tick(pg.grid, {"xrd_stacked_offset"}); tick(pg.styles, {"house_style_1"})
 check("'All ticked files in one graph': 3 files → 1 preview", "→  1 preview" in pg.count.text(), pg.count.text())
 pg.rebuild_previews()
-for _ in range(2000):
-    app.processEvents()
-    if not pg.queue and not pg.bar.isVisible(): break
+settle(pg)
 one = pg.tiles[0]; txt = [t.get_text() for t in one.fig.axes[0].texts]
 check("several files in one graph: one curve per file, named after the file", len(pg.tiles) == 1 and {"Sample_A", "Sample_B", "Sample_C"} <= set(txt), txt)
 # ---- editor edits: texts and names typed by the user, never in the file
@@ -141,9 +165,7 @@ check("export / import of a template as one .opst file", back == "my_stack" and 
 # ---- useful feedback, nothing frozen
 bad = TMP / "notes.txt"; bad.write_text("this is not a table\njust words\n", encoding="utf-8"); pg.together.setChecked(False); pg.add_files([str(bad)]); set_checked(pg.files, range(pg.files.count()), False); tick(pg.files, {str(bad)})
 pg.rebuild_previews()
-for _ in range(500):
-    app.processEvents()
-    if not pg.queue and not pg.bar.isVisible(): break
+settle(pg)
 check("a file that is not a table gives a tile that says so; nothing crashes", len(pg.tiles) == 1 and pg.tiles[0].fig is None and len(pg.tiles[0].error) > 10 and not pg.tiles[0].keep.isEnabled(), pg.tiles[0].error[:80])
 tick(pg.files, set(files)); tick(pg.grid, {r["id"] for r in avail[:12]}); pg.rebuild_previews(); app.processEvents(); pg.cancel(); app.processEvents()
 check("a long drawing can be cancelled: the previews drawn so far stay", len(pg.tiles) == 36 and not pg.bar.isVisible() and "Cancelled" in pg.pmsg.text(), pg.pmsg.text())

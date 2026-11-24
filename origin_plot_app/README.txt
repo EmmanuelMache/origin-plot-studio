@@ -1,3 +1,9 @@
+VERSION 5.52.3  -  CLICK TO TICK, PREVIEW AT ONCE, TEMPLATES IN CLASSES
+  Graph gallery > Templates: a click on a template, a file or a style ticks it (a tick before the name and a blue frame);
+  click again to untick; Shift+click ticks a range; Ctrl+A ticks all shown. A ticked template is drawn at once - from
+  your ticked files, or as an example when no file is ticked. The tree beside the pictures classes the templates by
+  instrument / technique and by graph type; the numbers are "can be drawn now" of "in the catalogue" (118 of 331).
+
 VERSION 5.52.2  -  ONE GRAPH GALLERY
   The templates are inside Graph gallery (no separate Templates section in the top bar). A switch at the top of the
   gallery shows "Templates" or "Workbook graph types (26)"; Graph gallery opens where you left it.

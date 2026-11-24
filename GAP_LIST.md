@@ -1,4 +1,4 @@
-# GAP_LIST – brief v2.1 against the app (version 5.52.2)
+# GAP_LIST – brief v2.1 against the app (version 5.52.3)
 
 Status: **done** = works and is tested · **partly** = some of it exists · **missing** = not there.
 Evidence for every "done" is in `TEST_REPORT.md`. Wording is neutral on purpose (no names of anyone's work).
@@ -31,7 +31,7 @@ Evidence for every "done" is in `TEST_REPORT.md`. Wording is neutral on purpose 
 | Requirement | Status |
 |---|---|
 | Template × style × data; JSON contracts | **done** |
-| Family / domain tree with counts, search, filters | **partly**: a field list with counts and three filters, not a tree widget |
+| Family / domain tree with counts, search, filters | **done**: a tree by instrument / technique and by graph type with counts, search, source and status filters |
 | Thumbnails with name, use, badge, tick; hover card | **done** (hover = tooltip with roles and Origin name) |
 | Recommender | **done** (16 header rules + "can the file fill it") |
 | House style default; private original style | **done** (neutral style shipped; the private one is loaded from the private folder when present) |

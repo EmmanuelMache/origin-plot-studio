@@ -2,6 +2,12 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.52.3
+
+* **Selecting is ticking.** A click on a template, a file or a style ticks it (✓ before the name and a blue frame); click again to untick, Shift+click ticks a range, Ctrl+A ticks all that are shown.
+* **A ticked template is drawn at once**: from your ticked files, or as an illustrative example when no file is ticked. Your Workspace files are ticked the first time you open the gallery.
+* **Templates in classes**: a tree *By instrument / technique* (XRD, spectroscopy, microscopy, particle size, rheology, thermal analysis, calorimetry, thermodynamic modelling, engineering, sustainability, electrochemistry, life science, analytical chemistry, physics, environment, kinetics) and *By graph type* (basic 2D, bars, multi-panel, statistics, contour, specialised, flow, 3D), each with "can be drawn now of in the catalogue".
+
 ## 5.52.2
 
 * **One Graph gallery.** The templates are inside *Graph gallery* now; the separate *Templates* entry in the top bar is gone. A switch at the top of the gallery shows **Templates** or **Workbook graph types (26)**, and the gallery opens where you left it.

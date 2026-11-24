@@ -61,9 +61,57 @@ class Tile(QFrame):
         super().mousePressEvent(e)
 
 
-def multi_list(tooltip=""):
-    """A list where click = one, Ctrl+click = add / remove, Shift+click = range, Ctrl+A = all, and every row has a tick box."""
-    w = QListWidget(); w.setSelectionMode(QAbstractItemView.ExtendedSelection); w.setToolTip(tooltip); w.setUniformItemSizes(False)
+class TickList(QListWidget):
+    """A list where selecting IS ticking: a click ticks or unticks the row (or thumbnail), Shift+click ticks the range from the
+    last click, Ctrl+A ticks all that are shown, Space toggles. The ticked rows are the highlighted ones."""
+    def __init__(self):
+        super().__init__(); self.setSelectionMode(QAbstractItemView.MultiSelection); self._anchor = None; self.itemChanged.connect(lambda _i: self.sync())
+
+    def _can(self, it): return it is not None and bool(it.flags() & Qt.ItemIsUserCheckable) and not it.isHidden()
+
+    def sync(self):
+        """The highlight follows the ticks."""
+        self.blockSignals(True)
+        for i in range(self.count()):
+            it = self.item(i); on = it.checkState() == Qt.Checked and bool(it.flags() & Qt.ItemIsUserCheckable)
+            if it.isSelected() != on: it.setSelected(on)
+        self.blockSignals(False)
+
+    def mousePressEvent(self, e):
+        it = self.itemAt(e.position().toPoint())
+        if e.button() != Qt.LeftButton or not self._can(it): return super().mousePressEvent(e) if e.button() != Qt.LeftButton else None
+        r = self.row(it)
+        if (e.modifiers() & Qt.ShiftModifier) and self._anchor is not None:
+            lo, hi = sorted((self._anchor, r)); self.blockSignals(True)
+            for k in range(lo, hi + 1):
+                if self._can(self.item(k)): self.item(k).setCheckState(Qt.Checked)
+            self.blockSignals(False); self.itemChanged.emit(it)
+        else:
+            it.setCheckState(Qt.Unchecked if it.checkState() == Qt.Checked else Qt.Checked); self._anchor = r
+        self.setCurrentItem(it, __import__("PySide6.QtCore", fromlist=["QItemSelectionModel"]).QItemSelectionModel.NoUpdate); self.sync(); self.setFocus()
+
+    def mouseReleaseEvent(self, e): self.sync()
+    def mouseMoveEvent(self, e): pass
+    def mouseDoubleClickEvent(self, e): self.mousePressEvent(e)
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_A and (e.modifiers() & Qt.ControlModifier):
+            self.blockSignals(True)
+            for k in range(self.count()):
+                if self._can(self.item(k)): self.item(k).setCheckState(Qt.Checked)
+            self.blockSignals(False); self.itemChanged.emit(self.item(0)) if self.count() else None; return
+        super().keyPressEvent(e); self.sync()
+
+    def selected_rows(self): return [i for i in range(self.count()) if self.item(i).checkState() == Qt.Checked and not self.item(i).isHidden()]
+
+
+def multi_list(tooltip="", tick_on_click=True):
+    """Every list of the page: click = tick / untick, Shift+click = a range, Ctrl+A = all shown; the ticked rows are highlighted.
+    tick_on_click=False (the Columns list, whose rows are dragged): click selects, the tick box ticks."""
+    w = TickList() if tick_on_click else QListWidget()
+    if not tick_on_click: w.setSelectionMode(QAbstractItemView.ExtendedSelection)
+    w.setToolTip(tooltip); w.setUniformItemSizes(False)
+    w.setStyleSheet("QListWidget::item:selected { background: #EAF2FF; color: #172B4D; border: 1px solid #2563EB; border-radius: 6px; }")
     return w
 
 
@@ -112,7 +160,7 @@ class TemplatePage(QWidget):
         self.main.splitDockWidget(self.templates_dock, self.preview_dock, Qt.Horizontal)
         self.main.splitDockWidget(self.templates_dock, self.styles_dock, Qt.Vertical)
         self.main.splitDockWidget(self.preview_dock, self.variants_dock, Qt.Vertical)
-        self.main.resizeDocks([self.files_dock, self.templates_dock, self.preview_dock], [250, 470, 700], Qt.Horizontal)
+        self.main.resizeDocks([self.files_dock, self.templates_dock, self.preview_dock], [220, 760, 520], Qt.Horizontal)
         self.main.resizeDocks([self.templates_dock, self.styles_dock], [520, 190], Qt.Vertical); self.main.resizeDocks([self.preview_dock, self.variants_dock], [560, 150], Qt.Vertical)
         # Ctrl+Shift+O / Ctrl+Shift+E / Ctrl+Shift+G act on this page while it is on show (see workspace_session.install)
         self._timer = QTimer(self); self._timer.setSingleShot(True); self._timer.setInterval(350); self._timer.timeout.connect(self.rebuild_previews)
@@ -174,7 +222,7 @@ class TemplatePage(QWidget):
 
     def _files_panel(self):
         w = QWidget(); v = QVBoxLayout(w); v.setContentsMargins(8, 8, 8, 8)
-        self.files = multi_list("Your files. Click = one, Ctrl+click = add or remove, Shift+click = a range, Ctrl+A = all. Tick the files to draw. Drop files here to add them")
+        self.files = multi_list("Your files. Click a file to tick or untick it; Shift+click ticks a range; Ctrl+A ticks all. The ticked files are drawn. Drop files here to add them")
         self.files.itemChanged.connect(lambda _i: (self.update_count(), self.schedule(), self.filter_templates() if self.fits.isChecked() else None))
         self.files.currentItemChanged.connect(lambda cur, _p: self.show_columns(cur.data(Qt.UserRole) if cur else None))
         self.files.setContextMenuPolicy(Qt.CustomContextMenu); self.files.customContextMenuRequested.connect(self._files_menu)
@@ -193,7 +241,7 @@ class TemplatePage(QWidget):
         w = QWidget(); v = QVBoxLayout(w); v.setContentsMargins(8, 8, 8, 8)
         self.col_head = QLabel("Click a file to see its columns.", objectName="soft"); self.col_head.setWordWrap(True); v.addWidget(self.col_head)
         self.sheet = QComboBox(); self.sheet.setToolTip("The sheet of the workbook that is drawn"); self.sheet.currentIndexChanged.connect(self._sheet_changed); v.addWidget(self.sheet)
-        self.cols = multi_list("The columns of the sheet, in the order they are used: the first ticked numeric column is x, the others are series. Untick a column to leave it out; "
+        self.cols = multi_list(tick_on_click=False, tooltip="The columns of the sheet, in the order they are used: the first ticked numeric column is x, the others are series. Untick a column to leave it out; "
                                "drag rows (or Move up / down) to change the order. The choice is remembered for files with the same headers")
         self.cols.setDragDropMode(QAbstractItemView.InternalMove); self.cols.itemChanged.connect(lambda _i: self._columns_changed())
         self.cols.model().rowsMoved.connect(lambda *a: self._columns_changed()); v.addWidget(self.cols, 1)
@@ -217,20 +265,24 @@ class TemplatePage(QWidget):
         self.fits.toggled.connect(lambda _c: self.filter_templates()); f2.addWidget(self.fits); f2.addStretch(1)
         f2.addWidget(self._btn("Select all in this category", "Tick every template that is shown now", lambda: self._tick_shown(True)))
         f2.addWidget(self._btn("Clear selection", "Untick every template", lambda: set_checked(self.grid, range(self.grid.count()), False))); v.addLayout(f2)
-        self.grid = multi_list("Tick the templates to draw. Click = one, Ctrl+click = add or remove, Shift+click = a range, Ctrl+A = all shown. Hover: what it is for, the columns it needs and its Origin name")
+        self.grid = multi_list("Click a template to tick it (click again to untick); Shift+click ticks a range; Ctrl+A ticks all that are shown. Every ticked template is drawn in Previews. Hover: what it is for, the columns it needs and its Origin name")
         self.grid.setViewMode(QListWidget.IconMode); self.grid.setIconSize(QSize(190, 124)); self.grid.setResizeMode(QListWidget.Adjust); self.grid.setMovement(QListWidget.Static)
         self.grid.setSpacing(6); self.grid.setWordWrap(True); self.grid.setGridSize(QSize(206, 186))
-        self.grid.setStyleSheet("QListWidget::item { border: 1px solid #D8E1EC; border-radius: 8px; background: white; } QListWidget::item:selected { border: 2px solid #2563EB; background: #EAF2FF; color: #172B4D; }")
-        self.grid.itemChanged.connect(lambda _i: (self.update_count(), self.schedule(), self._show_variants()))
+        self.grid.setStyleSheet("QListWidget::item { border: 1px solid #D8E1EC; border-radius: 8px; background: white; } QListWidget::item:selected { border: 3px solid #2563EB; background: #DCE9FF; color: #172B4D; font-weight: bold; }")
+        self.grid.itemChanged.connect(lambda _i: (self._marks(), self.update_count(), self.schedule(), self._show_variants()))
         self.grid.setContextMenuPolicy(Qt.CustomContextMenu); self.grid.customContextMenuRequested.connect(self._grid_menu)
-        self.grid.itemDoubleClicked.connect(lambda it: it.setCheckState(Qt.Unchecked if it.checkState() == Qt.Checked else Qt.Checked) if it.flags() & Qt.ItemIsUserCheckable else None)
-        v.addWidget(self.grid, 1)
+        # ---- the classes: by instrument / technique and by graph type (click one: the grid shows that class)
+        from PySide6.QtWidgets import QSplitter
+        self.classes = QTreeWidget(); self.classes.setHeaderHidden(True); self.classes.setMinimumWidth(150); self.classes.setToolTip("The templates in classes: by instrument or technique, and by graph type. Click a class to see its templates; the numbers are 'can be drawn now' of 'in the catalogue'")
+        self.classes.itemClicked.connect(self._class_clicked)
+        sp_ = QSplitter(Qt.Horizontal); sp_.addWidget(self.classes); sp_.addWidget(self.grid); sp_.setStretchFactor(1, 1); sp_.setSizes([235, 520]); self.field.hide()
+        v.addWidget(sp_, 1)
         sc = QShortcut(QKeySequence("Ctrl+F"), w); sc.setContext(Qt.WidgetWithChildrenShortcut); sc.activated.connect(self.find.setFocus)
         return w
 
     def _styles_panel(self):
         w = QWidget(); v = QVBoxLayout(w); v.setContentsMargins(8, 8, 8, 8)
-        self.styles = multi_list("Tick the styles to compare: house style, journal presets (sizes and minimum text sizes from the publishers' guides), slides, greyscale, colour-blind safe")
+        self.styles = multi_list("Click a style to tick it. Tick several to compare: house style, journal presets (sizes and minimum text sizes from the publishers' guides), slides, greyscale, colour-blind safe")
         self.styles.itemChanged.connect(lambda _i: (self.update_count(), self.schedule())); v.addWidget(self.styles, 1)
         return w
 
@@ -294,7 +346,28 @@ class TemplatePage(QWidget):
         self.field.addItem("— Domain packs —", "__dom"); [self.field.addItem(f"    {_clean(s)}  ({n(s)} of {tot(s)})", s) for s in dom]
         self.field.addItem(f"My templates  ({n('My templates')})", "My templates")
         i = self.field.findData(cur); self.field.setCurrentIndex(max(0, i)); self.field.blockSignals(False)
+        self.classes.clear(); bold = lambda it: (it.setFont(0, (lambda f: (f.setBold(True), f)[1])(it.font(0))), it)[1]
+        na = sum(1 for r in self.catalogue if r["available"]); top = bold(QTreeWidgetItem([f"All templates  ({na} of {len(self.catalogue)})"])); top.setData(0, Qt.UserRole, None); self.classes.addTopLevelItem(top)
+        for title, key, secs in (("By instrument / technique", "__dom", dom), ("By graph type", "__fam", fam)):
+            g = bold(QTreeWidgetItem([f"{title}  ({sum(n(x) for x in secs)} of {sum(tot(x) for x in secs)})"])); g.setData(0, Qt.UserRole, key); self.classes.addTopLevelItem(g)
+            for x in secs:
+                c = QTreeWidgetItem([f"{_clean(x)}  ({n(x)} of {tot(x)})"]); c.setData(0, Qt.UserRole, x); c.setToolTip(0, f"{_clean(x)}: {n(x)} template(s) can be drawn now, {tot(x)} graph types in the catalogue"); g.addChild(c)
+            g.setExpanded(True)
+        mine = bold(QTreeWidgetItem([f"My templates  ({n('My templates')})"])); mine.setData(0, Qt.UserRole, "My templates"); self.classes.addTopLevelItem(mine)
         self.filter_templates()
+
+    def _class_clicked(self, it, _col=0):
+        i = self.field.findData(it.data(0, Qt.UserRole)); self.field.setCurrentIndex(max(0, i))
+
+    def _marks(self):
+        """A ticked thumbnail says so: a tick before its name (and the blue frame of the highlight)."""
+        self.grid.blockSignals(True)
+        for i in range(self.grid.count()):
+            it = self.grid.item(i); r = it.data(Qt.UserRole + 1)
+            if not r["available"]: continue
+            base = it.text().replace("✓ ", "", 1); want = ("✓ " + base) if it.checkState() == Qt.Checked else base
+            if it.text() != want: it.setText(want)
+        self.grid.blockSignals(False); self.grid.sync()
 
     def fill_styles(self):
         self.styles.blockSignals(True); self.styles.clear()
@@ -306,7 +379,7 @@ class TemplatePage(QWidget):
                 it.setToolTip(f"{st.get('description', '')}\nWidths: " + " / ".join(f"{v:g}" for v in wm.values()) + " mm" + (f"\nMinimum text {lim.get('min_font_pt')} pt, lines {lim.get('min_line_pt')} pt" if lim else "") + f"\nPanel labels: {st.get('panel_label', {}).get('format', '(a)')}")
             except Exception: pass
             self.styles.addItem(it)
-        self.styles.blockSignals(False)
+        self.styles.blockSignals(False); self.styles.sync()
 
     def refresh_files(self):
         """The files of the session (Workspace) and the files added here."""
@@ -321,8 +394,8 @@ class TemplatePage(QWidget):
         self.files.blockSignals(True); self.files.clear()
         for p in paths:
             it = QListWidgetItem(os.path.basename(p)); it.setData(Qt.UserRole, p); it.setToolTip(p); it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable)
-            it.setCheckState(have.get(p, Qt.Unchecked)); self.files.addItem(it)
-        self.files.blockSignals(False); self.update_count()
+            it.setCheckState(have.get(p, Qt.Checked if (not have and len(paths) <= 6) else Qt.Unchecked)); self.files.addItem(it)      # the first time: your files are ticked, so that a ticked template is drawn at once
+        self.files.blockSignals(False); self.files.sync(); self.update_count(); self.schedule()
 
     def showEvent(self, e):
         super().showEvent(e); self.refresh_files()
@@ -346,7 +419,7 @@ class TemplatePage(QWidget):
         own = [p for p in sel if p in self.extra_files]
         if QMessageBox.question(self, "Remove files", f"Remove {len(own)} file(s) from this page? They stay on the disk." + ("" if len(own) == len(sel) else f"\n{len(sel) - len(own)} file(s) belong to Workspace and stay in the list.")) != QMessageBox.Yes: return
         self._removed = list(own); self.extra_files = [p for p in self.extra_files if p not in own]; self.refresh_files(); self.schedule()
-        self.ws.set_status(f"{len(own)} file(s) removed from the Templates page. Add files… brings them back.")
+        self.ws.set_status(f"{len(own)} ticked file(s) removed from this page. Add files… brings them back.")
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls(): e.acceptProposedAction()
@@ -355,7 +428,7 @@ class TemplatePage(QWidget):
         self.add_files([u.toLocalFile() for u in e.mimeData().urls()])
 
     def _tick_selected(self, lst, on):
-        rows = [lst.row(i) for i in lst.selectedItems()]
+        rows = [lst.row(i) for i in lst.selectedItems()] or ([lst.currentRow()] if lst.currentRow() >= 0 else [])
         if not rows: self.ws.set_status("Highlight rows first (click, Ctrl+click, Shift+click or Ctrl+A)."); return
         set_checked(lst, rows, on)
 
@@ -483,16 +556,19 @@ class TemplatePage(QWidget):
             self.grid.blockSignals(True)
             for k, it in enumerate(items):
                 self.grid.addItem(it); tid = it.data(Qt.UserRole)
-                if tid in rank and rank[tid][0] < 3 and not it.isHidden(): it.setText("★ " + it.data(Qt.UserRole + 1)["name"])
-                elif it.data(Qt.UserRole + 1)["available"]: it.setText(it.data(Qt.UserRole + 1)["name"])
+                tk = "✓ " if it.checkState() == Qt.Checked else ""
+                if tid in rank and rank[tid][0] < 3 and not it.isHidden(): it.setText(tk + "★ " + it.data(Qt.UserRole + 1)["name"])
+                elif it.data(Qt.UserRole + 1)["available"]: it.setText(tk + it.data(Qt.UserRole + 1)["name"])
             self.grid.blockSignals(False)
         self.ws.set_status(f"{shown} graph types shown" + (" - best fit for your file first (★ = top 3)" if rank else "")) if self.isVisible() else None
         self.update_count()
 
     def combos(self):
         """Every ticked combination: files x templates x styles (or all files together x templates x styles)."""
-        files = checked(self.files); tpls = [t for t in checked(self.grid) if not str(t).startswith("coming:")]; styles = checked(self.styles)
+        files = checked(self.files); tpls = [t for t in checked(self.grid) if not str(t).startswith("coming:")]; styles = checked(self.styles) or [self.style0]
         groups = [files] if (self.together.isChecked() and files) else [[f] for f in files]; out = []; names = {r["id"]: r["name"] for r in self.catalogue}
+        if not files:                           # no file ticked yet: the illustrative example of every ticked template, so that a tick always shows something
+            return [{"files": [], "template": t, "style": s, "sample": "example", "title": "Illustrative example (tick a file to see your data)", "caption": f"{names.get(t, t)}  ·  {s}", "demo": True} for t in tpls for s in styles]
         for g in groups:
             sample = os.path.splitext(os.path.basename(g[0]))[0] if len(g) == 1 else f"{len(g)} files"
             for t in tpls:
@@ -504,7 +580,7 @@ class TemplatePage(QWidget):
 
     def update_count(self):
         nf, nt, ns = len(checked(self.files)), len([t for t in checked(self.grid) if not str(t).startswith("coming:")]), len(checked(self.styles))
-        n = (1 if self.together.isChecked() and nf else nf) * nt * ns; k = len(self.kept())
+        n = (1 if self.together.isChecked() and nf else (nf or 1)) * nt * max(ns, 1); k = len(self.kept())
         self.count.setText(f"{nf} file{'s' * (nf != 1)} · {nt} template{'s' * (nt != 1)} · {ns} style{'s' * (ns != 1)} selected  →  {n} preview{'s' * (n != 1)}" + (f"  ·  {k} kept" if self.tiles else ""))
         why = "Disabled: no graph is kept (tick previews)"
         for b in (self.b_open, self.b_origin, self.b_export): b.setEnabled(k > 0)
@@ -535,7 +611,7 @@ class TemplatePage(QWidget):
             if QMessageBox.question(self, "Many previews", f"{len(combos)} previews will be drawn. This can take a few minutes; you can cancel at any time. Go on?") != QMessageBox.Yes:
                 self.queue = []
         self.total = len(self.queue); self.update_count()
-        if not combos: self.pmsg.setText("Tick at least one file, one template and one style: every combination is drawn here from your data."); return
+        if not combos: self.pmsg.setText("Click a template on the left to tick it: it is drawn here - from your ticked files, or as an example when no file is ticked."); return
         if self.queue:
             self.bar.setRange(0, self.total); self.bar.setValue(0); self.bar.show(); self.b_stop.show(); self.pmsg.setText(f"Drawing {self.total} preview(s) …"); QTimer.singleShot(0, self._draw_next)
         else: self._done_drawing()
@@ -544,6 +620,8 @@ class TemplatePage(QWidget):
         return [self.table_of(p)[0] for p in files]
 
     def draw_combo(self, combo, width=None, target=None):
+        if combo.get("demo"):
+            fig = self.api.demo_figure(combo["template"], combo["style"]); return fig, [("data", "illustrative example - tick a file to draw your own data")]
         return self.api.draw(combo["template"], self.tables_for(combo["files"]), style=combo["style"], params=self.params.get(combo["template"]) or None,
                              switches=combo.get("switches", self.current_switches()), overrides=combo.get("overrides"), width=width, target=target)
 
@@ -552,6 +630,7 @@ class TemplatePage(QWidget):
         t = self.queue.pop(0)
         try:
             fig, mp = self.draw_combo(t.combo); t.show_figure(fig, self.api.png(fig, TILE_W * 2), mp)
+            if t.combo.get("demo"): t.keep.setEnabled(False); t.keep.setToolTip("An example cannot be kept: tick one of your files and it is drawn from your data")
         except self.api.Unfit as e: t.show_error(str(e))
         except Exception as e: t.show_error(f"could not be drawn: {type(e).__name__}: {e}")
         self.bar.setValue(self.total - len(self.queue)); QTimer.singleShot(0, self._draw_next)
