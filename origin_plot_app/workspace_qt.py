@@ -385,6 +385,11 @@ class Workspace(QMainWindow):
             workspace_shell.install(self)                     # one top bar, panels everywhere, the layout kept between sessions
         except Exception:                                     # the arrangement must never keep the app from starting
             self.log("!! the panel layout could not be set up; the app works without it:\n" + traceback.format_exc(limit=4))
+        try:
+            import workspace_session
+            workspace_session.install(self)                   # File far left, one Undo / Redo, clear / start afresh with undo, recent sessions, autosave, command search
+        except Exception:
+            self.log("!! the session commands could not be set up; the app works without them:\n" + traceback.format_exc(limit=4))
         QShortcut(QKeySequence("Ctrl+O"), self, activated=self.add_files)
         QShortcut(QKeySequence("Escape"), self, activated=self.clear_selection)
         if paths:
@@ -1983,6 +1988,11 @@ class Workspace(QMainWindow):
         if self.job_thread is not None:
             self.cancel[0] = True
             self.job_thread.wait(30000)
+        try:
+            import workspace_session
+            workspace_session.closed_properly(self)            # closed properly: nothing to recover next time
+        except Exception:
+            pass
         e.accept()
 
     # ------------------------------------------------------------------ misc

@@ -24,7 +24,7 @@ import smart_plots as sp
 # (shortcut, what it does, method name on the window or a callable taking the window)
 SHORTCUTS = [
     ("Ctrl+O", "Add data files", None),
-    ("Ctrl+S", "Save the session (files, graph types, sample names, figures)", "save_session"),
+    ("Ctrl+S", "Save the session (files, graph types, sample names, figures)", lambda w: (w.save() if hasattr(w, "save") else w.save_session())),
     ("Ctrl+Shift+O", "Open a saved session", "open_session"),
     ("Ctrl+E", "Save this graph: PNG 600 dpi, TIFF, PDF, SVG (journal size)", "save_current"),
     ("Ctrl+Shift+E", "Save the view on screen as a picture", "save_view"),

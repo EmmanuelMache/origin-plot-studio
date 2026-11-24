@@ -56,11 +56,18 @@ def read_figure(fig):
     fig.canvas.draw(); W, H = fig.get_size_inches(); layers = []; diff = []
     def note(s):
         if s not in diff: diff.append(s)
-    twins = {}
-    for ax in fig.axes:
+    twins = {}; axes = []; inv = fig.transFigure.inverted()
+    def walk(a):
+        axes.append(a)
+        for ch in getattr(a, "child_axes", []):
+            if type(ch).__name__ == "SecondaryAxis": note("a second axis with its own scale (for example d-spacing on top) is not sent: add it in Origin (Axis dialog > Show the top axis, with a formula)")
+            else: walk(ch)                                              # insets (zoom panels inside a graph) are layers of their own
+    for ax in fig.axes: walk(ax)
+    for ax in axes:
         if getattr(ax, "name", "") in ("polar", "3d"):
             note(f"a {'polar' if ax.name == 'polar' else '3D'} panel is sent as a picture of the app's figure (Origin's own {ax.name} graph type is named in the template's Origin hint)"); continue
-        p = ax.get_position(); x0, x1 = ax.get_xlim(); y0, y1 = ax.get_ylim()
+        from matplotlib.transforms import Bbox
+        p = Bbox(inv.transform(ax.get_window_extent().get_points())); x0, x1 = ax.get_xlim(); y0, y1 = ax.get_ylim()      # where the panel really is on the page (insets too)
         L = {"left": p.x0 * 100, "top": (1 - p.y1) * 100, "width": p.width * 100, "height": p.height * 100, "x": (x0, x1), "y": (y0, y1),
              "xlog": ax.get_xscale() == "log", "ylog": ax.get_yscale() == "log", "xlabel": ax.get_xlabel(), "ylabel": ax.get_ylabel(),
              "title": ax.get_title(loc="left") or ax.get_title(), "title_bold": True, "curves": [], "bars": [], "zones": [], "texts": [], "vlines": [], "legend": None,

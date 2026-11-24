@@ -114,8 +114,7 @@ class TemplatePage(QWidget):
         self.main.splitDockWidget(self.preview_dock, self.variants_dock, Qt.Vertical)
         self.main.resizeDocks([self.files_dock, self.templates_dock, self.preview_dock], [250, 470, 700], Qt.Horizontal)
         self.main.resizeDocks([self.templates_dock, self.styles_dock], [520, 190], Qt.Vertical); self.main.resizeDocks([self.preview_dock, self.variants_dock], [560, 150], Qt.Vertical)
-        for seq, fn in (("Ctrl+Shift+O", self.draw_all_in_origin), ("Ctrl+Shift+E", self.export_all), ("Ctrl+Shift+G", self.combine)):
-            sc = QShortcut(QKeySequence(seq), self); sc.setContext(Qt.WidgetWithChildrenShortcut); sc.activated.connect(fn)
+        # Ctrl+Shift+O / Ctrl+Shift+E / Ctrl+Shift+G act on this page while it is on show (see workspace_session.install)
         self._timer = QTimer(self); self._timer.setSingleShot(True); self._timer.setInterval(350); self._timer.timeout.connect(self.rebuild_previews)
         self.fill_templates(); self.fill_styles(); self.refresh_files(); self.update_count()
 
@@ -905,10 +904,10 @@ class ExportDialog(QDialog):
         for ext in ("png", "tiff", "pdf", "svg", "eps", "jpg"):
             b = QCheckBox(ext.upper()); b.setChecked(ext in (last.get("formats") or ["png", "pdf"])); b.setToolTip({"tiff": "TIFF with LZW compression", "pdf": "vector, fonts embedded", "svg": "vector, text stays text", "eps": "vector (no transparency)"}.get(ext, ext.upper())); self.fm[ext] = b; h.addWidget(b)
         f.addRow("Formats:", h)
-        self.width = QComboBox(); self.width.setToolTip("The widths of each graph's own style (journal column widths in mm)")
-        for name, key in (("Single column", "single"), ("1.5 column", "one_and_half"), ("Double column", "double"), ("Custom (mm) …", None)): self.width.addItem(name, key)
-        self.width.setCurrentIndex({"single": 0, "one_and_half": 1, "double": 2}.get(last.get("width"), 2)); self.mm = QDoubleSpinBox(); self.mm.setRange(30, 500); self.mm.setValue(120); self.mm.setSuffix(" mm")
-        self.mm.setEnabled(False); self.width.currentIndexChanged.connect(lambda _i: self.mm.setEnabled(self.width.currentData() is None)); f.addRow("Size:", self.width); f.addRow("Custom width:", self.mm)
+        self.wsel = QComboBox(); self.wsel.setToolTip("The widths of each graph's own style (journal column widths in mm)")
+        for name, key in (("Single column", "single"), ("1.5 column", "one_and_half"), ("Double column", "double"), ("Custom (mm) …", None)): self.wsel.addItem(name, key)
+        self.wsel.setCurrentIndex({"single": 0, "one_and_half": 1, "double": 2}.get(last.get("width"), 2)); self.mm = QDoubleSpinBox(); self.mm.setRange(30, 500); self.mm.setValue(120); self.mm.setSuffix(" mm")
+        self.mm.setEnabled(False); self.wsel.currentIndexChanged.connect(lambda _i: self.mm.setEnabled(self.wsel.currentData() is None)); f.addRow("Size:", self.wsel); f.addRow("Custom width:", self.mm)
         self.dpi = QComboBox(); self.dpi.addItems(["From the style", "300", "600", "1200"]); self.dpi.setToolTip("Resolution of PNG / TIFF / JPG"); f.addRow("Resolution (dpi):", self.dpi)
         self.transp = QCheckBox("Transparent background"); f.addRow(self.transp)
         self.pattern = QLineEdit(last.get("pattern") or "{sample}_{template}"); self.pattern.setToolTip("File name: {sample} {template} {style} {date} {n}"); f.addRow("File name:", self.pattern)
@@ -924,7 +923,7 @@ class ExportDialog(QDialog):
         self.warn.setText(("Check before submission: " + "; ".join(w)) if w else "")
 
     def options(self):
-        return {"formats": [e for e, b in self.fm.items() if b.isChecked()] or ["png"], "width": self.width.currentData() or self.mm.value(), "dpi": None if self.dpi.currentIndex() == 0 else int(self.dpi.currentText()),
+        return {"formats": [e for e, b in self.fm.items() if b.isChecked()] or ["png"], "width": self.wsel.currentData() or self.mm.value(), "dpi": None if self.dpi.currentIndex() == 0 else int(self.dpi.currentText()),
                 "transparent": self.transp.isChecked(), "pattern": self.pattern.text().strip() or "{sample}_{template}", "folder": self.folder.text().strip()}
 
 

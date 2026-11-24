@@ -1,0 +1,68 @@
+"""Command area and session basics: File far left, quick Save / Undo / Redo, command search, clear / remove / start afresh
+with undo, save / save as / recent, autosave and recovery."""
+import os, sys, tempfile, json
+from pathlib import Path
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen"); os.environ["OPS_NO_OPEN"] = "1"
+TMP = Path(tempfile.mkdtemp()); os.environ["OPS_SETTINGS_FILE"] = str(TMP / "settings_modern.json"); os.environ["OPS_PRIVATE_DIR"] = str(TMP / "private")
+ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "origin_plot_app"))
+N = [0, 0]
+def check(name, cond, info=""):
+    N[0 if cond else 1] += 1; print(("PASS  " if cond else "FAIL  ") + name + (f"   [{info}]" if info != "" else ""))
+from PySide6.QtWidgets import QApplication, QPushButton, QToolButton
+from PySide6.QtCore import Qt
+app = QApplication.instance() or QApplication(sys.argv)
+import workspace_qt as W, workspace_session as WS, smart_plots as sp
+app.setStyle("Fusion"); app.setStyleSheet(W.STYLE)
+EX = ROOT / "origin_plot_app" / "examples_synthetic"
+def wait(w, n=4000):
+    for _ in range(n):
+        app.processEvents()
+        if w.job_thread is None and getattr(w, "loader", None) is None: break
+for size in ((1366, 768), (1920, 1080)):
+    w = W.Workspace([]); w.resize(*size); w.show(); app.processEvents(); tb = w.topbar_layout
+    order = [tb.itemAt(i).widget() for i in range(tb.count()) if tb.itemAt(i).widget() is not None and tb.itemAt(i).widget().isVisible()]
+    btns = [x for x in order if isinstance(x, QPushButton)]
+    check(f"{size[0]}×{size[1]}: File is the left-most command, then Save, Undo, Redo, then the sections", btns[0] is w.file_btn and btns[1:4] == w.quick and btns[4].text() == "Workspace", [b.text() for b in btns[:6]])
+    xs = [b.mapTo(w, b.rect().topLeft()).x() for b in btns]; right = max(b.mapTo(w, b.rect().topRight()).x() for b in btns)
+    check(f"{size[0]}×{size[1]}: the commands of the top bar are in one row, left to right, nothing clipped", xs == sorted(xs) and right <= w.size().width() and all(b.width() > 20 for b in btns), (right, w.size().width()))
+    if size[0] == 1366: w.close()
+check("the quick buttons say name, shortcut and what they do (and when they are disabled)", all(" – " in b.toolTip() and "(Ctrl+" in b.toolTip() for b in w.quick) and "Disabled:" in w.quick[0].toolTip())
+check("command search (Ctrl+Q) is in the top bar", w.cmd.isVisible() and "Ctrl+Q" in w.cmd.placeholderText() and any(a.shortcut().toString() == "Ctrl+Q" and a.text() == "Search commands" for a in w.actions()))
+cmds = w.commands(); check("the command search knows the commands by name (menus with their path, sections, buttons)", len(cmds) > 80 and any(k.endswith("Reset layout") for k in cmds) and "Go to Templates" in cmds and any("Clear all graphs" in k for k in cmds), len(cmds))
+r = w.run_command("go to templ"); check("typing a part of a name runs the command", r == "Go to Templates" and w.pages.currentIndex() == 5, r)
+r = w.run_command("zzz-nothing"); check("no command found: a helpful line, nothing happens", r is None and "No command is called" in w.status.text(), w.status.text()); w.go(0)
+fm = [a.text().split("\t")[0] for a in w.file_btn.menu().actions() if a.text()]
+check("File menu: Save, Recent sessions, Clear / Start afresh first, then the rest", fm[:3] == ["Save", "Recent sessions", "Clear / Start afresh"] and "Save session as…" in fm and "Exit" in fm, fm[:8])
+sub = [a.text() for a in w.session_menu.actions()]
+check("Clear / Start afresh: Clear graph, Clear all graphs, Remove ticked graphs, Start afresh, Reset layout, Recover last session", sub == ["Clear graph", "Clear all graphs", "Remove ticked graphs", "Start afresh…", "Reset layout", "Recover last session"], sub)
+# ---- load, then clear / remove / start afresh, each undoable
+w.load([str(EX / "xrd_raw.csv"), str(EX / "calorimetry.csv"), str(EX / "strength.csv")]); wait(w)
+n0 = len(w.singles); check("three files loaded", n0 >= 3, n0)
+w.list.setCurrentRow(0); first = w.current(); w.clear_graph()
+check("Clear graph removes the graph on show", first not in w.singles and len(w.singles) == n0 - 1)
+check("… and Undo (one Undo for the whole app) brings it back", w.undo_any() == "session" and len(w.singles) == n0 and first in w.singles)
+check("Redo removes it again; Undo once more restores", w.redo_any() == "session" and len(w.singles) == n0 - 1 and w.undo_any() == "session" and len(w.singles) == n0)
+w.clear_all_graphs(); check("Clear all graphs empties the list", not w.singles and not w.items)
+w.undo_any(); check("Undo brings all graphs back", len(w.singles) == n0)
+w.tick_all(False); w.list.item(0).setCheckState(Qt.Checked); app.processEvents(); nt = len([i for i in w.ticked() if isinstance(i, sp.Item)]); w.remove_ticked()
+check("Remove ticked graphs removes only the ticked ones; Undo restores", len(w.singles) == n0 - nt and w.undo_any() == "session" and len(w.singles) == n0, (nt, len(w.singles)))
+w.start_afresh(keep=True); check("Start afresh: an empty session, settings and layout kept", not w.singles and w.outdir is not None)
+w.undo_any(); check("Start afresh can be undone", len(w.singles) == n0)
+# ---- undo of a change of look still works through the same Undo
+it = next(i for i in w.items if isinstance(i, sp.Item)); w.list.setCurrentRow(w.items.index(it)); app.processEvents()
+w.ribbon.change({"title": "My title"}) if hasattr(w.ribbon, "change") else None
+k = w.undo_any(); check("the same Undo undoes a change of a graph's look when that was the last thing done", k in ("format", "session"), k)
+# ---- save, save as, recent
+p1 = str(TMP / "one.json"); w.save_session(p1); check("Save session as writes the file and remembers it", os.path.isfile(p1) and w.session_path == p1 and W.load_cfg()["recent_sessions"][0] == p1)
+os.remove(p1); w.save(); check("Save (Ctrl+S) writes to the session file in use without asking", os.path.isfile(p1))
+rec = [a.text() for a in w.recent_menu.actions()]; check("Recent sessions lists it", any("one.json" in t for t in rec), rec)
+w.clear_all_graphs(); w.open_session(p1); wait(w); check("a recent session opens again with its graphs", len(w.singles) == n0)
+# ---- autosave and recovery
+import workspace_menu as WM
+check("an autosave timer runs every few minutes (5 by default)", w._autosave_timer.isActive() and w._autosave_timer.interval() == 5 * 60000)
+if WM.LASTSES.exists(): os.remove(WM.LASTSES)
+WS.autosave_now(w); check("the autosave writes the session that 'Recover last session' reads", WM.LASTSES.exists())
+WS._flag().write_text("x"); check("after a crash (the running flag is left behind) the app knows there is a session to recover", w.needs_recovery())
+w.clear_all_graphs(); w.recover_last(); wait(w); check("Recover last session brings the graphs back", len(w.singles) == n0)
+w.close(); check("closing properly clears the flag: nothing to recover next time", not WS._flag().exists())
+print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)

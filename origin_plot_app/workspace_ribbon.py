@@ -391,7 +391,7 @@ class Ribbon(QWidget):
                 new[k] = v
         if new == old:
             return "same"
-        self.undo_st.setdefault(id(it), []).append(old); self.redo_st[id(it)] = []
+        self.undo_st.setdefault(id(it), []).append(old); self.redo_st[id(it)] = []; self.last_change = __import__('time').time()
         return self._apply(it, new)
 
     def replace_fmt(self, it, new):
@@ -400,7 +400,7 @@ class Ribbon(QWidget):
         new = {k: v for k, v in (new or {}).items() if v not in (None, {}, [], "")}
         if new == old:
             return "same"
-        self.undo_st.setdefault(id(it), []).append(old); self.redo_st[id(it)] = []
+        self.undo_st.setdefault(id(it), []).append(old); self.redo_st[id(it)] = []; self.last_change = __import__('time').time()
         return self._apply(it, new)
 
     def edit_dialog(self, it=None):
@@ -450,7 +450,7 @@ class Ribbon(QWidget):
         it = self.item()
         if it is None or not getattr(it, "fmt", None):
             return self._say("This graph has the app's own look.")
-        self.undo_st.setdefault(id(it), []).append(copy.deepcopy(it.fmt))
+        self.undo_st.setdefault(id(it), []).append(copy.deepcopy(it.fmt)); self.last_change = __import__('time').time()
         return self._apply(it, {})
 
     # ------------------------------------------------------------------ text
