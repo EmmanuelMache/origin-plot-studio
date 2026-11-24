@@ -39,7 +39,7 @@ def load_style(style_id: str = "house_style_1") -> dict:
     raise FileNotFoundError(f"style '{style_id}' not found")
 
 
-CURRENT = {"panel_label_format": "(a)", "width": None}
+CURRENT = {"panel_label_format": "(a)", "width": None, "target": None}
 
 
 def apply_style(st: dict) -> None:
@@ -100,6 +100,7 @@ def new_fig(st, nrows=1, ncols=1, width="double", aspect=None, **kw):
 
 def make_fig(figsize):
     """A figure of its own (not a pyplot figure: nothing global, nothing to close)."""
+    if CURRENT.get("target") is not None: return CURRENT["target"]      # a cell of a combined figure: the template draws straight into it
     fig = Figure(figsize=figsize); FigureCanvasAgg(fig)
     return fig
 
@@ -176,18 +177,18 @@ def template(id, name, category, use_case, data_kind, roles, demo, params=None, 
     return deco
 
 
-def render(template_id: str, data: dict, style_id="house_style_1", params=None, illustrative_mark=False, width=None):
+def render(template_id: str, data: dict, style_id="house_style_1", params=None, illustrative_mark=False, width=None, target=None):
     t = REGISTRY[template_id]
     st = load_style(style_id) if isinstance(style_id, str) else style_id
     with matplotlib.rc_context():          # the style never leaks into the other figures of the app
         apply_style(st)
         p = dict(t.params); p.update(params or {})
-        CURRENT["width"] = width
+        CURRENT["width"] = width; CURRENT["target"] = target
         try: fig = t.draw(data, st, p)
-        finally: CURRENT["width"] = None
+        finally: CURRENT["width"] = None; CURRENT["target"] = None
         if illustrative_mark:
             illustrative(fig)
-        fig.canvas.draw()                  # texts and ticks are laid out while the style is active
+        if target is None: fig.canvas.draw()   # texts and ticks are laid out while the style is active
     fig._ops_style = st
     return fig
 

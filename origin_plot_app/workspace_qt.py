@@ -48,7 +48,10 @@ SECTIONS = [("workspace", "Workspace", None),
             ("figtype", "Graph gallery", "All 26 gallery graph types, grouped by technique. Draw ticked workbooks as a type, or make a template "
                                         "in that layout from a raw file."),
             ("assistant", "Assistant", ""),
-            ("settings", "Settings", "")]
+            ("settings", "Settings", ""),
+            ("templates", "Templates", "Graph = template × style × your data. Tick files, templates and styles: every combination is drawn; keep the ones you want, "
+                                       "then draw them in Origin, export them or combine them into one figure.")]
+NAV_ORDER = [0, 1, 2, 5, 3, 4]          # how the sections are shown (the numbers of the sections stay as they were)
 from workspace_tools import GALLERY_GROUPS, analysis_tree, figtype_tree  # noqa: E402,F401
 
 
@@ -349,6 +352,12 @@ class Workspace(QMainWindow):
         self.pages.addWidget(ToolPage(self, "Graph gallery", SECTIONS[2][2], figtype_tree()))
         self.pages.addWidget(self._assistant_page())
         self.pages.addWidget(self._settings_page())
+        try:
+            from workspace_templates import TemplatePage
+            self.templates_page = TemplatePage(self)
+        except Exception as e:                                  # the template library is not installed yet (it arrives with the next update)
+            self.templates_page = QLabel(f"The template library is not installed yet. Run Help > Check for updates once more.\n\n({e})"); self.templates_page.setAlignment(Qt.AlignCenter)
+        self.pages.addWidget(self.templates_page)
         body.addWidget(self.pages)
         body.setStretchFactor(1, 1)
         body.setCollapsible(0, True)
@@ -435,7 +444,8 @@ class Workspace(QMainWindow):
         v.setContentsMargins(10, 14, 10, 14)
         v.setSpacing(4)
         self.navgroup = QButtonGroup(self)
-        for i, (key, label, _t) in enumerate(SECTIONS):
+        for i in NAV_ORDER:
+            key, label, _t = SECTIONS[i]
             b = QPushButton(label, objectName="navbtn")
             b.setCheckable(True)
             b.setMinimumHeight(40)

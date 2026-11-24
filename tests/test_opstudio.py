@@ -19,7 +19,7 @@ check("template JSON carries the contract keys and origin_template", j["schema"]
 st = api.styles(); ids = [s[0] for s in st]
 check("9 style presets, house style is the default", len(ids) >= 9 and api.default_style() == "house_style_1" and {"elsevier_ccr", "nature", "springer_rilem", "rsc", "acs"} <= set(ids), ids)
 cat = json.load(open(os.path.join(LIB, "catalogue_all_graph_types.json"), encoding="utf-8"))
-check("the catalogue of all graph types has 372 rows with a status", len(cat) == 372 and all(r.get("status") for r in cat))
+check("the catalogue of all graph types has 348 graph types, each with a status", len(cat) == 348 and all(r.get("status") for r in cat))
 
 x = np.linspace(5, 70, 400)
 xy = pd.DataFrame({"2theta (deg)": x, "Sample A": 100 + 900 * np.exp(-(x - 29) ** 2 / 0.5), "Sample B": 120 + 700 * np.exp(-(x - 32) ** 2 / 0.6), "Sample C": 90 + 500 * np.exp(-(x - 47) ** 2 / 0.8)})
@@ -90,7 +90,7 @@ w_, h_ = fz.get_size_inches(); check("Origin: the page has the size of the figur
 R = O.read_figure(fz); pos = [c for c in C if c.startswith("layer.left=")]
 check("Origin: one layer per panel (main + zoom panel) at the same place on the page", len(R["layers"]) == 2 and len(pos) == 2 and abs(float(pos[1].split("layer.left=")[1].split(";")[0]) - fz.axes[1].get_position().x0 * 100) < 0.01, pos)
 x0, x1 = fz.axes[1].get_xlim(); check("Origin: the same axis range in the zoom panel", f"layer.x.from={x0:.8g}; layer.x.to={x1:.8g};" in J)
-ncur = sum(len(L["curves"]) for L in R["layers"]); check("Origin: every curve goes in with its colour and width, data in worksheets (x, y)", J.count("layer -i200") >= ncur and "set " in J and len([f for f in os.listdir(os.path.join(od, "data_for_origin")) if f.endswith(".csv")]) >= ncur, ncur)
+ncur = sum(len(L["curves"]) for L in R["layers"]); check("Origin: every curve goes in with its colour and width, data in worksheets (x, y)", J.count("layer -i200") >= ncur and "set " in J and len([f for f in os.listdir(os.path.join(od, "data_for_origin", "fileA_xrd_stack_with_zoom")) if f.endswith(".csv")]) >= ncur, ncur)
 check("Origin: shaded zone sent, drawn before the curves", any(L["zones"] for L in R["layers"]) and J.index("layer -i204") < J.index("layer -i200"))
 check("Origin: texts (sample names) and panel labels are sent with the point size of the style", 'text$="Sample A"' in J and "\\b(" in J and f".fsize={int(round(fz.axes[0].title.get_fontsize()))};" in J)
 check("Origin: export at the preset size and dpi is asked for", "tr.Width:=18.300" in J and "tr1.Resolution:=600" in J)

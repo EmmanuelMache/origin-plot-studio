@@ -144,7 +144,7 @@ def _post(fig, sw, st):
         except Exception: pass
 
 
-def draw(tid, tables, style=None, params=None, switches=None, overrides=None, illustrative=False, width=None):
+def draw(tid, tables, style=None, params=None, switches=None, overrides=None, illustrative=False, width=None, target=None):
     """The figure of template `tid` from the user's tables, in a style. Returns (figure, mapping). Raises Unfit."""
     t, p0, s0, st0, o0 = resolve(tid)
     p = dict(p0); p.update(params or {}); sw = dict(s0); sw.update(switches or {}); ov = dict(o0); ov.update(overrides or {})
@@ -157,12 +157,14 @@ def draw(tid, tables, style=None, params=None, switches=None, overrides=None, il
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            fig = core.render(t.id, _pre(b, sw), st, p, illustrative_mark=illustrative, width=width)
+            fig = core.render(t.id, _pre(b, sw), st, p, illustrative_mark=illustrative, width=width, target=target)
             if sw:
                 with matplotlib.rc_context():
-                    core.apply_style(st); _post(fig, sw, st); fig.canvas.draw()
+                    core.apply_style(st); _post(fig, sw, st)
+                    if target is None: fig.canvas.draw()
     except Exception as e:
         raise Unfit(f"this data does not fit the template ({type(e).__name__}: {str(e)[:120]}). It needs: " + "; ".join(f"{k} = {v}" for k, v in t.roles.items()))
+    if target is not None: return fig, mp
     fig._ops = {"template": tid, "style": style, "params": p, "switches": sw, "mapping": mp}
     fig._redraw = lambda width_: draw(tid, tables, style, params, switches, overrides, illustrative, width_)[0]
     return fig, mp
@@ -291,3 +293,35 @@ def import_opst(path, folder):
             if m.group(1) == "templates": tid = m.group(2)
     if tid is None: raise Unfit("this file holds no template")
     add_user_dir(folder); return tid
+
+
+def combine(draw_fns, rows, cols, style=None, share_x=False, labels=True):
+    """One landscape figure of rows x cols cells. Each draw_fn(cell) draws one graph into its cell (a matplotlib SubFigure),
+    e.g. lambda cell: draw(tid, tables, style, target=cell). Panel letters (a), (b) ... in the format of the style."""
+    import matplotlib, warnings
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    st = core.load_style(style or DEFAULT_STYLE) if not isinstance(style, dict) else style
+    n = len(draw_fns); rows, cols = max(1, int(rows)), max(1, int(cols))
+    if rows * cols < n: rows = -(-n // cols)
+    W = st["figure"]["width_mm"].get("double", 190) / 25.4; H = W / cols / st["figure"]["aspect_w_h"] * rows
+    if H > W * 0.98: H = W * 0.98                                     # landscape is the rule
+    fig = Figure(figsize=(W, H), layout="constrained"); FigureCanvasAgg(fig); cells = fig.subfigures(rows, cols, squeeze=False, wspace=0.03, hspace=0.05)
+    fmt = st.get("panel_label", {}).get("format", "(a)"); pt = st["font"]["size_pt"]["panel_label"]; errors = []
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for i, fn in enumerate(draw_fns):
+            r, c = divmod(i, cols); cell = cells[r][c]
+            try: fn(cell)
+            except Exception as e:
+                errors.append(f"panel {i + 1}: {e}"); cell.text(0.5, 0.5, str(e)[:160], ha="center", va="center", wrap=True, fontsize=6); continue
+            if share_x and r < rows - 1 and i + cols < n:
+                for ax in cell.axes: ax.tick_params(labelbottom=False); ax.set_xlabel("")
+            if labels:
+                ch = "abcdefghijklmnopqrstuvwxyz"[i % 26]
+                with matplotlib.rc_context():
+                    core.apply_style(st); cell.suptitle(ch if fmt == "a" else f"({ch})", x=0.01, ha="left", fontsize=pt + 1, fontweight="bold")      # the layout keeps room for it
+        with matplotlib.rc_context():
+            core.apply_style(st); fig.canvas.draw()
+    fig._ops_style = st; fig._ops_errors = errors
+    return fig

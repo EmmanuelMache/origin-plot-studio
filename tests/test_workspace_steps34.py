@@ -35,7 +35,7 @@ def job(): return wait(lambda: w.job_thread is None, 300)
 
 # ---------------------------------------------------------------- step 3: Analysis
 pa = w.pages.widget(1); pt = w.pages.widget(2)
-check("side bar: Workspace, Analysis, Graph gallery, Assistant, Settings", [b.text() for b in w.navgroup.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"])
+check("side bar: Workspace, Analysis, Graph gallery, Templates, Assistant, Settings", [b.text() for b in w.navgroup.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Templates", "Assistant", "Settings"])
 i_x = idx(lambda it: "xrd_raw" in str(getattr(it, "path", ""))); tick_only(i_x); w.list.setCurrentRow(i_x); app.processEvents()
 n0 = len(w.singles)
 pa.tree.setCurrentItem(pa.find_entry("Savitzky-Golay")); app.processEvents()

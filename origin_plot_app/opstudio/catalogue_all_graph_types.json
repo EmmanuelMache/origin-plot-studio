@@ -1,17 +1,5 @@
 [
  {
-  "catalogue_id": "id",
-  "section": "A. Basic 2D (line, scatter, error)",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "line_basic",
   "section": "A. Basic 2D (line, scatter, error)",
   "name": "Line; spline, step, dashed per group",
@@ -286,18 +274,6 @@
   "status": "implemented",
   "template_id": "scatter_linear_fit",
   "preview": "previews/scatter_linear_fit.png"
- },
- {
-  "catalogue_id": "id",
-  "section": "B. Column, bar, pie, area",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
  },
  {
   "catalogue_id": "column",
@@ -576,18 +552,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "C. Multi-panel and multi-axis",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "double_y",
   "section": "C. Multi-panel and multi-axis",
   "name": "Double-Y (1-layer or 2-layer)",
@@ -752,18 +716,6 @@
   "calculations": "—",
   "relevance": "H",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "D. Statistical",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -1236,18 +1188,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "E. Contour, heatmap, image",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "contour_fill",
   "section": "E. Contour, heatmap, image",
   "name": "Contour colour fill (XYZ, matrix)",
@@ -1411,18 +1351,6 @@
   "origin_path": "Profile tools",
   "calculations": "—",
   "relevance": "L",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "F. Specialized: polar, ternary, vector and others",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
   "status": "tier3",
   "template_id": null,
   "preview": null
@@ -1776,18 +1704,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "G. Categorical, flow and hierarchy",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "sankey",
   "section": "G. Categorical, flow and hierarchy",
   "name": "Sankey (mass/energy flow)",
@@ -1956,18 +1872,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "H. 3D",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "waterfall_2d",
   "section": "H. 3D",
   "name": "2D waterfall (X and Y offsets)",
@@ -2107,18 +2011,6 @@
   "origin_path": "File>New>Function Plot",
   "calculations": "—",
   "relevance": "L",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "I. XRD and diffraction",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
   "status": "tier3",
   "template_id": null,
   "preview": null
@@ -2352,18 +2244,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "J. Spectroscopy (FTIR, Raman, NMR, XPS, XRF, UV–Vis)",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "ftir_stacked_bands",
   "section": "J. Spectroscopy (FTIR, Raman, NMR, XPS, XRF, UV–Vis)",
   "name": "Stacked FTIR, reversed axis, band shading",
@@ -2532,18 +2412,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "K. Microscopy and microanalysis",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "sem_panel_layout",
   "section": "K. Microscopy and microanalysis",
   "name": "Image grid with scale bars, panel letters",
@@ -2636,18 +2504,6 @@
   "calculations": "—",
   "relevance": "M",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "L. Particle size, surface area and porosity",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -2792,18 +2648,6 @@
   "calculations": "ILT",
   "relevance": "M",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "M. Rheology, mechanics and other physical tests",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -2960,18 +2804,6 @@
   "calculations": "—",
   "relevance": "M",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "N. Thermal analysis (TG, DTG, DSC, DTA, EGA, kinetics)",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -3240,18 +3072,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "O. Calorimetry and hydration",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "calorimetry_heatflow_inset",
   "section": "O. Calorimetry and hydration",
   "name": "Heat flow + inset",
@@ -3392,18 +3212,6 @@
   "calculations": "R²",
   "relevance": "H",
   "status": "tier1",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "P. Thermodynamic modelling and phase chemistry",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -3572,18 +3380,6 @@
   "calculations": "—",
   "relevance": "M",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "Q. Engineering, durability and pore solution",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -3900,18 +3696,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "R. Sustainability and decision support",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "co2_emissions_stacked",
   "section": "R. Sustainability and decision support",
   "name": "Emissions by source stacked",
@@ -4020,18 +3804,6 @@
   "preview": "previews/sensitivity_tornado.png"
  },
  {
-  "catalogue_id": "id",
-  "section": "S. Electrochemistry and energy",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "cv_voltammogram",
   "section": "S. Electrochemistry and energy",
   "name": "Cyclic voltammogram, several scan rates (colour-mapped)",
@@ -4100,18 +3872,6 @@
   "calculations": "max power",
   "relevance": "Gen",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "T. Life science and medicine",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -4188,18 +3948,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "U. Analytical chemistry",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "calibration_lod",
   "section": "U. Analytical chemistry",
   "name": "Calibration curve with LOD/LOQ, residuals panel",
@@ -4256,18 +4004,6 @@
   "calculations": "equivalence point",
   "relevance": "Gen",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "V. Physics, signal and engineering",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },
@@ -4344,18 +4080,6 @@
   "preview": null
  },
  {
-  "catalogue_id": "id",
-  "section": "W. Environment and geoscience",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
-  "template_id": null,
-  "preview": null
- },
- {
   "catalogue_id": "time_series_band",
   "section": "W. Environment and geoscience",
   "name": "Long time series with moving average and min–max band",
@@ -4400,18 +4124,6 @@
   "calculations": "anomaly",
   "relevance": "Gen",
   "status": "tier2",
-  "template_id": null,
-  "preview": null
- },
- {
-  "catalogue_id": "id",
-  "section": "X. Chemical kinetics and general chemistry",
-  "name": "Type and variants",
-  "data_roles": "Roles",
-  "origin_path": "Origin path",
-  "calculations": "Calcs",
-  "relevance": "Rel",
-  "status": "tier3",
   "template_id": null,
   "preview": null
  },

@@ -267,6 +267,18 @@ def bundle(template, tables, overrides=None):
         else: d[k] = _empty(v)
     for k, v in (overrides or {}).items():
         if not k.startswith("_"): d[k] = v
+    ren = (overrides or {}).get("_renames") or {}
+    if ren:                                  # names typed by the user for the graph; the file keeps its headers
+        def nm(o):
+            if isinstance(o, dict):
+                for key in ("name", "title"):
+                    if isinstance(o.get(key), str) and o[key] in ren: o[key] = ren[o[key]]
+                for v_ in o.values(): nm(v_)
+            elif isinstance(o, list):
+                for i_, v_ in enumerate(o):
+                    if isinstance(v_, str) and v_ in ren: o[i_] = ren[v_]
+                    else: nm(v_)
+        nm(d); mp.append(("names on the graph", "; ".join(f"{a_} shown as {b_}" for a_, b_ in ren.items())))
     return d, mp
 
 

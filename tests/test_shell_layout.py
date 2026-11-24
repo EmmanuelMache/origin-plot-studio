@@ -23,7 +23,7 @@ w = W.Workspace([]); w.resize(1366, 768); w.show(); app.processEvents()
 check("starts with older settings that have a 'layout' entry of their own (and a damaged arrangement)", w.isVisible() and W.load_cfg().get("layout") == "Side by side")
 # ---------------------------------------------------------------- one top bar
 check("one top bar: the sections, Find, File / View / Tools / Help, Add files; no menu bar, no side bar",
-      [b.text() for b in w.header_nav.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Assistant", "Settings"] and w.file_btn.isVisible()
+      [b.text() for b in w.header_nav.buttons()] == ["Workspace", "Analysis", "Graph gallery", "Templates", "Assistant", "Settings"] and w.file_btn.isVisible()
       and w.panels_btn.text().startswith("View") and w.tools_btn.isVisible() and w.help_btn.isVisible() and not w.menuBar().isVisible() and not w.navw.isVisible())
 check("the colours: navy top bar, blue primary, orange only for Origin", "#17324D" in W.STYLE and "#2563EB" in W.STYLE and W.ACCENT == "#B4532A" and w.b_draw.objectName() == "accent")
 check("the keyboard shortcuts of the old menus still work (window actions)", any(a.shortcut().toString() == "Ctrl+N" for a in w.actions()))

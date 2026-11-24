@@ -117,7 +117,8 @@ def _header(w):
     brand = QLabel("Origin Plot Studio" if not pm.isNull() else "◆  Origin Plot Studio", objectName="brand"); brand.setToolTip(f"Version {sp.VERSION}")
     tb_lay.addWidget(brand); tb_lay.addSpacing(18)
     w.header_nav = QButtonGroup(w); w.header_nav.setExclusive(True)
-    for i, (_k, name, _t) in enumerate(WQ.SECTIONS):
+    for i in WQ.NAV_ORDER:
+        _k, name, _t = WQ.SECTIONS[i]
         b = QPushButton(name, objectName="navtab"); b.setCheckable(True); b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(f"{name} (Ctrl+{i + 6})" if i < 4 else name)
         b.clicked.connect(lambda _c=False, i=i: w.go(i))

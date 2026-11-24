@@ -150,6 +150,11 @@ def read_figure(fig):
             L["legend"] = {"entries": [t.get_text() for t in lg.get_texts()], "x": float(bb.x0), "y": float(bb.y1), "pt": float(lg.get_texts()[0].get_fontsize()) if lg.get_texts() else 7.5, "frame": bool(lg.get_frame_on())}
         layers.append(L)
     ftexts = [{"text": t.get_text(), "x": t.get_position()[0], "y": t.get_position()[1], "pt": t.get_fontsize()} for t in fig.texts if t.get_text().strip() and "Illustrative" not in t.get_text()]
+    inv = fig.transFigure.inverted()
+    for sf in getattr(fig, "subfigs", []):                               # a combined figure: the panel letter of every cell
+        for t in list(sf.texts) + ([sf._suptitle] if getattr(sf, "_suptitle", None) is not None else []):
+            if t.get_text().strip():
+                bb = t.get_window_extent(); x, y = inv.transform((bb.x0, bb.y1)); ftexts.append({"text": t.get_text(), "x": float(x), "y": float(y), "pt": t.get_fontsize()})
     return {"page": (float(W), float(H)), "layers": layers, "differences": diff, "fig_texts": ftexts}
 
 
@@ -234,6 +239,13 @@ def send(driver, fig, name, picture_dir=None):
             ex("legend -r;"); ex('legend.text$="%s";' % "\\n".join(lines)); ex(f"legend.fsize={int(round(lg['pt']))};"); soft(f"legend.background={1 if lg['frame'] else 0};")
             ex(f"legend.x={xl:.6g}+legend.dx/2;"); ex(f"legend.y={yl:.6g}-legend.dy/2;")
         d.checks.append((name, i, n, d.count_plots(g, i), "")) if hasattr(d, "checks") else None
+    for t in R["fig_texts"]:                                                   # texts of the page (panel letters of a combined figure): attached to the nearest layer
+        k = min(range(len(R["layers"])), key=lambda j: abs(R["layers"][j]["left"] / 100 - t["x"]) + abs((1 - R["layers"][j]["top"] / 100) - t["y"]))
+        L = R["layers"][k]; fx = (t["x"] * 100 - L["left"]) / L["width"]; fy = ((1 - t["y"]) * 100 - L["top"]) / L["height"]
+        (x0, x1), (y0, y1) = L["x"], L["y"]
+        x = 10 ** (np.log10(x0) + fx * (np.log10(x1) - np.log10(x0))) if L["xlog"] else x0 + fx * (x1 - x0)
+        y = 10 ** (np.log10(y1) - fy * (np.log10(y1) - np.log10(y0))) if L["ylog"] else y1 - fy * (y1 - y0)
+        ex(f"win -a {g};"); ex(f"page.active={k + 1};"); _text(d, t["text"], x, y, t["pt"], (0, 0, 0), t.get("bold", True), centre=False)
     return g, diff
 
 
@@ -260,6 +272,7 @@ def draw_in_origin(make_driver, fig, sample, template, folder, keep_open=True, e
     """One Origin project per graph: {sample}_{template}.opju in `folder`. make_driver(folder) gives the app's driver
     (dry run or real). Returns {"project", "graph", "differences", "commands"}."""
     os.makedirs(folder, exist_ok=True); d = make_driver(folder)
+    d.tmp = os.path.join(d.out, "data_for_origin", os.path.splitext(project_name(sample, template))[0]); os.makedirs(d.tmp, exist_ok=True)      # the worksheets of this graph, apart from those of the others
     g, diff = send(d, fig, f"{safe_name(sample)[:20]}_{safe_name(template)[:20]}")
     if any("picture" in x for x in diff):              # what Origin cannot build here: the app's own figure, beside the project and on the page
         from . import core
