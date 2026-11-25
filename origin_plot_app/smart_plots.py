@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.55.0"
+VERSION = "5.55.1"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -2149,6 +2149,8 @@ def guess_kind(d):
 def suggest(it, opt=None):
     """Graphs that fit this table, the most likely first: [{title, why, kind, custom}]. Nothing is changed; apply one with
     it.custom = s['custom']; it.build(opt, s['kind'])."""
+    if it.det.get("_composed"):                             # a figure of a workbook of figures: it is drawn whole, as its recipe says
+        return [dict(title="The figure of the workbook", why="drawn whole from the sheets it uses", kind=COMPOSED_KIND, custom={})]
     if figtype_id(it.kind):                                 # a gallery template: its own type first, then the other gallery types that may fit
         t0 = figtype_id(it.kind)
         return [dict(title=f"Gallery graph {t0} {TG.TYPES[t0][0]}", why=TG.TYPES[t0][1] + " (recognised from the template)", kind=it.kind, custom={})]
@@ -2406,7 +2408,25 @@ class Item:
         self.record = [f"table read as {kind} (" + ("your choice" if why == "" else f"recognised: {why}") + ")"] + list(res.notes) + ([f"Origin: {note}"] if note else [])
         return self
 
+    def build_composed(self, opt):
+        """A figure of a workbook of figures: drawn whole by the recipe engine (the same drawing for the window, the files and Origin)."""
+        path, rec, f = self.det["_composed"]; self.kind = COMPOSED_KIND; self.det["_display"] = display_names([self])[0]
+        xs_ = np.arange(2, dtype=float)
+        sp_ = finish(dict(title=str(f.get("name", "")), xname="", panels=[panel("", [curve("_", xs_, xs_ * 0, (255, 255, 255))], legend=False)]))
+        sp_.update(composed=(path, rec, f), title=str(f.get("name", "")))
+        self.spec = sp_; self.results = None; self.extra = {}; self.warnings = []
+        try:
+            fig = composed_draw(sp_); self.warnings = list(getattr(fig, "_pf_notes", []))
+        except Exception as e:
+            self.warnings = [f"the figure could not be drawn: {type(e).__name__}: {str(e)[:160]}"]
+        used = sorted({str(v) for pn in f.get("panels") or [] for k, v in pn.items() if k in ("sheet", "profile", "ticks", "zoom")} |
+                      {str(s_.get("sheet")) for pn in f.get("panels") or [] for s_ in pn.get("series") or []} |
+                      {str(l_.get("sheet")) for pn in f.get("panels") or [] for l_ in ((pn.get("labels") if isinstance(pn.get("labels"), list) else [pn.get("labels")]) if pn.get("labels") else [])})
+        self.record = [f"figure '{f.get('name', '')}' of the workbook, {len([q for q in f.get('panels') or [] if q.get('type') != 'legend'])} panel(s)", "sheets used: " + ", ".join(u for u in used if u and u != "None")]
+        return self
+
     def build(self, opt=None, kind=None):
+        if self.det.get("_composed") and (not kind or kind in ("Automatic", COMPOSED_KIND)): return self.build_composed(opt or {})
         k_ = kind if kind and kind != "Automatic" else None
         if TG is not None and figtype_id(k_ or self.det.get("kind")): return self.build_figtype(opt or {}, k_ or self.det["kind"])
         opt = opt or {}; changed = bool(kind and kind != "Automatic" and kind != self.det["kind"]); self.det["_display"] = display_names([self])[0]
@@ -2497,6 +2517,55 @@ def load_figtype(path):
     it.paper_name = it.file if TG.TYPES[tid][0].lower() in it.file.lower() else f"{it.file}_{TG.TYPES[tid][0]}"      # files: <sample or sheet>_<type>
     return [it], [f"  recognised as gallery graph {tid} {TG.TYPES[tid][0]} ({TG.TYPES[tid][1]}): {why}"]
 
+COMPOSED_KIND = "Gallery: composed figure"           # starts with Gallery: kept out of the kind lists, like the gallery types
+
+
+def composed_recipe(path):
+    """(recipe, how, lines) when a workbook holds whole figures (a figure-plan sheet, or label / tick / zoom sheets beside
+    its data); else None. A saved recipe for the workbook wins (paper_figures.recipe_for); otherwise one is made from the
+    sheets (auto_recipe.build). Nothing is guessed: what the recipe uses is listed."""
+    if not str(path).lower().endswith((".xlsx", ".xlsm", ".xls")): return None
+    try:
+        import auto_recipe as ar, paper_figures as pf
+        sheets = ar.load(path); kinds = {k: ar.classify(k, v) for k, v in sheets.items()}
+    except Exception: return None
+    side = sum(1 for k in kinds.values() if k in ("labels", "ticks", "zoom", "stack"))
+    data = sum(1 for k in kinds.values() if k in ("pattern", "fit", "stack", "spectra", "xy", "category"))
+    if not ("plan" in kinds.values() or (side >= 1 and data >= 2)): return None
+    try:
+        name = pf.recipe_for(path)
+        if name:
+            return pf.load_recipe(name), f"your saved recipe '{name}'", []
+        rec, report = ar.build(sheets, os.path.splitext(os.path.basename(path))[0])
+        return (rec, "made from the sheets of the workbook", report) if rec.get("figures") else None
+    except Exception: return None
+
+
+def load_composed(path):
+    """A workbook of figures: ONE graph per figure of its recipe (the panels, labels, tick rows, insets and legends of the
+    figure), instead of one raw graph per sheet."""
+    got = composed_recipe(path)
+    if not got: return None
+    rec, how, report = got; items = []
+    for f in rec["figures"]:
+        nm = str(f.get("name") or "Figure")
+        d = dict(kind=COMPOSED_KIND, name=nm, nums=pd.DataFrame({"x": [0.0, 1.0]}), n={"x": "x"}, x="x", ys=[], units={}, t=lambda c: str(c),
+                 series=None, cat_only=False, _composed=(path, rec, f))
+        it = Item(path, d, []); it.auto = nm; it.nfile = 1; it.paper_name = re.sub(r"[^A-Za-z0-9_-]+", "_", nm).strip("_")
+        items.append(it)
+    lines = [f"  a workbook of figures: {len(items)} figure(s), recipe {how}"] + ["    " + r for r in report if not r.split(": ")[-1] in ("guide", "key", "other")]
+    return items, lines
+
+
+def composed_draw(spec):
+    """The figure of a composed item at its own size (paper_figures.draw_figure), and the notes of the drawing."""
+    import paper_figures as pf
+    path, rec, f = spec["composed"]
+    book = pf.Book(pf.load_sheets(path)); fig = pf.draw_figure(f, book, rec)
+    fig.final_mm = (f.get("width_mm", 175), f.get("height_mm", 120)); fig._pf_notes = list(book.notes)
+    return fig
+
+
 def load_file(path):
     """Return (items to draw, text lines describing what was found)."""
     lf_ = apply_learned(path)                          # a layout the assistant converted before: read the same way, without asking again
@@ -2506,6 +2575,8 @@ def load_file(path):
     import_stamp(path)
     th_ = load_figtype(path)
     if th_: return th_
+    cp_ = load_composed(path)
+    if cp_: return cp_
     dets = []; note = ""; tables = read_tables(path); info = {"samples": {}, "phases": {}, "idmap": {}}; infolines = []; file_lam = None; split_notes = []
     for name, raw in tables:                           # a workbook made by 'Convert files to Excel' remembers the wavelength of the instrument file
         if str(name).lower() == "file_info" and raw.shape[1] >= 2:
@@ -3066,7 +3137,7 @@ def make_groups(singles, mode="Decide for me", opt=None):
     """Group sheets of the same kind (and overlapping x range) into combined figures. Returns (combined items, explanation lines)."""
     if mode == "Keep them separate": return [], []
     # bar charts, box plots, maps and phase-assemblage graphs stand on their own: they are not overlaid with other tables
-    ready = [it for it in singles if it.spec is not None and it.kind != "XRD peak list" and not figtype_id(it.kind) and not (it.det.get("thermo") or it.det.get("pore") or it.det.get("cat_only") or str((getattr(it, "custom", None) or {}).get("style")) in CHARTS)]; cmap = {}
+    ready = [it for it in singles if it.spec is not None and it.kind != "XRD peak list" and not figtype_id(it.kind) and not it.det.get("_composed") and not (it.det.get("thermo") or it.det.get("pore") or it.det.get("cat_only") or str((getattr(it, "custom", None) or {}).get("style")) in CHARTS)]; cmap = {}
     for nm in display_names(ready): cmap.setdefault(nm, PALETTE[len(cmap) % len(PALETTE)])      # one colour per sample, the same in every figure
     groups = []
     for it in ready:
@@ -3499,6 +3570,17 @@ def _engine(fig, name):
 def preview_figure(spec, fig=None, curve_w=1.5, axis_w=1.5, keep_aspect=False):
     """keep_aspect: show a figure that has its own page size (stacked figures) in those proportions inside the canvas."""
     from matplotlib.figure import Figure
+    if spec.get("composed"):                                   # a whole figure of a workbook of figures: shown exactly as it is saved
+        fig = fig or Figure(figsize=(7.2, 5.2), dpi=100); fig.clear(); _engine(fig, "none")
+        try:
+            src = composed_draw(spec); buf = io.BytesIO(); src.savefig(buf, format="png", dpi=150, facecolor="white"); buf.seek(0)
+            import matplotlib.image as mpimg
+            img = mpimg.imread(buf, format="png"); W, H = fig.get_size_inches(); r = (img.shape[1] / img.shape[0]) / (W / H)
+            w_, h_ = (1.0, 1.0 / r) if r >= 1 else (r, 1.0)
+            ax = fig.add_axes([(1 - w_) / 2, (1 - h_) / 2, w_, h_]); ax.imshow(img, interpolation="antialiased"); ax.axis("off")
+        except Exception as e:
+            fig.text(0.5, 0.5, f"This figure could not be drawn:\n{type(e).__name__}: {str(e)[:160]}", ha="center", va="center", wrap=True, color="#8B1E28")
+        return fig
     if spec.get("figtype") and spec.get("_book") is not None and TG is not None:
         fig = fig or Figure(figsize=(TG.FIG_W, TG.FIG_H), dpi=100)
         try: TG.draw(spec["figtype"], spec["_book"], fig)
@@ -3553,6 +3635,8 @@ def publication_figure(it, width_mm=None, curve_w=1.5, axis_w=1.5, fs=None, max_
     inside the figure. sheet=(header, caption): the figure is put at its true size on an A4 sheet with a header, a dashed
     outline of its final size and its draft caption (the preview of a paper set)."""
     from matplotlib.figure import Figure; from matplotlib.backends.backend_agg import FigureCanvasAgg
+    if it.spec.get("composed"):                                   # a figure of a workbook of figures: its own size from the recipe
+        fig = composed_draw(it.spec); return fig
     if it.spec.get("figtype") and TG is not None:                 # gallery graph types: landscape page of their own
         fig = Figure(figsize=(TG.FIG_W, TG.FIG_H), dpi=100); FigureCanvasAgg(fig); TG.draw(it.spec["figtype"], it.spec["_book"], fig); fig.final_mm = (TG.FIG_W * 25.4, TG.FIG_H * 25.4); return fig
     apply_style(); spec = it.spec; W, H, fs = final_size(it, width_mm, max_h_mm, fs); pi = spec.get("page_in"); npan = len(spec["panels"])

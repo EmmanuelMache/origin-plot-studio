@@ -385,6 +385,11 @@ def _panel_bars(fig, ax, book, p, recipe, st, drawn):
     cats = p.get("categories") or [str(v) for v in df[book.col(df, p.get("category", 0), p["sheet"])]]
     ax.set_xticks(xs); ax.set_xticklabels(cats[:n]); ax.set_xlim(-0.6, n - 0.4)
     _apply_axes(ax, st, {k_: p.get(k_) for k_ in ("xtitle", "ytitle")}); ax.tick_params(axis="x", length=0)
+    fs_ = st["tick_label"]
+    for _ in range(10):                                    # category names never run into each other: smaller text when needed
+        fig.canvas.draw(); r_ = fig.canvas.get_renderer(); bb = [t.get_window_extent(r_) for t in ax.get_xticklabels() if t.get_text()]
+        if all(bb[i].x1 + 2 <= bb[i + 1].x0 for i in range(len(bb) - 1)) or fs_ <= 5: break
+        fs_ -= 0.5; ax.tick_params(axis="x", labelsize=fs_)
     if p.get("ylim"): ax.set_ylim(*p["ylim"])
     _letter(ax, p, st)
 

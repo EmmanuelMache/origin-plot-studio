@@ -650,7 +650,12 @@ def run_items(items, outdir, log, style=None, dry=False, png=True, pdf=True, kee
             ja, jcol = sp.journal_args(it, journal) if pub else ({}, "")          # ONE resolved size and letter size for this figure: used by Origin and by the app's own files
             if ja and pub_width: ja["width_mm"] = pub_width                         # a width you typed yourself wins
             final = sp.final_size(it, ja.get("width_mm"), ja.get("max_h_mm"), ja.get("fs")) if ja else None
-            if it.spec.get("figtype"):                                              # gallery graph types: the equivalent graphs, and one line on what Origin does not get
+            if it.spec.get("composed"):                                             # a whole figure of a workbook of figures: its panels, curves, labels and tick rows as Origin layers
+                from opstudio import origin as O_
+                g_, diff_ = O_.send(drv, sp.composed_draw(it.spec), tag[:40])
+                log(f"   Origin: the figure as {g_}" + (f"; not as in the app: {'; '.join(diff_[:3])}" if diff_ else ""))
+                final = None
+            elif it.spec.get("figtype"):                                            # gallery graph types: the equivalent graphs, and one line on what Origin does not get
                 for suf_, s_ in it.spec.get("origin_specs") or []: drv.draw_spec(s_, tag + ("_" + re.sub(r"[^A-Za-z0-9_-]+", "_", suf_) if suf_ else ""), None)
                 log(f"   Origin: {len(it.spec.get('origin_specs') or [])} graph(s)" + (f"; {it.spec['origin_note']}" if it.spec.get("origin_note") else ""))
                 final = None

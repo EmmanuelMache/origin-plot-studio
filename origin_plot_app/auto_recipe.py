@@ -66,6 +66,29 @@ def axis_title(h):
     return h.replace("_", " ")
 
 
+FORMULA = re.compile(r"(?<![\w$])((?:[A-Z][a-z]?\d*){2,}'?|[A-Z][a-z]?\d+[A-Z][\w]*)(?![\w$])")
+
+
+def chem(text):
+    """Chemical formulas in a title or a legend entry with their numbers as subscripts: Na2O -> Na$_2$O, C3S -> C$_3$S,
+    Ca2Fe2O5 -> Ca$_2$Fe$_2$O$_5$. A sample name such as S1 or P12 (one symbol and a number) is left as it is."""
+    def one(m):
+        t = m.group(0)
+        if not re.search(r"\d", t) or re.fullmatch(r"[A-Z][a-z]?\d+", t): return t
+        if len(re.findall(r"[A-Z]", t)) < 2: return t
+        return re.sub(r"(\d+)", r"$_{\1}$", t)
+    return FORMULA.sub(one, str(text))
+
+
+def bracket_note(sheets):
+    """The workbook's own sentence on labels in brackets (if it has one), for the note under a figure."""
+    for df in sheets.values():
+        for v in [str(c) for c in df.columns] + [str(x) for x in df.values.ravel().tolist()]:
+            for sent in re.split(r"(?<=[.!?])\s+", v):
+                if "bracket" in sent.lower() and len(sent) < 200 and any(w in sent.lower() for w in ("label", "letter", "code", "phase")): return sent.strip()
+    return None
+
+
 def pretty(name):
     return re.sub(r"[_]+", " ", str(name)).strip()
 
@@ -197,7 +220,7 @@ def _legend_codes(label_sheet_names, sheets, phases, meaning):
     for k in order:
         nm = (ph.get(k) or {}).get("name") or meaning.get(k) or ""
         col = codes.get(k) or (ph.get(k) or {}).get("color") or "#000000"
-        items.append({"label": f"{k}, {nm}" if nm and nm != k else k, "color": col, "kind": "square"})
+        items.append({"label": chem(f"{k}, {nm}" if nm and nm != k else k), "color": col, "kind": "square"})
     return items
 
 
@@ -273,9 +296,16 @@ def fig_stack(name, sh, sheets, labels, phases, meaning, xlim=None, zoom=None, x
         if narrow: b["labels"] = [{"sheet": l} for l in narrow] if len(narrow) > 1 else {"sheet": narrow[0]}
         panels.append(b); cols = [2.4, 1]
     leg = _legend_codes(lab_all, sheets, phases, meaning)
-    f = {"name": name, "width_mm": 175, "height_mm": 125 if leg else 115, "layout": {"rows": [1], "cols": cols, "wspace": 0.04, "bottom_mm": 13, "sharey": True}, "panels": panels}
+    note = bracket_note(sheets) if any(re.search(r"\(\w+'?\)", str(t)) for ls in lab_all for t in _label_texts(sheets[ls])) else None
+    f = {"name": name, "width_mm": 175, "height_mm": (125 if leg else 115) + (6 if note else 0), "layout": {"rows": [1], "cols": cols, "wspace": 0.04, "bottom_mm": 13, "sharey": True}, "panels": panels}
     if leg: f["legend"] = {"where": "below", "rows": math.ceil(len(leg) / 6), "ncol": 6, "items": leg}
+    if note: f["note"] = note
     return f
+
+
+def _label_texts(df):
+    lab = next((c for c in df.columns if norm(c) in ("label", "labels", "text", "peaklabel", "annotation", "phaselabel")), None)
+    return [str(v) for v in df[lab].dropna()] if lab is not None else []
 
 
 def fig_spectra(name, sh, sheets, xtitle=None, ytitle=None):
@@ -325,8 +355,15 @@ def fig_fits(name, fits, sheets, kinds, labels, rwp, phases, meaning, ncols=None
     panels = []
     for i, fs in enumerate(fits):
         df = sheets[fs]; x, o, c, d = _obs_calc_diff(df); xr = _num(df, x).dropna()
-        pn = {"cell": [i // nc, i % nc], "type": "rietveld", "letter": _letters(i), "title": titles[i] if titles else pretty(fs),
-              "profile": fs, "x": x, "obs": o, "calc": c, "xlim": xlim or [float(xr.min()), float(xr.max())],
+        rng = [float(xr.min()), float(xr.max())]
+        if xlim is None and parts[fs]["ticks"]:               # the refined range: where the reflection list has positions
+            try:
+                tp = np.concatenate([v for _, v, _ in __import__("paper_figures").tick_rows(sheets[parts[fs]["ticks"]]) if len(v)])
+                lo_, hi_ = math.floor(float(np.nanmin(tp))), math.ceil(float(np.nanmax(tp)))
+                if hi_ - lo_ > 0.3 * (rng[1] - rng[0]): rng = [max(rng[0], lo_), min(rng[1], hi_)]
+            except Exception: pass
+        pn = {"cell": [i // nc, i % nc], "type": "rietveld", "letter": _letters(i), "title": chem(titles[i] if titles else pretty(fs)),
+              "profile": fs, "x": x, "obs": o, "calc": c, "xlim": xlim or rng,
               "ytitle": (ytitle or "Intensity (counts)") if i % nc == 0 else None, "xtitle": (xtitle or axis_title(x)) if i // nc == nr - 1 else None,
               "legend_in_panel": i == 0 and nc == 1, "rwp_newline": nc > 1}
         if d: pn["diff"] = d
@@ -376,10 +413,10 @@ def fig_xy(name, group, sheets, phases, xtitle=None, ytitle=None, titles=None, y
             else:
                 st = LINE_STYLES[k % len(LINE_STYLES)]
                 ser.append({"sheet": sh, "x": x, "y": h, "kind": "line+markers" if few else "line", "color": st["color"], "ls": st["ls"], "marker": st["marker"],
-                            "filled": st["filled"], "lw": 1.0, "label": first[k]})
+                            "filled": st["filled"], "lw": 1.0, "label": chem(first[k])})
         for s_ in ser:
             if s_.get("label") is None: s_.pop("label")
-        pn = {"cell": [i // nc, i % nc], "letter": _letters(i), "title": tt[i], "series": ser, "xtitle": xtitle or axis_title(x), "ytitle": yt, "yfrom0": True}
+        pn = {"cell": [i // nc, i % nc], "letter": _letters(i), "title": chem(tt[i]), "series": ser, "xtitle": xtitle or axis_title(x), "ytitle": yt, "yfrom0": True}
         if few:
             u = sorted(set(float(v) for v in xv))
             if 2 <= len(u) <= 8: pn["xticks"] = u
@@ -409,14 +446,14 @@ def fig_bars(name, group, sheets, xtitle=None, ytitles=None, titles=None, points
         errs = {c: (num[num.index(c) + 1] if num.index(c) + 1 < len(num) and ERR.search(num[num.index(c) + 1]) else None) for c in vals}
         last = vals[-1]; pts = points_last if points_last is not None else (len(vals) > 2 and any(w in norm(last) for w in MEASURED_WORDS))
         bars_c = vals[:-1] if pts else vals
-        bars = [{"column": c, "label": strip_unit(c), "color": colors[j % len(colors)], **({"hatch": hatches[j % len(hatches)]} if hatches[j % len(hatches)] else {}),
+        bars = [{"column": c, "label": chem(strip_unit(c)), "color": colors[j % len(colors)], **({"hatch": hatches[j % len(hatches)]} if hatches[j % len(hatches)] else {}),
                  **({"error": errs[c]} if errs.get(c) else {})} for j, c in enumerate(bars_c)]
         cats = [str(v) for v in df[cat]]
         if max(len(c) for c in cats) * len(cats) > 40: cats = [c.replace(" (", "\n(", 1) if " (" in c else c.replace(" ", "\n", 1) for c in cats]
         units = {unit_of(c) for c in vals}
-        pn = {"cell": [0, i], "type": "bars", "letter": _letters(i) if n > 1 else None, "title": tt[i], "sheet": sh, "bars": bars, "categories": cats,
+        pn = {"cell": [0, i], "type": "bars", "letter": _letters(i) if n > 1 else None, "title": chem(tt[i]), "sheet": sh, "bars": bars, "categories": cats,
               "xtitle": xtitle or axis_title(cat), "ytitle": (ytitles[i] if ytitles else (next(iter(units)) if len(units) == 1 else ""))}
-        if pts: pn["points"] = {"column": last, "label": strip_unit(last)}
+        if pts: pn["points"] = {"column": last, "label": chem(strip_unit(last))}
         ymax = max(ymax, float(np.nanmax(df[num].apply(pd.to_numeric, errors="coerce").to_numpy())))
         panels.append(pn)
     for pn in panels: pn["ylim"] = [0, round(ymax * 1.15, 1)]

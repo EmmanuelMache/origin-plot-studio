@@ -83,6 +83,17 @@ check("Make a figure recipe from a workbook: saved in your own recipe folder (no
 os.environ["OPS_ORIGIN_DRY"] = "1"; w.paper_figures(str(nb), auto=True, origin=True); job()
 res_ = getattr(w, "last_paper_figures", None) or {}
 check("Paper figures with no saved recipe: made from the workbook, drawn, and built in Origin (dry run)", len(res_.get("figures") or []) >= 5 and len(res_.get("origin") or []) >= 5, res_.get("text"))
+os.environ.pop("OPS_RECIPE_DIR", None)
+its_, lines_ = sp.load_file(str(nb))
+check("Add data files with a workbook of figures: one graph per figure (not one raw graph per sheet)", len(its_) == 5 and all(i_.det.get("_composed") for i_ in its_), [i_.name for i_ in its_])
+for i_ in its_: i_.build(w.opt)
+from matplotlib.figure import Figure as _F
+pf_ = sp.preview_figure(its_[0].spec, _F(figsize=(7, 5)))
+check("a figure of the workbook is shown in the window as it is saved", len(pf_.axes) == 1 and pf_.axes[0].images, len(pf_.axes))
+check("a figure of the workbook is never overlaid with another one", sp.make_groups(its_)[0] == [])
+import origin_plot_app as opa; lg_ = []; opa.run_items(its_, str(TMP / "composed_run"), lg_.append, dry=True, png=True, pdf=False)
+check("Draw in Origin with figures of a workbook: each figure as one Origin graph, and its file saved", sum("Origin: the figure as" in l for l in lg_) == 5 and
+      len([f for f in os.listdir(TMP / "composed_run" / "publication") if f.endswith(".png")]) == 5, [l for l in lg_ if "Origin" in l][:3])
 # ---------------------------------------------------------------- the phase library
 lib = TMP / "phase.csv"
 pd.DataFrame({"Phase": ["Testite"] * 6, "Code": ["TST"] * 6, "d": [4.2, 3.3, 2.9, 2.5, 2.1, 1.8], "I": [100, 60, 40, 30, 20, 10]}).to_csv(lib, index=False)

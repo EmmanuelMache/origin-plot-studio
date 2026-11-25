@@ -1,4 +1,4 @@
-# TEST_REPORT – upgrade v2, app version 5.55.0
+# TEST_REPORT – upgrade v2, app version 5.55.1
 
 Where it was run: a Linux container, Python 3.12, PySide6 with `QT_QPA_PLATFORM=offscreen`. **No Windows and no Origin were
 available.** Everything that needs Origin was run through the app's own Origin driver in dry-run mode (it records the
@@ -126,3 +126,12 @@ Run in the same container (Python 3.12, PySide6 offscreen, matplotlib 3.11, pand
 | Automatic recipe on a neutral workbook without plan (fit + reflection list + labels + Rwp, FTIR, two calorimetry sheets, bars with SD, models): every sheet recognised, 5 figures drawn, ticks / labels / Rwp / colours / error bars / titles right; with a plan sheet: one figure per row with its titles and range | **pass** | same (11 checks) |
 | Recipe figures in Origin: one project per figure with labels and panels | **pass in dry run**; real Origin **not verified** | same (1 check); `tests/test_workspace_main.py` (2 window checks) |
 | All earlier suites | **pass** (unchanged counts) | `test_xrd_generator_actions.py` stalls after its last PASS in this container, the same on the unchanged 5.54.3 copy (not caused by this change) |
+
+## 5.55.1 – workbooks of figures in the Workspace
+
+| Check | Result | Evidence |
+|---|---|---|
+| *Add data files* with a workbook of figures gives one graph per figure (5 for the neutral book) | **pass** | `tests/test_workspace_main.py` |
+| The figure is shown in the window as saved; never overlaid with another figure | **pass** | same (2 checks) |
+| *Draw in Origin*: one Origin graph per figure and its publication file | **pass in dry run**; real Origin **not verified** | same |
+| All other suites | **pass** (unchanged counts) | full run |

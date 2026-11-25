@@ -2,6 +2,14 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.1
+
+* **Fixed: a workbook of figures gave the wrong graphs in the Workspace.** *Add data files* split such a workbook into one raw graph per sheet (model tables read as fits, tick lists as x–y graphs, zoom sheets as fits of their own …) and the composed figures were only reachable through *Tools ▸ Draw ▸ Paper figures from a recipe*. Now a workbook with a figure-plan sheet, or with label / tick / zoom sheets beside its data, comes in as **one graph per figure**: the whole figure is shown in the window, saved as PNG / PDF / SVG / TIFF, and built in Origin by *Draw in Origin*. A saved recipe for the workbook is used when there is one; otherwise it is made from the sheets. Figures of a workbook are never overlaid with each other.
+* Fits are drawn over the refined range (where the reflection list has positions), not over the whole scan.
+* Chemical formulas in titles and legends get subscripts (Na₂O, K₂O, C₃S, Ca₂Fe₂O₅); sample names such as S1 or P12 stay as they are.
+* The workbook's own sentence on labels in brackets is written under a figure whose labels use brackets.
+* Bar names that would run into each other are set smaller.
+
 ## 5.55.0
 
 ### Paper figures for any workbook
