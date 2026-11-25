@@ -35,7 +35,7 @@ sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest(); before = [sha(
 w = W.Workspace([]); w.resize(1500, 900); w.show(); app.processEvents()
 pg = w.templates_page
 names_ = [b.text() for b in w.header_nav.buttons()]
-check("four sections in the top bar: Workspace, Analysis, Assistant, Settings - the graph gallery is inside Analysis", names_ == ["Workspace", "Analysis", "Assistant", "Settings"] and hasattr(pg, "main"), names_)
+check("five sections in the top bar: Start here, Workspace, Analysis, Assistant, Settings - the graph gallery is inside Analysis", names_ == ["Start here", "Workspace", "Analysis", "Assistant", "Settings"] and hasattr(pg, "main"), names_)
 w.header_nav.button(1).click(); app.processEvents()
 check("clicking Analysis opens the graphs and templates (the picture gallery) first", w.pages.currentWidget() is pg and w.header_nav.button(1).isChecked())
 sw = [b.text() for b in w.gallery_switch[5].buttons()]
@@ -62,6 +62,8 @@ check("six panels: Files, Columns, Templates, Styles, Previews, Variants - each 
 pg.live.setChecked(False); pg.silent = True; pg.force_dry = True
 pg.add_files(files); app.processEvents()
 check("files added on the page are listed and ticked", pg.files.count() == 3 and len(checked(pg.files)) == 3)
+check("the app says what kind of file this looks like, and marks the best-fitting templates (★) - as soon as files are added, no extra click needed",
+      pg.detect_label.isVisible() and "diffraction" in pg.detect_label.text().lower() and pg.grid.item(0).text().startswith("★"), pg.detect_label.text())
 # ---- the same multiple selection in every list
 from PySide6.QtWidgets import QAbstractItemView
 from workspace_templates import TickList
@@ -102,7 +104,9 @@ check("a workbook graph type is drawn from a ticked workbook like any other pict
 junk = TMP / "words.txt"; junk.write_text("no table here\njust words\n", encoding="utf-8"); pg.add_files([str(junk)]); set_checked(pg.files, range(pg.files.count()), False); tick(pg.files, {str(junk)}); pg.rebuild_previews(); settle(pg)
 check("a file that cannot be drawn as that workbook type gives a tile that says so (no crash)", len(pg.tiles) == 1 and pg.tiles[0].fig is None and len(pg.tiles[0].error) > 20, pg.tiles[0].error[:120] if pg.tiles else "")
 pg.extra_files = [f for f in pg.extra_files if f != str(junk)]
-pg.remove_files() if False else None; pg.extra_files = [f for f in pg.extra_files if f != wbf]; pg.refresh_files(); set_checked(pg.grid, range(pg.grid.count()), False); set_checked(pg.files, range(pg.files.count()), True)
+pg.remove_files() if False else None; pg.extra_files = [f for f in pg.extra_files if f != wbf]
+w.singles = [it for it in w.singles if os.path.abspath(str(getattr(it, "path", "") or "")) not in {os.path.abspath(wbf), os.path.abspath(str(junk))}]; w.refresh_list()   # a file added on this page is also in Workspace now: drop it from there too to get back to the 3 original files
+pg.refresh_files(); set_checked(pg.grid, range(pg.grid.count()), False); set_checked(pg.files, range(pg.files.count()), True)
 # the classes: by instrument / technique and by graph type
 tops = [pg.classes.topLevelItem(i).text(0) for i in range(pg.classes.topLevelItemCount())]
 pg._class_clicked(pg.classes.topLevelItem(1)); app.processEvents(); hv = [pg.grid.item(i).data(Qt.UserRole + 1)["source"] for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()]

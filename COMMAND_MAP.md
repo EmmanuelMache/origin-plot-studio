@@ -20,7 +20,8 @@ Part 2 is the full inventory of the running window, written by `tools/command_in
 | Start afresh | File ▸ New project | File ▸ Clear / Start afresh ▸ Start afresh… (New project stays) | Ctrl+N | An empty session: keep settings and layout, or reset the layout too |
 | Reset layout | View ▸ Reset layout | View ▸ Reset layout; File ▸ Clear / Start afresh ▸ Reset layout | – | Put every panel back where it was at the first start |
 | Recover last session | File ▸ Resume last session | File ▸ Clear / Start afresh ▸ Recover last session (Resume stays) | Ctrl+Shift+R | Bring back the session the app saved by itself |
-| Graph gallery (section) | top bar | **Analysis** ▸ switch at the top: *Graphs and templates* (opens first) · *Calculations* | – | The top bar has four sections: Workspace, Analysis, Assistant, Settings |
+| Graph gallery (section) | top bar | **Analysis** ▸ switch at the top: *Graphs and templates* (opens first) · *Calculations* | – | The top bar has five sections: Start here, Workspace, Analysis, Assistant, Settings |
+| Start here (section) | – (new) | top bar, first: add data, see what kind of file it looks like and which templates fit, draw the best one or browse the gallery, then review it in Workspace and draw it in Origin | – | Orchestrates Workspace and Analysis ▸ Graphs and templates; adds no new engine |
 | Workbook graph types G01–G24, C01, C02 | Graph gallery list page | pictures in Analysis ▸ Graphs and templates, in the class of their technique | – | Drawn from a ticked workbook like any other picture |
 | Preview | – (new) | Templates ▸ action bar | – | Draw every ticked combination of files, templates and styles from your data |
 | Open all in editor | – (new) | Templates ▸ action bar | – | Open every kept graph in the editor |

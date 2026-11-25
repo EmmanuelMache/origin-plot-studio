@@ -50,8 +50,10 @@ SECTIONS = [("workspace", "Workspace", None),
             ("assistant", "Assistant", ""),
             ("settings", "Settings", ""),
             ("templates", "Templates", "Graph = template × style × your data. Tick files, templates and styles: every combination is drawn; keep the ones you want, "
-                                       "then draw them in Origin, export them or combine them into one figure.")]
-NAV_ORDER = [0, 1, 3, 4]                # the sections shown in the top bar: Workspace, Analysis, Assistant, Settings. The graph gallery is inside Analysis
+                                       "then draw them in Origin, export them or combine them into one figure."),
+            ("start", "Start here", "Add your data; the app says what it looks like and which templates fit, then draw the best one at once or pick one yourself. "
+                                    "From there: review it in Workspace, then draw it in Origin.")]
+NAV_ORDER = [6, 0, 1, 3, 4]             # the sections shown in the top bar: Start here, Workspace, Analysis, Assistant, Settings. The graph gallery is inside Analysis
 GALLERY_PAGES = (5, 1)                  # Analysis = the graphs and templates (page 5, first) and the calculations (page 1); a switch at the top of both. Page 2 (the old list) is not shown
 from workspace_tools import GALLERY_GROUPS, analysis_tree, figtype_tree  # noqa: E402,F401
 
@@ -383,6 +385,8 @@ class Workspace(QMainWindow):
         except Exception as e:                                  # the template library is not installed yet (it arrives with the next update)
             self.templates_page = QLabel(f"The template library is not installed yet. Run Help > Check for updates once more.\n\n({e})"); self.templates_page.setAlignment(Qt.AlignCenter)
         self.pages.addWidget(self.templates_page)
+        from workspace_starthere import StartHerePage
+        self.pages.addWidget(StartHerePage(self))
         body.addWidget(self.pages)
         body.setStretchFactor(1, 1)
         body.setCollapsible(0, True)
@@ -2052,6 +2056,8 @@ class Workspace(QMainWindow):
         if self.job_thread is not None:
             self.cancel[0] = True
             self.job_thread.wait(30000)
+        if self.thread is not None:                              # a file is still being read in the background: let it finish
+            self.thread.quit(); self.thread.wait(30000)           # (Qt aborts if a running QThread is destroyed without this)
         try:
             import workspace_session
             workspace_session.closed_properly(self)            # closed properly: nothing to recover next time

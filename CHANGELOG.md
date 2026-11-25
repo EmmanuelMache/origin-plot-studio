@@ -2,6 +2,14 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.54.7
+
+* **New "Start here" tab, first in the top bar.** Add your data there; the app says what kind of file it looks like (from the columns, the same guess the ★ marks and "Use what the app recommends" use) and lists the best-fitting templates. Draw the best one at once, or go browse the full gallery yourself - either way, your data is also in Workspace to review and draw in Origin.
+* **Fixed: the app could say what kind of file was added, but only after some other action triggered it.** Adding a file now shows "Looks like an XRD file" (or TGA, calorimetry, …) and the ★ best-fit marks the moment it is added, not only after a search or filter is touched.
+* **Fixed: a template could fail with "needs an x column…" if a sheet had been chosen for a *different* template earlier.** A sheet you picked for one file is now only kept for a template it still fits; it is no longer silently reused for every other template of that file.
+* **Fixed: a file added in Analysis ▸ Graphs and templates now also appears in Workspace** ("Your graphs"), so it can be reviewed there - zoom, pan - and drawn in Origin from either place.
+* **Fixed: the app could fail to close properly** (and occasionally crash) if it was closed while a just-added file was still being read in the background.
+
 ## 5.54.6
 
 * **Fixed: ticking, searching or filtering templates could stop hiding anything.** "Best fit first" reordering of the gallery (the ★ templates) now keeps each picture's shown / hidden state - a Qt quirk (taking a row out of the list and back in forgets it) meant the search box, the class tree and the file/source filters could silently stop working together whenever a file was ticked.

@@ -22,7 +22,7 @@ for size in ((1366, 768), (1920, 1080)):
     w = W.Workspace([]); w.resize(*size); w.show(); app.processEvents(); tb = w.topbar_layout
     order = [tb.itemAt(i).widget() for i in range(tb.count()) if tb.itemAt(i).widget() is not None and tb.itemAt(i).widget().isVisible()]
     btns = [x for x in order if isinstance(x, QPushButton)]
-    check(f"{size[0]}×{size[1]}: File is the left-most command, then Save, Undo, Redo, then the sections", btns[0] is w.file_btn and btns[1:4] == w.quick and btns[4].text() == "Workspace", [b.text() for b in btns[:6]])
+    check(f"{size[0]}×{size[1]}: File is the left-most command, then Save, Undo, Redo, then the sections", btns[0] is w.file_btn and btns[1:4] == w.quick and btns[4].text() == "Start here", [b.text() for b in btns[:6]])
     xs = [b.mapTo(w, b.rect().topLeft()).x() for b in btns]; right = max(b.mapTo(w, b.rect().topRight()).x() for b in btns)
     check(f"{size[0]}×{size[1]}: the commands of the top bar are in one row, left to right, nothing clipped", xs == sorted(xs) and right <= w.size().width() and all(b.width() > 20 for b in btns), (right, w.size().width()))
     if size[0] == 1366: w.close()
@@ -82,7 +82,7 @@ WS._flag().write_text("x"); check("after a crash (the running flag is left behin
 w.clear_all_graphs(); w.recover_last(); wait(w); check("Recover last session brings the graphs back", len(w.singles) == n0)
 # ---- View > Side bar, and panels that can be dragged
 w.panel_actions["nav"].setChecked(True); app.processEvents()
-check("View > Side bar shows the side bar with the sections", w.navw.isVisible() and w.navw.width() >= 100 and [b.text() for b in w.navgroup.buttons()][:2] == ["Workspace", "Analysis"], w.navw.width())
+check("View > Side bar shows the side bar with the sections", w.navw.isVisible() and w.navw.width() >= 100 and [b.text() for b in w.navgroup.buttons()][:2] == ["Start here", "Workspace"], w.navw.width())
 w.panel_actions["nav"].setChecked(False); app.processEvents(); check("… and hides it again", not w.navw.isVisible())
 d0 = w.graphs_dock; f0 = d0.windowFlags(); d0.setFloating(True); app.processEvents()
 check("a panel that floats while it is dragged stays a dock panel (so it can be dropped on another side)", d0.isFloating() and not getattr(d0, "_popped", False) and not bool(d0.windowFlags() & Qt.WindowMinMaxButtonsHint))

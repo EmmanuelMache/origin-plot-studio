@@ -283,6 +283,9 @@ class TemplatePage(QWidget):
     def _templates_panel(self):
         w = QWidget(); v = QVBoxLayout(w); v.setContentsMargins(8, 8, 8, 8)
         self.find = QLineEdit(placeholderText="Find a template: name, field, Origin name …  (Ctrl+F)"); self.find.setClearButtonEnabled(True); self.find.textChanged.connect(lambda _t: self.filter_templates()); v.addWidget(self.find)
+        self.detect_label = QLabel("", objectName="illustr"); self.detect_label.setWordWrap(True); self.detect_label.setVisible(False)
+        self.detect_label.setToolTip("What the app thinks your ticked file(s) are, from their columns and headers - the same guess 'Use what the app recommends' and the ★ marks use")
+        v.addWidget(self.detect_label)
         f = QHBoxLayout()
         self.field = QComboBox(); self.field.setToolTip("Field: a graph family (basic 2D, bars, statistics …) or a domain pack (diffraction, thermal analysis, electrochemistry …)")
         self.source = QComboBox(); self.source.addItems(["All sources", "House figures", "Generic", "Workbook types", "My templates"]); self.source.setToolTip("Where the template comes from")
@@ -447,7 +450,7 @@ class TemplatePage(QWidget):
         for p in paths:
             it = QListWidgetItem(os.path.basename(p)); it.setData(Qt.UserRole, p); it.setToolTip(p); it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable)
             it.setCheckState(have.get(p, Qt.Checked if (not have and len(paths) <= 6) else Qt.Unchecked)); self.files.addItem(it)      # the first time: your files are ticked, so that a ticked template is drawn at once
-        self.files.blockSignals(False); self.files.sync(); self.update_count(); self.schedule()
+        self.files.blockSignals(False); self.files.sync(); self.filter_templates(); self.schedule()   # filter_templates() also calls update_count() and recomputes the best-fit ★ marks / detected-file-kind message
 
     def showEvent(self, e):
         super().showEvent(e); self.refresh_files()
@@ -467,6 +470,9 @@ class TemplatePage(QWidget):
         self.refresh_files()
         for i in range(self.files.count()):
             if self.files.item(i).data(Qt.UserRole) in new: self.files.item(i).setCheckState(Qt.Checked)
+        have_ws = {os.path.abspath(str(getattr(it, "path", "") or "")) for it in getattr(self.ws, "singles", [])}
+        to_ws = [p for p in new if os.path.abspath(p) not in have_ws]
+        if to_ws: self.ws.load(to_ws)             # a file you add here is also in Workspace's Your graphs - not kept to this page only
 
     def remove_files(self):
         sel = [i.data(Qt.UserRole) for i in self.files.selectedItems()]
@@ -603,11 +609,15 @@ class TemplatePage(QWidget):
     def filter_templates(self):
         q = self.find.text().strip().lower(); sec = self.field.currentData(); src = self.source.currentText(); st = self.state.currentText(); rank = {}
         tabs = [t for _p, t in self.ticked_tables()]               # the best-fitting templates move to the top (★) as soon as a file is ticked,
-        if tabs:                                                   # even without "Works with the ticked files" - that box only hides the rest
-            rank = {tid: (i, why) for i, (tid, _s, why) in enumerate(self.api.recommend(tabs[:1] if not self.together.isChecked() else tabs))}
+        detected = ""                                              # even without "Works with the ticked files" - that box only hides the rest
+        if tabs:
+            ranked = self.api.recommend(tabs[:1] if not self.together.isChecked() else tabs)
+            rank = {tid: (i, why) for i, (tid, _s, why) in enumerate(ranked)}
             mine = self.api.user_templates()
             for tid, u in mine.items():
                 if u["base"] in rank: rank[tid] = rank[u["base"]]
+            if ranked and ranked[0][2] != "the columns fit": detected = f"Looks like {ranked[0][2]}. "   # "a 2θ column: diffraction" -> "Looks like a 2θ column: diffraction."
+        self.detect_label.setText(detected.strip()); self.detect_label.setVisible(bool(detected))
         shown = 0
         for i in range(self.grid.count()):
             it = self.grid.item(i); r = it.data(Qt.UserRole + 1)
@@ -628,7 +638,7 @@ class TemplatePage(QWidget):
                 if tid in rank and rank[tid][0] < 3 and not it.isHidden(): it.setText(tk + "★ " + it.data(Qt.UserRole + 1)["name"])
                 elif it.data(Qt.UserRole + 1)["available"]: it.setText(tk + it.data(Qt.UserRole + 1)["name"])
             self.grid.blockSignals(False)
-        self.ws.set_status(f"{shown} graph types shown" + (" - best fit for your file first (★ = top 3)" if rank else "")) if self.isVisible() else None
+        self.ws.set_status(detected + f"{shown} graph types shown" + (" - best fit for your file first (★ = top 3)" if rank else "")) if self.isVisible() else None
         self.update_count()
 
     def combos(self):
@@ -735,15 +745,21 @@ class TemplatePage(QWidget):
         else: self._done_drawing()
 
     def tables_for(self, files, template=None):
-        """The Table of each file. When a template is given and the user has not explicitly chosen a sheet for a file
-        (via the sheet drop-down in Columns), the sheet that best fits THIS template is used - not just the sheet with the
-        most numeric columns overall. A workbook with many sheets (a recipe workbook, raw profiles, Bragg lists, a guide
-        sheet …) then draws the right data for each template picture, without the user having to pick a sheet by hand."""
+        """The Table of each file. When a template is given, the sheet that best fits THIS template is used - not just
+        the sheet with the most numeric columns overall, and not a sheet chosen (in the Columns panel) for a DIFFERENT
+        template if it no longer fits this one. A workbook with many sheets (a recipe workbook, raw profiles, Bragg
+        lists, a guide sheet …) then draws the right data for each template picture, without the user having to pick
+        a sheet by hand every time they tick a different template."""
         out = []
         for p in files:
-            picked = (self._cfg().get("sheets") or {}).get(os.path.basename(p))
-            if picked or template is None or str(template).startswith("wb:") or str(template).startswith("coming:"):
+            if template is None or str(template).startswith("wb:") or str(template).startswith("coming:"):
                 out.append(self.table_of(p)[0]); continue
+            picked = (self._cfg().get("sheets") or {}).get(os.path.basename(p))
+            if picked:                                              # a sheet was explicitly chosen for this file: honour it, but only if it
+                t = self.table_of(p)[0]                              # actually fits the ticked template - a choice made for another template
+                try:                                                 # (e.g. a guide sheet, or one meant for a different graph) must not silently
+                    base, *_rest = self.api.resolve(template); self.ops.data.bundle(base, [t]); out.append(t); continue
+                except Exception: pass                                # break every other template for this file
             out.append(self._table_for_template(p, template))
         return out
 

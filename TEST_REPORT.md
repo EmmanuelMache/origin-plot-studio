@@ -1,4 +1,4 @@
-# TEST_REPORT – upgrade v2, app version 5.54.6
+# TEST_REPORT – upgrade v2, app version 5.54.7
 
 Where it was run: a Linux container, Python 3.12, PySide6 with `QT_QPA_PLATFORM=offscreen`. **No Windows and no Origin were
 available.** Everything that needs Origin was run through the app's own Origin driver in dry-run mode (it records the
