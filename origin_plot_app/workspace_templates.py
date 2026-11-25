@@ -460,11 +460,15 @@ class TemplatePage(QWidget):
             QTimer.singleShot(0, lambda: self.main.resizeDocks([self.files_dock, self.templates_dock, self.preview_dock], [int(W_ * 0.13), int(W_ * 0.47), int(W_ * 0.40)], Qt.Horizontal))
 
     # ------------------------------------------------------------------------------------------------ files and columns
-    def add_files(self, paths=None):
+    def add_files(self, paths=None, project=None, on_done=None):
+        """on_done(items): called once the files are in Workspace (project= several projects, opened one after another: the
+        next can only start once this is really done - Workspace reads one batch of files at a time)."""
         if not paths:
             paths, _ = QFileDialog.getOpenFileNames(self, "Add data files", self._cfg().get("last_dir", ""), "Data files (*.xlsx *.xlsm *.xls *.csv *.txt *.dat *.xy *.asc *.tsv);;All files (*.*)")
         new = [p for p in (paths or []) if os.path.isfile(p)]
-        if not new: return
+        if not new:
+            if on_done: on_done([])
+            return
         self._save_cfg({"last_dir": os.path.dirname(new[0])})
         for p in new:
             if p not in self.extra_files: self.extra_files.append(p)
@@ -473,7 +477,13 @@ class TemplatePage(QWidget):
             if self.files.item(i).data(Qt.UserRole) in new: self.files.item(i).setCheckState(Qt.Checked)
         have_ws = {os.path.abspath(str(getattr(it, "path", "") or "")) for it in getattr(self.ws, "singles", [])}
         to_ws = [p for p in new if os.path.abspath(p) not in have_ws]
-        if to_ws: self.ws.load(to_ws)             # a file you add here is also in Workspace's Your graphs - not kept to this page only
+        if to_ws:
+            self.ws.load(to_ws, project=project, on_done=on_done)    # a file you add here is also in Workspace's Your graphs - not kept to this page only
+            return
+        if project:                                                  # already in Workspace (e.g. added again under a project): tag what's there now
+            for it in getattr(self.ws, "singles", []):
+                if os.path.abspath(str(getattr(it, "path", "") or "")) in {os.path.abspath(p) for p in new}: it.project = project
+        if on_done: on_done([])
 
     def remove_files(self):
         sel = [i.data(Qt.UserRole) for i in self.files.selectedItems()]

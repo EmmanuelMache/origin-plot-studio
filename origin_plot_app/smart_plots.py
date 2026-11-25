@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.55.4"
+VERSION = "5.55.5"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -3028,7 +3028,7 @@ class Combined:
                 p = panel("", cs, labels=keep, vertical=False, legend=False); p["yticks"] = False; p["lab_pt"] = 15 if not (landscape(self.opt) and len(ms) > 3) else 12      # more than three panels on a landscape page: smaller labels
                 p["lab_scale"] = 2.0 * (2.0 / 7.0) / (((LANDSCAPE[1] - 1.9) / len(ms)) / LANDSCAPE[0]) if landscape(self.opt) else 2.0
                 p["corner_r"] = [(nm, True)] + ([(rw.replace("Rwp", "R_wp"), False)] if rw else []); pans.append(p)
-                _panel_zoom(p, m, len(ms), self.opt)
+                _panel_zoom(p, m, len(ms), opt)
             pans[len(pans) // 2]["yname"] = "Intensity (a.u.)"; base["panels"] = pans
             base["page_in"] = LANDSCAPE if landscape(self.opt) else (7.0, round(2.0 * len(ms) + 2.0, 2))
             base.update(no_title=True, hspace=0.0, xname="2θ (°), Cu Kα" if abs((s0.get("lam") or 1.5406) - 1.5406) < 0.002 else "2θ (°)",
@@ -3071,7 +3071,7 @@ class Combined:
                 qn = [r for r in ((m.det.get("_info") or {}).get("phases") or []) if r.get("wt") is not None]
                 p["side"] = [(nm, True)] + ([(rw, False)] if rw else []) + [(l_, False) for l_ in _quant_lines(qn, width=24)]      # column right of the panel
                 pans.append(p)
-                _panel_zoom(p, m, len(ms), self.opt)
+                _panel_zoom(p, m, len(ms), opt)
             pans[len(pans) // 2]["yname"] = "Intensity (a.u.)"; base["panels"] = pans
             base["page_in"] = LANDSCAPE if landscape(self.opt) else (8.6, round(ph_in * len(ms) + 2.0, 2))
             base.update(no_title=True, hspace=0.0, xname="2θ (°)" + ("" if abs((s0.get("lam") or 1.5406) - 1.5406) > 0.002 else ", Cu Kα"),

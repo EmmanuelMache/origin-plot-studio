@@ -1458,12 +1458,18 @@ class Workspace(QMainWindow):
             self.load(paths, tick=True)
             e.acceptProposedAction()
 
-    def load(self, paths, tick=False):
+    def load(self, paths, tick=False, project=None, on_done=None):
+        """project: the name of the project (Start here ▸ Your projects) these files belong to, if any - every graph read
+        from them is tagged with it, so Your graphs can say which project a graph came from.
+        on_done: called with the graphs just read, once reading finishes (for opening several projects one after another -
+        a second load() while one is still running is refused, so callers that need to queue several wait for this)."""
         if self.thread is not None:
             self.set_status("Still reading the previous files: add these again in a moment.")
             return
         if tick:
             self.tick_paths |= {os.path.abspath(p) for p in paths}
+        self._pending_project = project
+        self._pending_on_done = on_done
         self.busy_on(f"Reading {len(paths)} file(s)")
         self.set_status(f"Reading {len(paths)} file(s) …")
         self.thread = QThread(self)
@@ -1479,8 +1485,15 @@ class Workspace(QMainWindow):
         self.thread = None
         if self.job_thread is None:
             self.busy_off()
+        cb, items = getattr(self, "_ready_on_done", (None, None)); self._ready_on_done = (None, None)
+        if cb is not None:
+            cb(items)              # self.thread is None by now: safe for the callback to start load() again (opening several projects, one after another)
 
     def loaded(self, items, msgs):
+        proj = getattr(self, "_pending_project", None); self._pending_project = None
+        self._ready_on_done = (getattr(self, "_pending_on_done", None), list(items)); self._pending_on_done = None
+        if proj:
+            for i in items: i.project = proj
         self.singles += items
         for m_ in msgs:
             self.log(m_)
@@ -1589,7 +1602,8 @@ class Workspace(QMainWindow):
             li.setCheckState(Qt.Unchecked)
             self.list.addItem(li)
         for it, nm in zip(self.singles, names):
-            li = QListWidgetItem(f"{nm}\n{it.kind} · {Path(getattr(it, 'path', '') or '').name}")
+            proj = getattr(it, "project", None)
+            li = QListWidgetItem(f"{nm}\n{it.kind} · {Path(getattr(it, 'path', '') or '').name}" + (f" · {proj}" if proj else ""))
             li.setFlags(li.flags() | Qt.ItemIsUserCheckable)
             li.setCheckState(Qt.Unchecked)
             self.list.addItem(li)
@@ -2192,6 +2206,8 @@ def main(argv=None):
     app.setPalette(pal)
     app.setStyleSheet(STYLE)
     w = Workspace(paths, o.ready_file or os.environ.get("OPS_READY_FILE"))
+    if not paths:
+        w.go(6)                                               # the app opening fresh, nothing loaded yet: Start here, not Workspace, is the first thing you see
     _LAST_WINDOW[:] = [w]
     w.show()
     QTimer.singleShot(200, w.mark_ready)

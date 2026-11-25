@@ -2,6 +2,12 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.5
+
+* **"Start here" is now what you see when the app opens**, instead of Workspace. (Files given at launch, e.g. dropped on the shortcut, still go straight to Workspace to show them.)
+* **New: "Your projects", under Start here.** A project is a name for a set of data files (CSV, TSV, Excel …) you come back to. Create one, add files to it, then open it - or several at once - to bring all of it into Workspace and Analysis together; each graph is tagged with the project it came from (shown on its row in Your graphs, and findable with the search box). Rename, delete, or see which of a project's files have moved or gone missing, from a right-click menu. Opening several projects at once used to silently drop all but the first (Workspace reads one batch of files at a time); they now open one after another, correctly.
+* **Fixed: the Zoomed-part switch did nothing for a "several fits, one panel each" combined figure** (made by Ctrl+G / "Decide for me" / HighScore pairing on two or more fits). The drawing code read the figure's own frozen settings instead of the one your switch had just changed, so toggling it had no visible effect at all. Verified: switching it off now removes every panel's inset, switching it back on restores them.
+
 ## 5.55.4
 
 * **Fixed: "Start here" could misname your data.** A Rietveld peak-list export with a column literally called "Source" (common in HighScore and similar software) was scored as a Sankey diagram (mass / energy flows), outranking the correct diffraction templates, because the recommender treated the single words "source", "target", "from" and "to" as enough on their own. It now needs "source" and "target" together (or "from" and "to" together) before it suggests a Sankey diagram.

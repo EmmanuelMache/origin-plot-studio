@@ -89,6 +89,14 @@ check("'Sample pages' shows the first page in Workspace", n == 2 and getattr(w.c
 w._tick_only([i for i in w.singles if i.kind.startswith("Fit")])
 r, why = w.tools.xrd_auto(None)
 check("'Decide for me' with two fits ticked: one panel each, with the difference and the zoom", r == "grouped" and any(getattr(c, "mine", False) and c.how == "panels" for c in w.combined), why)
+pc = next(c for c in w.combined if getattr(c, "mine", False) and c.how == "panels")
+w.list.setCurrentRow(w.items.index(pc)); app.processEvents()
+before = [bool(p.get("inset")) for p in w.current().spec.get("panels", [])]
+w.ribbon.zoom_switch(False); app.processEvents()
+after_off = [bool(p.get("inset")) for p in w.current().spec.get("panels", [])]
+w.ribbon.zoom_switch(True); app.processEvents()
+after_on = [bool(p.get("inset")) for p in w.current().spec.get("panels", [])]
+check("Zoomed part: switch off / on actually changes this 'one panel each' combined figure (not a no-op)", any(before) and not any(after_off) and any(after_on), (before, after_off, after_on))
 # the assistant: 'Show in Workspace' under an example graph opens it in Workspace (it was not one of your graphs)
 a = w.assistant if hasattr(w, "assistant") else w.findChild(object, "assistant")
 if a is not None:

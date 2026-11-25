@@ -16,6 +16,9 @@ app.setStyle("Fusion"); app.setStyleSheet(W.STYLE)
 
 w = W.Workspace([]); w.resize(1500, 900); w.show(); app.processEvents()
 check("'Start here' is the first tab in the top bar", [b.text() for b in w.header_nav.buttons()][0] == "Start here")
+import inspect
+main_src = inspect.getsource(W.main)
+check("the app opening fresh, with nothing loaded yet, shows 'Start here' first, not Workspace", "if not paths" in main_src and "w.go(6)" in main_src, main_src[main_src.index("w = Workspace"):main_src.index("w = Workspace") + 160])
 w.header_nav.buttons()[0].click(); app.processEvents()
 sh = w.pages.widget(w.pages.currentIndex())
 check("clicking it opens the Start here page", w.pages.currentWidget() is sh and sh.label == "Start here")
@@ -41,5 +44,50 @@ check("'Browse all templates myself' opens the gallery", w.pages.currentIndex() 
 w.header_nav.buttons()[0].click(); app.processEvents()
 sh.b_workspace.click(); app.processEvents()
 check("'Review in Workspace, then draw in Origin' opens Workspace", w.pages.currentIndex() == 0)
+
+# ------------------------------------------------------------------------------------------------ Your projects
+w.header_nav.buttons()[0].click(); app.processEvents()
+import workspace_projects as WP
+from PySide6.QtCore import Qt
+check("no projects yet: the list is empty", sh.projects.count() == 0)
+xa = np.linspace(5, 70, 30); pa = TMP / "projA_1.csv"; pd.DataFrame({"2theta (deg)": xa, "Intensity (counts)": xa}).to_csv(pa, index=False)
+pa2 = TMP / "projA_2.csv"; pd.DataFrame({"2theta (deg)": xa, "Intensity (counts)": xa + 1}).to_csv(pa2, index=False)
+pb = TMP / "projB_1.csv"; pd.DataFrame({"2theta (deg)": xa, "Intensity (counts)": xa + 2}).to_csv(pb, index=False)
+slug_a = WP.create("Batch A", [str(pa), str(pa2)]); slug_b = WP.create("Batch B", [str(pb)])
+sh.refresh_projects()
+check("new projects appear in the list, most recently changed first", sh.projects.count() == 2 and sh.projects.item(0).data(Qt.UserRole) == slug_b)
+check("each shows its name and file count", sh.projects.item(1).text() == "Batch A\n2 file(s)")
+n0 = len(w.singles)
+for i in range(sh.projects.count()): sh.projects.item(i).setCheckState(Qt.Checked)
+sh._sync_project_buttons()
+check("ticking projects enables 'Open ticked'", sh.p_open.isEnabled() and not sh.p_add.isEnabled())
+sh.open_projects()
+t0 = time.time()
+while (w.thread is not None or sh._open_queue) and time.time() - t0 < 15: app.processEvents()
+app.processEvents()
+check("opening several ticked projects at once reads every one of them (not just the first)", len(w.singles) == n0 + 3, len(w.singles))
+by_proj = {getattr(s, "project", None) for s in w.singles if os.path.basename(getattr(s, "path", "")).startswith("proj")}
+check("each graph is tagged with the project it came from", by_proj == {"Batch A", "Batch B"}, by_proj)
+check("the project is shown on the graph's row in Your graphs", any(li for li in (w.list.item(i).text() for i in range(w.list.count())) if li.endswith("Batch A")))
+w.filter_graphs("Batch A")
+shown = [not w.list.item(i).isHidden() for i in range(w.list.count())]
+check("Find a graph (the search box) can narrow the list down to one project's graphs", sum(shown) == 2, shown)
+w.filter_graphs("")
+WP.rename(slug_a, "Batch A (renamed)")
+os.remove(str(pa2))
+sh.refresh_projects()
+row_a = next(i for i in range(sh.projects.count()) if sh.projects.item(i).data(Qt.UserRole) == slug_a)
+check("Refresh (reopening the page) shows a file that has moved or gone missing", "1 moved or missing" in sh.projects.item(row_a).text(), sh.projects.item(row_a).text())
+check("... and its new name", sh.projects.item(row_a).text().startswith("Batch A (renamed)"))
+sh._forget_missing(slug_a)
+check("forgetting a missing file takes it out of the project, the file on disk untouched", WP.get(slug_a)["files"] == [str(pa)] and os.path.isfile(str(pb)))
+from PySide6.QtWidgets import QMessageBox
+real_q = QMessageBox.question; QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)
+sh._close_project_graphs("Batch B")
+check("'Remove this project's graphs from Workspace' removes only that project's graphs",  # a graph keeps the project name it was opened with; renaming the project later does not relabel it
+      not any(getattr(s, "project", None) == "Batch B" for s in w.singles) and any(getattr(s, "project", None) == "Batch A" for s in w.singles))
+sh._delete_project(slug_b, "Batch B")
+QMessageBox.question = real_q
+check("deleting a project removes it from the list; its already-opened graphs stay in Workspace", [s for s, _p in WP.list_projects()] == [slug_a] and any(getattr(s, "project", None) == "Batch A" for s in w.singles))
 
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)
