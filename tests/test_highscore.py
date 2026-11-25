@@ -86,6 +86,13 @@ check("'Which peak list goes with which pattern': one row per pair, with the rea
       df is not None and len(df) == 2 and any("agreement" in r for r in df["Why"]) and all("Alite" in r for r in df["Phases not drawn"]), None if df is None else df.to_dict("records"))
 n = w.tools.hs_page(None)
 check("'Sample pages' shows the first page in Workspace", n == 2 and getattr(w.current(), "how", "") == "page")
+page = w.current()
+before_p = [bool(p.get("inset")) for f_ in (page.spec.get("cols") or [page.spec]) for p in f_.get("panels", [])]
+w.ribbon.zoom_switch(False); app.processEvents()
+after_off_p = [bool(p.get("inset")) for f_ in (w.current().spec.get("cols") or [w.current().spec]) for p in f_.get("panels", [])]
+w.ribbon.zoom_switch(True); app.processEvents()
+after_on_p = [bool(p.get("inset")) for f_ in (w.current().spec.get("cols") or [w.current().spec]) for p in f_.get("panels", [])]
+check("Zoomed part: switch off / on also works on a Sample page (not just the 'one panel each' combined figure)", any(before_p) and not any(after_off_p) and any(after_on_p), (before_p, after_off_p, after_on_p))
 w._tick_only([i for i in w.singles if i.kind.startswith("Fit")])
 r, why = w.tools.xrd_auto(None)
 check("'Decide for me' with two fits ticked: one panel each, with the difference and the zoom", r == "grouped" and any(getattr(c, "mine", False) and c.how == "panels" for c in w.combined), why)

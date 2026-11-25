@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.55.5"
+VERSION = "5.55.6"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -3139,9 +3139,12 @@ class SamplePage(Combined):
         cell, fsc, lp = ((0.45, 1.0), 0.85, 16) if side else ((1.0, 0.46), 0.9, 16) if land else ((0.72, 0.9), 0.9, 16)      # peak labels of a sample page: as large as in a single graph
         ylab = "Intensity (cps)" if re.search(r"(?i)cps|second", p0.get("yname") or "") else "Intensity (counts)"
         lam = m.spec.get("lam") or 1.5406; xn = "2\u03b8 (\u00b0), Cu K\u03b1" if abs(lam - 1.5406) < 0.002 else f"2\u03b8 (\u00b0), \u03bb = {lam:.4f} \u00c5"
-        ins = p0.get("inset") or {}; rng = ins.get("xlim"); ilabs = ins.get("labels")
-        if not rng and zoom_auto(opt):          # the app chooses the crowded region of the main peaks
+        no_zoom = str(opt.get("inset") or "").startswith("No")                     # your 'Zoomed part' switch, off: no inset, even if the pattern's own build already has one
+        typed = None if no_zoom else parse_inset(opt, x)                           # your own typed range (2θ range, e.g. 27-37) wins over the pattern's own inset
+        ins = {} if no_zoom else (p0.get("inset") or {}); rng = typed or ins.get("xlim"); ilabs = None if typed else ins.get("labels")
+        if not no_zoom and not rng and zoom_auto(opt):          # the app chooses the crowded region of the main peaks
             rng = auto_inset(x, yo, p0.get("_bg"))
+        if not no_zoom and rng and not ilabs:
             ilabs = names_on(p0["code_labels"], m.det.get("_idmap"))[0] if named else list(p0.get("labels") or [])
         rw = next((l_ for l_ in (p0.get("legendbox") or {}).get("lines", []) if l_.startswith("Rwp")), "")
         common = dict(xname=xn, lam=lam, arrows=m.spec.get("arrows"), no_title=True, cell=cell, font_scale=fsc, label_mult=label_mult(opt))

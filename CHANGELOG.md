@@ -2,6 +2,11 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.6
+
+* **Fixed: the Zoomed-part switch also did nothing on a Sample page** (the measured pattern with its assigned peaks, next to its fit - made by "Sample pages" / "Which peak list goes with which pattern"). Same root cause as 5.55.5's fix to the "several fits, one panel each" figure, closed here too: the pattern's own, already-built inset was used regardless of the switch. A typed 2θ range now also wins over the pattern's own zoomed part, where before it was silently ignored for this figure type.
+* **New: Delete / right-click "Remove this file" on "Start here"'s file list.** It had no way to remove a file at all - only Analysis ▸ Graphs and templates ▸ Files did. Removing it here takes it out of the Files list and out of Workspace's Your graphs together, in one step; the file on the disk is never touched, and "Add data files…" brings it back.
+
 ## 5.55.5
 
 * **"Start here" is now what you see when the app opens**, instead of Workspace. (Files given at launch, e.g. dropped on the shortcut, still go straight to Workspace to show them.)

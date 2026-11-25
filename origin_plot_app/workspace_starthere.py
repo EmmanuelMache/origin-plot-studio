@@ -7,8 +7,9 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QMenu, QMessageBox, QPushButton,
-                                QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QMenu, QMessageBox,
+                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 import workspace_projects as WP
 
@@ -67,7 +68,11 @@ class StartHerePage(QWidget):
         lay.addWidget(self.add_btn)
         self.files = QListWidget()
         self.files.setMaximumHeight(110)
-        self.files.setToolTip("Your data files this session (added here, in Workspace, or in Analysis ▸ Graphs and templates)")
+        self.files.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.files.setToolTip("Your data files this session (added here, in Workspace, or in Analysis ▸ Graphs and templates). Click (or Ctrl / Shift-click several), then Delete or right-click to remove")
+        self.files.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.files.customContextMenuRequested.connect(self._file_menu)
+        del_sc = QShortcut(QKeySequence(Qt.Key_Delete), self.files); del_sc.setContext(Qt.WidgetShortcut); del_sc.activated.connect(self.remove_selected_files)
         lay.addWidget(self.files)
         outer.addWidget(card)
 
@@ -231,6 +236,35 @@ class StartHerePage(QWidget):
         else: self.ws.load(paths, tick=True)
         self.refresh()
 
+    def remove_selected_files(self):
+        """Delete / right-click > Remove here: the file leaves the app entirely (Files list, Workspace graphs and all) -
+        only the file on the disk is untouched; Add data files… brings it back."""
+        sel = [i.data(Qt.UserRole) for i in self.files.selectedItems()]
+        if not sel:
+            self.ws.set_status("Click a file above (or Ctrl / Shift-click several) to remove it first."); return
+        if QMessageBox.question(self, "Remove files", f"Remove {len(sel)} file(s) from the app? They stay on the disk.") != QMessageBox.Yes:
+            return
+        tp = getattr(self.ws, "templates_page", None)
+        if tp is not None and hasattr(tp, "extra_files"):
+            tp.extra_files = [p for p in tp.extra_files if p not in sel]; tp.refresh_files(); tp.schedule()
+        sel_abs = {os.path.abspath(p) for p in sel}
+        its = [i for i in getattr(self.ws, "singles", []) if os.path.abspath(str(getattr(i, "path", "") or "")) in sel_abs]
+        if its:
+            ids = {id(i) for i in its}
+            self.ws.singles = [s for s in self.ws.singles if id(s) not in ids]
+            self.ws.regroup(); self.ws.refresh_list()
+            if not self.ws.items: self.ws.show_empty()
+        self.refresh()
+        self.ws.set_status(f"{len(sel)} file(s) removed from the app.")
+
+    def _file_menu(self, pos):
+        if not self.files.itemAt(pos): return
+        n = len(self.files.selectedItems())
+        m = QMenu(self.files)
+        a = m.addAction(f"Remove {n} file(s) from the app" if n > 1 else "Remove this file from the app", self.remove_selected_files)
+        a.setToolTip("The file itself stays on the disk; Add data files… brings it back"); a.setEnabled(n > 0)
+        m.exec(self.files.mapToGlobal(pos))
+
     def showEvent(self, e):
         super().showEvent(e)
         self.refresh()
@@ -244,7 +278,7 @@ class StartHerePage(QWidget):
             for i in range(tp.files.count()): paths.append(tp.files.item(i).data(Qt.UserRole))
         self.files.clear()
         for p in paths:
-            it = QListWidgetItem(os.path.basename(p)); it.setToolTip(p); self.files.addItem(it)
+            it = QListWidgetItem(os.path.basename(p)); it.setToolTip(p); it.setData(Qt.UserRole, p); self.files.addItem(it)
         while self.rec_lay.count() > 1: self.rec_lay.takeAt(0).widget().deleteLater()
         if tp is None or not hasattr(tp, "ticked_tables"):
             self.detect.setText("Add a file above to see this."); return

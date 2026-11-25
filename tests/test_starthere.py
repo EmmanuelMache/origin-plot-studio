@@ -31,6 +31,18 @@ t0 = time.time()
 while w.thread is not None and time.time() - t0 < 10: app.processEvents()
 app.processEvents(); sh.refresh(); app.processEvents()
 check("a file added here is also in Workspace and in Analysis > Graphs and templates", sh.files.count() == 1 and any(getattr(it, "path", None) == str(p) for it in w.singles) and w.templates_page.files.count() == 1)
+r0 = sh.remove_selected_files()
+check("Delete / right click on a file here needs it highlighted first", r0 is None and "click" in w.status.text().lower(), w.status.text())
+sh.files.item(0).setSelected(True)
+from PySide6.QtWidgets import QMessageBox
+real_q = QMessageBox.question; QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)
+sh.remove_selected_files()
+QMessageBox.question = real_q
+check("Delete / right click removes the file from the Files list and from Workspace's Your graphs (the file on disk is untouched)",
+      sh.files.count() == 0 and not any(getattr(it, "path", None) == str(p) for it in w.singles) and os.path.isfile(str(p)), sh.files.count())
+w.templates_page.add_files([str(p)]); t0 = time.time()
+while w.thread is not None and time.time() - t0 < 10: app.processEvents()
+sh.refresh()
 check("the app says what kind of file it looks like, from the real column headers", "diffraction" in sh.detect.text().lower(), sh.detect.text())
 check("the best-fitting templates are listed, best one first (★)", sh.rec_lay.count() > 1 and sh.rec_lay.itemAt(0).widget().text().startswith("★ "), sh.rec_lay.itemAt(0).widget().text())
 

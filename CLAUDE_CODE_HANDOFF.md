@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.55.5** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.55.6** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
