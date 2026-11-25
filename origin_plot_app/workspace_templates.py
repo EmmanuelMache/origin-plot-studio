@@ -227,6 +227,8 @@ class TemplatePage(QWidget):
         self.live = QCheckBox("Preview with my data"); self.live.setChecked(True)
         self.live.setToolTip("On: every ticked combination is drawn from your ticked files as you tick. Off: nothing is drawn until you press Preview")
         self.live.toggled.connect(lambda on: self.schedule() if on else None); h.addWidget(self.live)
+        self.b_recommend = self._btn("Use what the app recommends", "Not sure which template to use? Tick your data file(s) and press this: the app picks the best-fitting template for them (the same ranking as 'Works with the ticked files', ★) and draws it at once. You can keep it, or tick a different template yourself afterwards", self.use_recommended, "teal")
+        h.addWidget(self.b_recommend)
         self.b_draw = self._btn("Draw my data like this", "Draw your ticked files in every ticked template and style. No file ticked yet: it asks for your data files first. No template ticked: click a template picture first", self.draw_my_data, "primary")
         h.addWidget(self.b_draw)
         self.b_open = self._btn("Open all in editor", "Open every kept graph in the editor: variants, parameters, texts, style. Disabled: no graph is kept (tick previews)", self.open_all)
@@ -249,7 +251,7 @@ class TemplatePage(QWidget):
     def _files_panel(self):
         w = QWidget(); v = QVBoxLayout(w); v.setContentsMargins(8, 8, 8, 8)
         self.files = multi_list("Your files. Click a file to tick or untick it; Shift+click ticks a range; Ctrl+A ticks all. The ticked files are drawn. Drop files here to add them")
-        self.files.itemChanged.connect(lambda _i: (self.update_count(), self.schedule(), self.filter_templates() if self.fits.isChecked() else None))
+        self.files.itemChanged.connect(lambda _i: (self.update_count(), self.schedule(), self.filter_templates()))
         self.files.currentItemChanged.connect(lambda cur, _p: self.show_columns(cur.data(Qt.UserRole) if cur else None))
         self.files.setContextMenuPolicy(Qt.CustomContextMenu); self.files.customContextMenuRequested.connect(self._files_menu)
         self.files.setAcceptDrops(True); self.setAcceptDrops(True); v.addWidget(self.files, 1)
@@ -394,14 +396,18 @@ class TemplatePage(QWidget):
             g.setExpanded(True)
         nh = sum(1 for r in self.catalogue if r["source"] == "house")
         hs = bold(QTreeWidgetItem([f"House figures  ({nh})"])); hs.setData(0, Qt.UserRole, "__house"); hs.setToolTip(0, "The figure layouts of the house style: stacked XRD with zoom, fit with tick rows, TG-DTG panels, calorimetry, particle size … Click to see only these")
+        hn = lambda s: sum(1 for r in self.catalogue if r["source"] == "house" and r["section"] == s)
+        for x in sorted({r["section"] for r in self.catalogue if r["source"] == "house"}, key=lambda s: order.get(s, 999)):
+            c = QTreeWidgetItem([f"{_clean(x)}  ({hn(x)})"]); c.setData(0, Qt.UserRole, x); c.setToolTip(0, f"House figures for {re.sub(r'^[A-Z][.] *', '', x)}: {hn(x)} template(s). Click to see only these"); hs.addChild(c)
         self.classes.insertTopLevelItem(1, hs)
         mine = bold(QTreeWidgetItem([f"My templates  ({n('My templates')})"])); mine.setData(0, Qt.UserRole, "My templates"); mine.setToolTip(0, "Templates you added with '+ Add template'"); self.classes.insertTopLevelItem(2, mine)
         self.filter_templates()
 
     def _class_clicked(self, it, _col=0):
-        key = it.data(0, Qt.UserRole)
-        if key == "__house":                              # the house figure layouts, whatever their technique
-            self.source.blockSignals(True); self.source.setCurrentText("House figures"); self.source.blockSignals(False); self.field.blockSignals(True); self.field.setCurrentIndex(0); self.field.blockSignals(False); self.filter_templates(); return
+        key = it.data(0, Qt.UserRole); in_house = it.parent() is not None and it.parent().data(0, Qt.UserRole) == "__house"
+        if key == "__house" or in_house:                   # the house figure layouts: all of them, or - grouped like the main tree - just one instrument / technique
+            self.source.blockSignals(True); self.source.setCurrentText("House figures"); self.source.blockSignals(False)
+            self.field.blockSignals(True); self.field.setCurrentIndex(max(0, self.field.findData(key)) if in_house else 0); self.field.blockSignals(False); self.filter_templates(); return
         if self.source.currentText() == "House figures": self.source.blockSignals(True); self.source.setCurrentIndex(0); self.source.blockSignals(False)
         i = self.field.findData(key); self.field.setCurrentIndex(max(0, i)); self.filter_templates()
 
@@ -596,13 +602,12 @@ class TemplatePage(QWidget):
 
     def filter_templates(self):
         q = self.find.text().strip().lower(); sec = self.field.currentData(); src = self.source.currentText(); st = self.state.currentText(); rank = {}
-        if self.fits.isChecked():
-            tabs = [t for _p, t in self.ticked_tables()]
-            if tabs:
-                rank = {tid: (i, why) for i, (tid, _s, why) in enumerate(self.api.recommend(tabs[:1] if not self.together.isChecked() else tabs))}
-                mine = self.api.user_templates()
-                for tid, u in mine.items():
-                    if u["base"] in rank: rank[tid] = rank[u["base"]]
+        tabs = [t for _p, t in self.ticked_tables()]               # the best-fitting templates move to the top (★) as soon as a file is ticked,
+        if tabs:                                                   # even without "Works with the ticked files" - that box only hides the rest
+            rank = {tid: (i, why) for i, (tid, _s, why) in enumerate(self.api.recommend(tabs[:1] if not self.together.isChecked() else tabs))}
+            mine = self.api.user_templates()
+            for tid, u in mine.items():
+                if u["base"] in rank: rank[tid] = rank[u["base"]]
         shown = 0
         for i in range(self.grid.count()):
             it = self.grid.item(i); r = it.data(Qt.UserRole + 1)
@@ -613,10 +618,12 @@ class TemplatePage(QWidget):
             if self.fits.isChecked() and rank: ok = ok and r["id"] in rank
             it.setHidden(not ok); shown += ok
         if rank:                                # best fit first
+            hidden = {id(self.grid.item(i)): self.grid.item(i).isHidden() for i in range(self.grid.count())}      # QListWidget.takeItem() forgets
             items = [self.grid.takeItem(0) for _ in range(self.grid.count())]; items.sort(key=lambda it: rank.get(it.data(Qt.UserRole), (9999, ""))[0])
             self.grid.blockSignals(True)
             for k, it in enumerate(items):
-                self.grid.addItem(it); tid = it.data(Qt.UserRole)
+                self.grid.addItem(it); it.setHidden(hidden.get(id(it), False))   # an item's hidden state: it must be reapplied once taken out and back in
+                tid = it.data(Qt.UserRole)
                 tk = "✓ " if it.checkState() == Qt.Checked else ""
                 if tid in rank and rank[tid][0] < 3 and not it.isHidden(): it.setText(tk + "★ " + it.data(Qt.UserRole + 1)["name"])
                 elif it.data(Qt.UserRole + 1)["available"]: it.setText(tk + it.data(Qt.UserRole + 1)["name"])
@@ -670,6 +677,35 @@ class TemplatePage(QWidget):
             elif not getattr(self, "silent", False):
                 self.ws.set_status("No files are loaded yet: choose your data files."); self.window().raise_() if self.window() else None; self.add_files(); self.window().raise_() if self.window() else None
             if not checked(self.files): self.ws.set_status("Add your data files first (Add files…): they are drawn in the ticked templates."); return None
+        self._timer.stop(); self.rebuild_previews(); return len(self.tiles)
+
+    def use_recommended(self):
+        """'Prefer not to pick a template yourself': tick the best-fitting one for your ticked files and draw it at once."""
+        try:
+            return self._use_recommended()
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            self.ws.set_status(f"'Use what the app recommends' failed: {type(e).__name__}: {e}"); return None
+
+    def _use_recommended(self):
+        if not checked(self.files):
+            if self.files.count(): set_checked(self.files, range(self.files.count()), True)
+            else:
+                self.ws.set_status("Add your data files first (Add files…): the app looks at their columns to recommend a template.")
+                self.window().raise_() if self.window() else None; self.add_files(); self.window().raise_() if self.window() else None
+            if not checked(self.files): return None
+        tabs = [t for _p, t in self.ticked_tables()]
+        if not tabs: self.ws.set_status("Your ticked file(s) could not be read as a table."); return None
+        ranked = self.api.recommend(tabs[:1] if not self.together.isChecked() else tabs)
+        if not ranked: self.ws.set_status("No template fits your ticked file(s) yet: browse the gallery and tick one yourself."); return None
+        tid, _score, why = ranked[0]
+        idx = next((i for i in range(self.grid.count()) if self.grid.item(i).data(Qt.UserRole) == tid), None)
+        if idx is None: self.ws.set_status(f"The recommended template ('{tid}') is not in the gallery right now."); return None
+        self.source.blockSignals(True); self.source.setCurrentIndex(0); self.source.blockSignals(False)           # "All sources": the pick is visible,
+        self.field.blockSignals(True); self.field.setCurrentIndex(0); self.field.blockSignals(False)              # whatever class or source it is in
+        set_checked(self.grid, range(self.grid.count()), False); set_checked(self.grid, [idx], True); self.filter_templates()
+        name = self.grid.item(idx).data(Qt.UserRole + 1)["name"]
+        self.ws.set_status(f"Picked for you: '{name}'  ·  {why}. Tick a different template yourself any time to use that instead.")
         self._timer.stop(); self.rebuild_previews(); return len(self.tiles)
 
     def cancel(self):

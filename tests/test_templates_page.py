@@ -90,6 +90,11 @@ set_checked(pg.grid, range(pg.grid.count()), False); r0 = pg.draw_my_data(); che
 tick(pg.grid, {"scatter_linear_fit"}); set_checked(pg.files, range(3), False); n_d = pg.draw_my_data(); settle(pg)
 check("'Draw my data like this' ticks your files when none is ticked and draws them in the ticked template", n_d == 3 and len(checked(pg.files)) == 3 and all(t.fig is not None and not t.combo.get("demo") for t in pg.tiles), (n_d, [t.error for t in pg.tiles]))
 check("it is the primary button of the page", pg.b_draw.objectName() == "primary" and pg.b_draw.text() == "Draw my data like this")
+# "Use what the app recommends": no template ticked by hand - the app picks the best fit for the ticked files and draws it
+set_checked(pg.grid, range(pg.grid.count()), False); set_checked(pg.files, range(3), True)
+n_r = pg.use_recommended(); settle(pg); picked = checked(pg.grid)
+check("'Use what the app recommends' ticks the best-fitting template by itself and draws it from the data", n_r == 3 and len(picked) == 1 and all(t.fig is not None and not t.combo.get("demo") for t in pg.tiles), (n_r, picked, [t.error for t in pg.tiles]))
+check("...status says which template was picked and why", "Picked for you" in pg.ws.status.text(), pg.ws.status.text())
 set_checked(pg.grid, range(pg.grid.count()), False)
 # a workbook graph type drawn from a workbook, in the same gallery
 wbf = str(ROOT / "tests" / "gallery_templates" / "G01_XRD_STACK.xlsx"); pg.add_files([wbf]); set_checked(pg.files, range(pg.files.count()), False); tick(pg.files, {wbf}); tick(pg.grid, {"wb:G01"}); pg.rebuild_previews(); settle(pg)

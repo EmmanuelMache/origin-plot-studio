@@ -2,6 +2,13 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.54.6
+
+* **Fixed: ticking, searching or filtering templates could stop hiding anything.** "Best fit first" reordering of the gallery (the ★ templates) now keeps each picture's shown / hidden state - a Qt quirk (taking a row out of the list and back in forgets it) meant the search box, the class tree and the file/source filters could silently stop working together whenever a file was ticked.
+* **New: "Use what the app recommends"**, beside "Draw my data like this" in Analysis ▸ Graphs and templates. Tick your file(s) and press it: the app picks the best-fitting template for them by itself (the same ranking as the ★ marks) and draws it at once - for when you would rather not browse the gallery yourself.
+* The best-fitting templates (★, moved to the top) now update as soon as a file is ticked, without first turning on "Works with the ticked files" (that box still only *hides* the rest - an opt-in choice).
+* "House figures" in the Templates class tree is now grouped by instrument / technique (XRD, TGA / DTG / DSC, Calorimetry, Thermodynamic modelling …), like the rest of the tree, instead of one flat list of 20.
+
 ## 5.54.5
 
 * **Visual polish pass**, after a review of the window against modern desktop conventions:
