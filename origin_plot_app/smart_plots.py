@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.56.0"
+VERSION = "5.57.0"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -311,7 +311,9 @@ def figtype_id(kind):
     return m.group(1) if m else None
 
 # ============================================================================= reading
-def norm(s): return re.sub(r"[^a-z0-9]", "", str(s).lower())
+def norm(s):
+    from opstudio.detection import normalise
+    return normalise(s)
 
 def _num(v):
     if isinstance(v, (int, float, np.integer, np.floating)) and not (isinstance(v, float) and math.isnan(v)): return True
@@ -2387,6 +2389,8 @@ class Item:
     def build_figtype(self, opt, kind):
         """A gallery graph type: drawn from the whole workbook by gallery_graphs (labels only from the file, formulas shown)."""
         tid = figtype_id(kind); bk = self.det.get("_figtype_book")
+        if getattr(self, '_working_sheets', None):
+            bk = (self.path, TG.book_from_frames(self._working_sheets, os.path.splitext(os.path.basename(self.path))[0]))
         if bk is None or bk[0] != self.path: bk = (self.path, TG.read_book(self.path)); self.det["_figtype_book"] = bk
         book = bk[1]; self.kind = kind; self.det["_display"] = display_names([self])[0]
         from matplotlib.figure import Figure; from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -2417,6 +2421,7 @@ class Item:
         sp_ = finish(dict(title=str(f.get("name", "")), xname="", panels=[panel("", [curve("_", xs_, xs_ * 0, (255, 255, 255))], legend=False)]))
         f = composed_panel_fmt(f, getattr(self, "fmt", None) or {})
         sp_.update(composed=(path, rec, f), title=str(f.get("name", "")))
+        if getattr(self, "_working_sheets", None): sp_["_working_sheets"] = self._working_sheets
         self.spec = sp_; self.results = None; self.extra = {}; self.warnings = []
         try:
             fig = composed_draw(sp_); self.warnings = list(getattr(fig, "_pf_notes", []))
@@ -2592,11 +2597,18 @@ def composed_panel_key(pn):
 def composed_panel_fmt(f, fmt):
     """A composed figure ('f', from the recipe) with your own per-panel changes on top (fmt['panels']: {key: {...}} for one
     panel, '*' for every panel). The recipe on disk is never changed; Undo (Ctrl+Z) takes a change off again."""
-    po = (fmt or {}).get("panels")
-    if not po: return f
+    fmt = fmt or {}
+    po = fmt.get("panels") or {}
+    defaults = {}
+    if 'markers' in fmt: defaults['obs_style'] = 'dots' if fmt['markers'] else 'line'
+    if 'show_difference' in fmt: defaults['show_diff'] = fmt['show_difference']
+    if 'show_bragg' in fmt: defaults['show_ticks'] = fmt['show_bragg']
+    if fmt.get('zoom_off'): defaults['zoom'] = False
+    if fmt.get('zoom'): defaults['zoom_xlim'] = list(fmt['zoom'])
+    if not po and not defaults: return f
     panels = []
     for pn in f.get("panels") or []:
-        ov = {**(po.get("*") or {}), **(po.get(composed_panel_key(pn)) or {})}
+        ov = {**defaults, **(po.get("*") or {}), **(po.get(composed_panel_key(pn)) or {})}
         panels.append({**pn, **ov} if ov else pn)
     return {**f, "panels": panels}
 
@@ -2614,7 +2626,7 @@ def composed_draw(spec):
     """The figure of a composed item at its own size (paper_figures.draw_figure), and the notes of the drawing."""
     import paper_figures as pf
     path, rec, f = spec["composed"]
-    book = pf.Book(pf.load_sheets(path)); fig = pf.draw_figure(f, book, rec)
+    book = pf.Book(spec.get("_working_sheets") or pf.load_sheets(path)); fig = pf.draw_figure(f, book, rec)
     fig.final_mm = (f.get("width_mm", 175), f.get("height_mm", 120)); fig._pf_notes = list(book.notes)
     return fig
 
@@ -2683,7 +2695,7 @@ def _load_sheets(path):
         split_notes += [f"  {name}: {what_} ({len(parts)} samples)"] * (len(parts) > 1 and not sta_) + ["  " + q_ for q_ in notes_]
         meta = xs.META.get(path) or {}
         for d1 in parts:
-            dets.append(d1); d1["_raw"] = raw
+            dets.append(d1); d1["_raw"] = raw; d1["_source_sheet"] = name
             if p: d1["_df"] = p[0]
             if meta.get("wavelength"): d1["lam_file"] = meta["wavelength"]
             elif file_lam: d1["lam_file"] = file_lam
@@ -2915,6 +2927,7 @@ def _unit(s):
     m = re.search(r"[\(\[]([^\)\]]*)[\)\]]\s*$", str(s)); return norm(m.group(1).replace("µ", "u").replace("μ", "u")) if m else ""
 
 def _compatible(a, b):
+    if (getattr(a, 'project_id', None) or getattr(a, 'project', None)) != (getattr(b, 'project_id', None) or getattr(b, 'project', None)): return False
     if a.kind != b.kind or len(a.spec["panels"]) != len(b.spec["panels"]): return False
     if a.kind.startswith("Fit") and a.path != b.path and (getattr(a, "nfile", 1) > 1 or getattr(b, "nfile", 1) > 1): return False   # fits of one workbook stay together
     (a0, a1), (b0, b1) = _xr(a.spec), _xr(b.spec); ov = min(a1, b1) - max(a0, b0); un = max(a1, b1) - min(a0, b0)
@@ -3328,6 +3341,46 @@ def apply_fmt(obj, opt=None):
             obj.spec_fit = sp_; sp_ = obj.spec = _pattern_only(sp_)     # the combined figures and sample pages keep the whole fit (spec_fit)
     if not sp_ or not fmt: return obj
     subs = sp_.get("cols") or [sp_]
+    for sub_index, sub in enumerate(subs):
+        components = dict(fmt); components.update((fmt.get('native_panels') or {}).get(str(sub_index), {}))
+        panels = list(sub.get('panels') or [])
+        keep = []
+        for pi, panel_ in enumerate(panels):
+            if components.get('inset') is False: panel_.pop('inset', None)
+            title_ = str(panel_.get('yname', '')).lower()
+            curves_ = panel_.get('curves') or []
+            if components.get('show_difference') is False and ('diff' in title_ or 'resid' in title_): continue
+            if components.get('show_peaks') is False and title_ == 'peaks': continue
+            if components.get('show_bragg') is False and ('bragg' in title_ or panel_.get('rows') or (curves_ and all(str(c.get('kind')) == 'sticks' for c in curves_))): continue
+            if components.get('show_bragg') is False:
+                panel_['vlines'] = []
+            if components.get('show_difference') is False:
+                def is_difference(c):
+                    label = str(c.get('label','')).lower()
+                    return 'difference' in label or 'residual' in label or norm(label) == 'yobsycalc'
+                panel_['curves'] = [c for c in panel_.get('curves',[]) if not is_difference(c)]
+                if panel_.get('inset') and panel_['inset'].get('curves'):
+                    panel_['inset']['curves'] = [c for c in panel_['inset']['curves'] if not is_difference(c)]
+                sub['legend_row'] = [(colour,label) for colour,label in sub.get('legend_row',[]) if 'difference' not in str(label).lower()]
+            if components.get('show_background') is False:
+                panel_['curves'] = [c for c in panel_.get('curves',[]) if not any(v in str(c.get('label','')).lower() for v in ('background','baseline'))]
+            if components.get('markers') is not None:
+                for curve_ in panel_.get('curves') or []:
+                    if curve_.get('kind') in ('line','scatter','linesymbol'):
+                        curve_['kind'] = 'linesymbol' if components['markers'] else 'line'
+                inset_ = panel_.get('inset') or {}
+                for curve_ in inset_.get('curves') or []:
+                    if curve_.get('kind') in ('line','scatter','linesymbol'):
+                        curve_['kind'] = 'linesymbol' if components['markers'] else 'line'
+            keep.append(panel_)
+        if keep: sub['panels'] = keep
+        if components.get('inset') is True and keep:
+            first = keep[0]; curve_ = next((c for c in first.get('curves',[]) if len(c.get('x',[])) > 3),None)
+            if curve_ is not None:
+                bounds = components.get('zoom') or auto_zoom(curve_['x'],curve_['y'])
+                if bounds:
+                    first['inset'] = dict(xlim=tuple(bounds))
+                    finish(sub)
     if fmt.get("title") is not None:
         sp_["title"] = fmt["title"]
         if fmt["title"]: sp_.pop("no_title", None)
@@ -4434,6 +4487,7 @@ def session_dump(singles, boards, settings):
     return {"app": VERSION, "files": list(dict.fromkeys(s.path for s in singles)), "info_files": sorted(_INFO_ONLY), "settings": settings,
             "sources": {p: {k: v for k, v in IMPORTED[p].items() if k != "copy"} for p in dict.fromkeys(s.path for s in singles) if p in IMPORTED},
             "graphs": [{"file": s.path, "table": s.name, "kind": s.kind, "sample": s.sample, "custom": getattr(s, "custom", None) or {}, "fmt": getattr(s, "fmt", None) or {},
+                "project": getattr(s, "project", None), "project_id": getattr(s, "project_id", None),
                 "model": {k: s.det[k] for k in ("_software", "_database", "_ftir_signal", "_psd_style") if s.det.get(k)}} for s in singles],
             "figures": [{"keys": b.keys, "cols": b.cols, "width_mm": b.width_mm, "number": b.number} for b in boards]}
 
@@ -4474,7 +4528,7 @@ def _session_load(data, opt, folder):
         for it in new:
             g = want.get((p, it.name))
             if g is None: continue                      # a table you had removed from the list
-            it.sample = g.get("sample", ""); it.want_kind = g.get("kind"); it.custom = g.get("custom") or {}; it.fmt = g.get("fmt") or {}; it.det.update(g.get("model") or {}); fresh.append(it)
+            it.project = g.get("project"); it.project_id = g.get("project_id"); it.sample = g.get("sample", ""); it.want_kind = g.get("kind"); it.custom = g.get("custom") or {}; it.fmt = g.get("fmt") or {}; it.det.update(g.get("model") or {}); fresh.append(it)
     _, errs = prepare(singles, fresh, opt); lines += errs
     boards = []
     for f_ in data.get("figures", []):

@@ -3701,5 +3701,32 @@
    "script": "origin/process_flow_steps.ogs",
    "otpu": "origin/process_flow_steps.otpu"
   }
+ },
+ {
+  "schema": "opstudio.template/1",
+  "id": "scientific_line",
+  "name": "Line plot",
+  "category": "Basic 2D & layout",
+  "use_case": "A plain line plot of mapped X and Y columns, with no point markers or assumed scientific analysis.",
+  "source": "generic",
+  "data_kind": "xy_series",
+  "data_roles": {
+   "x": "mapped numeric X column",
+   "y": "one or more mapped numeric Y columns"
+  },
+  "default_params": {},
+  "origin_hint": "Origin: Line plot with source data in worksheets.",
+  "recommended_for": [
+   "Any numeric curve"
+  ],
+  "calculations": [],
+  "preview": "previews/scientific_line.png",
+  "orientation": "landscape",
+  "styles": "any (styles/*.json)",
+  "label_policy": "labels/peak names only from user files or user confirmation",
+  "origin_template": {
+   "script": "origin/scientific_line.ogs",
+   "otpu": "scientific_line.otpu"
+  }
  }
 ]

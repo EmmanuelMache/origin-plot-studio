@@ -106,10 +106,25 @@ def _series(tables, ex, mp, with_x=True):
 
 
 def _rietveld(t, mp):
+    """x, observed, calculated and difference of one fit. The columns are taken by their names where the file names them
+    (Iobs / Icalc / Ycalc / Calculated / Difference ...): an export with a leading row-number column, or with a background
+    column after the calculated one, must not have its curves read by position. Unnamed columns: by position, after x."""
     _need(3, t, "x, observed and calculated")
-    c = t.numeric; d = {"x": t.arr(c[0]), "obs": t.arr(c[1]), "calc": t.arr(c[2]), "name": t.name, "rwp": None, "ticks": {}, "x_label": c[0], "y_label": c[1]}
-    d["diff"] = t.arr(c[3]) if len(c) > 3 else d["obs"] - d["calc"]
-    mp += [("x", c[0]), ("observed", c[1]), ("calculated", c[2]), ("difference", c[3] if len(c) > 3 else "calculated: observed - calculated")]
+    from .detection import fit_columns
+    xc = t.x; ys = [c for c in t.ys]; f = fit_columns(t)
+    if xc is None or len(ys) < 2: raise NeedData("needs x, observed and calculated columns")
+    named = [v for v in f.values()]
+    obs = f.get("obs") or next((c for c in ys if c not in named), None)
+    calc = f.get("calc") or next((c for c in ys if c != obs and c not in named), None)
+    if obs is None or calc is None: raise NeedData("needs an observed and a calculated column")
+    if f.get("diff"): diff = f["diff"]
+    elif f.get("calc"): diff = None                                         # the file names its curves and has no difference column: it is calculated, a following column (background ...) is not taken for it
+    else: diff = next((c for c in ys if c not in (obs, calc)), None)        # nothing named: the third series, as before
+    d = {"x": t.arr(xc), "obs": t.arr(obs), "calc": t.arr(calc), "name": t.name, "rwp": None, "ticks": {}, "x_label": xc, "y_label": obs}
+    d["diff"] = t.arr(diff) if diff else d["obs"] - d["calc"]
+    if f.get("back"): d["background"] = t.arr(f["back"])
+    mp += [("x", xc), ("observed", obs), ("calculated", calc), ("difference", diff or "calculated: observed - calculated")]
+    if f.get("back"): mp.append(("background", f["back"]))
     return d
 
 
@@ -125,11 +140,24 @@ def _category(t, ex, mp):
     return cats, [short_name(c) for c in vals], V, E
 
 
+_EXAMPLES = {}
+
+
+def _example(template):
+    """The template's example (what keys and shapes it takes). Making it draws synthetic curves, and bundle() is called
+    for every template each time a selection is checked - hundreds of times - so it is made once per template and a
+    copy handed out (a copy: nothing here may change the kept one)."""
+    import copy
+    key = (getattr(template, "id", None), id(getattr(template, "demo", None)))
+    if key not in _EXAMPLES: _EXAMPLES[key] = template.demo()
+    return copy.deepcopy(_EXAMPLES[key])
+
+
 def bundle(template, tables, overrides=None):
     """(bundle, mapping). tables: list of Table. overrides: {key: value} set by the user (labels, zones ...)."""
     if not tables: raise NeedData("no data: tick a file first")
     from . import side_tables as SD
-    ex = template.demo()
+    ex = _example(template)
     fit_like = "items" in ex or {"obs", "calc"} <= set(ex)
     takes = {"labels": fit_like or "labels" in ex or "XRD" in str(getattr(template, "category", "")), "ticks": fit_like, "rwp": fit_like}
     side = {"labels": [], "ticks": [], "rwp": []}; data_tables = []
@@ -381,22 +409,16 @@ def read_tables(path, sheet=None, max_rows=200000):
             df = book[s]
             if df.shape[1] >= 1 and len(df): out.append(Table(name if len(pick) == 1 else f"{name} [{s}]", df))
     else:
-        df = None; has_header = False
-        try:                                                 # HighScore and other instrument exports written with the comma both
-            import smart_plots as _sp                        # between columns and as the decimal sign ('1,6,0043,307,9961'): same
-            text = _sp._text(path)                            # reader as the rest of the app, so these files read the same way here
-            dc = _sp._read_decimal_commas(text)
-            if dc is not None:                                # dc[0]: the real header sits in its first row, as text (not a column name yet)
-                df = dc[0]; hdr_row = [str(v) for v in df.iloc[0]]; df = df.iloc[1:].reset_index(drop=True); df.columns = hdr_row; has_header = True
-        except Exception: df = None
-        if df is None:
-            for kw in (dict(sep=None, engine="python"), dict(sep=r"\s+", engine="python"), dict(sep=";", decimal=",")):
-                try:
-                    df = pd.read_csv(path, nrows=max_rows, comment="#", **kw)
-                    if df.shape[1] >= 2: break
-                except Exception: df = None
-        if df is None: raise NeedData("this file could not be read as a table")
-        if not has_header and all(re.fullmatch(r"-?[\d.,eE+-]+", str(c).strip()) for c in df.columns):       # no header row: the first row is data
-            df = pd.concat([pd.DataFrame([df.columns], columns=df.columns), df], ignore_index=True); df.columns = ["x"] + [f"y{i}" for i in range(1, df.shape[1])]
-        out.append(Table(name, df))
+        try:
+            import smart_plots as sp
+            raw = sp.read_tables(path)
+            for label, frame in raw:
+                got = sp.parse_table(frame)
+                if not got: continue                               # a block of the file with no table in it (words, a title page)
+                parsed, _units = got
+                if parsed is not None and len(parsed) and len(parsed.columns):
+                    out.append(Table(name if len(raw) == 1 else str(label), parsed.iloc[:max_rows].copy()))
+        except Exception as e:
+            raise NeedData(f'This file could not be read: {e}') from e
+    if not out: raise NeedData('No readable data table was found: the file has no rows of numbers under (or without) a header line')
     return out

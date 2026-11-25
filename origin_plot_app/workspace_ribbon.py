@@ -406,6 +406,9 @@ class Ribbon(QWidget):
     def edit_dialog(self, it=None):
         """Edit this graph…: titles, fonts, axes, curves, legend, look (and the zoom / pattern-or-fit of XRD) in one window."""
         it = it or self.item()
+        if hasattr(it, 'combo') and hasattr(self.w, 'workbench'):
+            from workspace_graph_editor import GraphEditor
+            d = GraphEditor(self.w.workbench, it); self._edit_dlg = d; d.show(); return d
         if it is None:
             return self._say("Show a graph first.")
         d = EditDialog(self, it)
@@ -894,6 +897,10 @@ class Ribbon(QWidget):
         m.addAction("Difference row: switch off (this panel only)" if show_diff else "Difference row: switch on (this panel only)",
                     lambda: self.set_panel_fmt(key, show_diff=False if show_diff else None))
 
+        show_ticks = sp.composed_panel_value(it, key, 'show_ticks', True)
+        m.addAction('Bragg rows: hide (this panel only)' if show_ticks else 'Bragg rows: show (this panel only)',
+                    lambda: self.set_panel_fmt(key, show_ticks=False if show_ticks else None))
+
     def set_panel_fmt(self, key, **changes):
         """One panel's own change (right click on it), kept beside the whole-graph fmt; set a field to None to go back to
         what the recipe itself says for that panel."""
@@ -1058,7 +1065,18 @@ class EditDialog(QDialog):
         self.l_view = QComboBox(); self.l_view.addItems(sp.FIT_VIEWS); self.l_view.setCurrentText(sp.fit_view(it, rb.w.opt) if str(it.kind).startswith("Fit") else sp.FIT_VIEWS[0])
         if str(getattr(it, "kind", "")).startswith("Fit"):
             fl.addRow("Fit file shows", self.l_view)
+        self.component_boxes = {}
+        for key, label in [('markers','Show point markers'),('show_difference','Show difference / residual row'),
+                           ('show_bragg','Show Bragg reflection rows'),('show_peaks','Show peak / stick panel'),('show_background','Show background / baseline')]:
+            box = QCheckBox(label); box.setChecked(bool(f0.get(key, key != 'markers')))
+            self.component_boxes[key] = box; fl.addRow(box)
         self.tabs.addTab(t, "Layout")
+        if (getattr(it, 'spec', None) or {}).get('cols'):
+            panel_button = QPushButton('Edit each graph / panel independently…')
+            def open_panel_controls():
+                from workspace_graph_editor import NativePanelEditor
+                NativePanelEditor(rb.w, it, self).exec()
+            panel_button.clicked.connect(open_panel_controls); v.addWidget(panel_button)
         self.msg = QLabel("", objectName="soft", wordWrap=True); v.addWidget(self.msg)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Apply | QDialogButtonBox.Cancel | QDialogButtonBox.Reset)
         bb.button(QDialogButtonBox.Reset).setText("Back to the app's look")
@@ -1151,6 +1169,7 @@ class EditDialog(QDialog):
             f["zoom"] = rng
         if str(getattr(self.it, "kind", "")).startswith("Fit"):
             f["fit_view"] = self.l_view.currentText()
+        for key, box in self.component_boxes.items(): f[key] = box.isChecked()
         return f
 
     def apply(self):

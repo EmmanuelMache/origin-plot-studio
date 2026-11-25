@@ -453,6 +453,17 @@ class TemplatePage(QWidget):
             it.setCheckState(have.get(p, Qt.Checked if (not have and len(paths) <= 6) else Qt.Unchecked)); self.files.addItem(it)      # the first time: your files are ticked, so that a ticked template is drawn at once
         self.files.blockSignals(False); self.files.sync(); self.filter_templates(); self.schedule()   # filter_templates() also calls update_count() and recomputes the best-fit ★ marks / detected-file-kind message
 
+    def tick_files(self, paths):
+        """Tick these files in one step. Each tick used to re-rank every template against all ticked files - for ten
+        files that is ten rankings, each reading more files, with the window stopped meanwhile; the result is the same
+        after one ranking at the end."""
+        paths = set(paths); todo = [self.files.item(i) for i in range(self.files.count()) if self.files.item(i).data(Qt.UserRole) in paths and self.files.item(i).checkState() != Qt.Checked]
+        if not todo: return
+        self.files.blockSignals(True)
+        for it in todo: it.setCheckState(Qt.Checked)
+        self.files.blockSignals(False); self.files.sync()
+        self.update_count(); self.schedule(); self.filter_templates()
+
     def showEvent(self, e):
         super().showEvent(e); self.refresh_files()
         if not getattr(self, "_sized", False) and "page5" not in ((__import__("workspace_qt").load_cfg().get("panel_layout") or {}) if isinstance(__import__("workspace_qt").load_cfg().get("panel_layout"), dict) else {}):
@@ -473,8 +484,7 @@ class TemplatePage(QWidget):
         for p in new:
             if p not in self.extra_files: self.extra_files.append(p)
         self.refresh_files()
-        for i in range(self.files.count()):
-            if self.files.item(i).data(Qt.UserRole) in new: self.files.item(i).setCheckState(Qt.Checked)
+        self.tick_files(new)
         have_ws = {os.path.abspath(str(getattr(it, "path", "") or "")) for it in getattr(self.ws, "singles", [])}
         to_ws = [p for p in new if os.path.abspath(p) not in have_ws]
         if to_ws:
@@ -584,7 +594,7 @@ class TemplatePage(QWidget):
             self.col_head.setText(str(e)); self.cols.blockSignals(False); self.sheet.blockSignals(False); return
         self.sheet.addItems([x or "(the file)" for x in sheets]); self.sheet.setCurrentIndex(sheets.index(s)); self.sheet.setVisible(len(sheets) > 1)
         order = [c for c in mp.get("order", []) if c in cols] + [c for c in cols if c not in mp.get("order", [])]; off = set(mp.get("off", []))
-        full = self.ops.data.Table("x", self.raw_tables(path)["sheets"][s].copy())
+        full = self.ops.data.Table("x", (self.ws.workbench.raw_sheets(path) if hasattr(self.ws, "workbench") else self.raw_tables(path)["sheets"])[s].copy())
         first_num = next((c for c in order if c in full.numeric and c not in off), None)
         for c in order:
             role = "x" if c == first_num else "error" if self.ops.data.ERR_RE.search(c) and c in full.numeric else "series" if c in full.numeric else "names"
@@ -594,6 +604,15 @@ class TemplatePage(QWidget):
 
     def _columns_changed(self):
         if not self._col_path: return
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl is not None:
+            prefs = ctrl.mapping_for(self._col_path)
+            prefs['order'] = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count())]
+            prefs['off'] = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count()) if self.cols.item(i).checkState() != Qt.Checked]
+            m = dict(self._cfg().get("mappings") or {}); m[self._pattern(ctrl._table(self._col_path, ctrl.project_for(self._col_path))[3])] = {"order": list(prefs['order']), "off": list(prefs['off'])}
+            self._save_cfg({"mappings": m})                    # also remembered for other files with the same headers, as before
+            ctrl.changed(self._col_path); self._sheet_pick_cache.clear()
+            ctrl.refresh_source_graphs(self._col_path); self.show_columns(self._col_path); self.filter_templates(); self.schedule(); return
         order = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count())]; off = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count()) if self.cols.item(i).checkState() != Qt.Checked]
         raw = self.raw_tables(self._col_path); _t, s, _sh, cols, _mp = self.table_of(self._col_path)
         m = dict(self._cfg().get("mappings") or {}); m[self._pattern([str(c) for c in raw["sheets"][s].columns])] = {"order": order, "off": off}; self._save_cfg({"mappings": m})
@@ -606,20 +625,29 @@ class TemplatePage(QWidget):
 
     def _sheet_changed(self, i):
         if not self._col_path or i < 0: return
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl is not None:
+            sheets = list(ctrl.raw_sheets(self._col_path))
+            if i >= len(sheets): return
+            ctrl.settings_for(self._col_path)['sheet'] = sheets[i]
+            ctrl.changed(self._col_path); self._sheet_pick_cache.clear(); self.show_columns(self._col_path); self.filter_templates(); self.schedule(); return
         raw = self.raw_tables(self._col_path); sheets = list(raw["sheets"]); s = dict(self._cfg().get("sheets") or {}); s[os.path.basename(self._col_path)] = sheets[i]
         self._save_cfg({"sheets": s}); getattr(self, "_sheet_pick_cache", {}).clear(); self.show_columns(self._col_path); self.schedule()
 
     # ------------------------------------------------------------------------------------------------ filtering and counting
-    def ticked_tables(self):
+    def ticked_tables(self, first_only=False):
+        """first_only: stop at the first ticked file that reads as a table (the ranking of the templates uses only that
+        one unless 'all ticked files in one graph' is on) - not every ticked file is read just to rank."""
         out = []
         for p in checked(self.files):
             try: out.append((p, self.table_of(p)[0]))
             except Exception: pass
+            if first_only and out: break
         return out
 
     def filter_templates(self):
         q = self.find.text().strip().lower(); sec = self.field.currentData(); src = self.source.currentText(); st = self.state.currentText(); rank = {}
-        tabs = [t for _p, t in self.ticked_tables()]               # the best-fitting templates move to the top (★) as soon as a file is ticked,
+        tabs = [t for _p, t in self.ticked_tables(first_only=not self.together.isChecked())]   # the best-fitting templates move to the top (★) as soon as a file is ticked,
         detected = ""                                              # even without "Works with the ticked files" - that box only hides the rest
         if tabs:
             ranked = self.api.recommend(tabs[:1] if not self.together.isChecked() else tabs)
@@ -774,8 +802,36 @@ class TemplatePage(QWidget):
             out.append(self._table_for_template(p, template))
         return out
 
+    def _table_for_template_wb(self, ctrl, path, template):
+        """The same choice with the project workbench: among the working sheets of the file (your edits and each
+        sheet's own column mapping included), the one this template can draw. A sheet you chose yourself is kept
+        when it fits the template."""
+        slug = ctrl.project_for(path); key = (slug, path, template); cache = getattr(self, "_sheet_pick_cache", None)
+        if cache is None: cache = self._sheet_pick_cache = {}
+        if key in cache: return cache[key]
+        default_t = self.table_of(path)[0]; names = list(ctrl.raw_sheets(path, slug))
+        if len(names) <= 1: cache[key] = default_t; return default_t
+        try: base, *_rest = self.api.resolve(template)
+        except Exception: cache[key] = default_t; return default_t
+        def fits(t):
+            try: self.ops.data.bundle(base, [t]); return True
+            except Exception: return False
+        if ctrl.settings_for(path, slug).get("sheet") and fits(default_t): cache[key] = default_t; return default_t
+        tid_l = str(template).lower(); best = None; best_score = None
+        for s in names:
+            try: t = ctrl._table(path, slug, s)[0]
+            except Exception: continue
+            head = " | ".join(t.cols).lower()
+            matches = any(re.search(pat, head) and any(k in tid_l for k in keys) for pat, keys, _ in self.api.RULES)
+            score = (fits(t), matches, len(t.numeric), len(t.df))
+            if best is None or score > best_score: best, best_score = t, score
+        picked = best if (best is not None and best_score[0]) else default_t
+        cache[key] = picked; return picked
+
     def _table_for_template(self, path, template):
         """Among the sheets of `path`, the Table that this template can actually draw - cached per (file, template)."""
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl is not None: return self._table_for_template_wb(ctrl, path, template)
         key = (path, template); cache = getattr(self, "_sheet_pick_cache", None)
         if cache is None: cache = self._sheet_pick_cache = {}
         if key in cache: return cache[key]
@@ -828,7 +884,7 @@ class TemplatePage(QWidget):
             return self.draw_workbook_type(combo)
         if combo.get("demo"):
             fig = self.api.demo_figure(combo["template"], combo["style"]); return fig, [("data", "illustrative example - tick a file to draw your own data")]
-        return self.api.draw(combo["template"], self.tables_for(combo["files"], combo["template"]), style=combo["style"], params=self.params.get(combo["template"]) or None,
+        return self.api.draw(combo["template"], self.tables_for(combo["files"], combo["template"]), style=combo["style"], params=combo.get("params", self.params.get(combo["template"]) or None),
                              switches=combo.get("switches", self.current_switches()), overrides=combo.get("overrides"), width=width, target=target)
 
     def _draw_next(self):
@@ -1260,7 +1316,20 @@ class Editor(QDialog):
             bb = QPushButton(text); bb.setToolTip(tip); bb.clicked.connect(fn); right.addWidget(bb)
         c = QPushButton("Close"); c.clicked.connect(self.accept); right.addWidget(c)
         QShortcut(QKeySequence(Qt.Key_PageDown), self).activated.connect(lambda: self.go(1)); QShortcut(QKeySequence(Qt.Key_PageUp), self).activated.connect(lambda: self.go(-1))
+        components = QPushButton('Edit components / panel zoom…')
+        components.clicked.connect(self.edit_components); right.insertWidget(1, components)
         self.show_tile()
+
+    def edit_components(self):
+        ctrl = getattr(self.page.ws, 'workbench', None)
+        if ctrl is None or self.t.combo.get('demo'): return
+        from workspace_workbench import TemplateGraph
+        from workspace_graph_editor import GraphEditor
+        combo = dict(self.t.combo)
+        if not combo.get('project_id') and combo.get('files'): combo['project_id'] = ctrl.project_for(combo['files'][0])
+        graph = TemplateGraph(ctrl, combo)
+        GraphEditor(ctrl, graph, self).exec()
+        self.t.combo = graph.combo; self.page.redraw_tile(self.t); self.show_tile()
 
     @property
     def t(self): return self.tiles[self.i]
@@ -1292,7 +1361,7 @@ class Editor(QDialog):
             except ValueError: self.page.ws.set_status(f"This note line could not be read: {line}")
         if notes: ov["notes"] = notes
         for t in (self.tiles if self.all.isChecked() else [self.t]):
-            t.combo["overrides"] = dict(ov); t.combo["renames"] = dict(ren); t.combo["style"] = self.style.currentData(); t.combo["switches"] = self.page.current_switches()
+            t.combo["overrides"] = dict(ov); t.combo["renames"] = dict(ren); t.combo["style"] = self.style.currentData(); t.combo.setdefault("switches", dict(self.page.current_switches()))
             t.combo["caption"] = re.sub(r"·\s*\S+$", "· " + t.combo["style"], t.combo["caption"]); t.cap.setText(t.combo["caption"])
             if ren: t.combo["overrides"]["_renames"] = ren
             self.page.redraw_tile(t)

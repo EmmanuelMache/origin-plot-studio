@@ -1,0 +1,11 @@
+numpy
+pandas
+scipy
+matplotlib
+openpyxl
+xlrd
+python-calamine
+PySide6
+certifi
+tzdata
+pywin32; sys_platform == 'win32'

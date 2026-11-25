@@ -1,3 +1,7 @@
+# Origin Plot Studio 5.57.0
+
+New in this version: the three-column Start here with projects, the Workbook section and a lighter header - see [the update guide](UPDATE_GUIDE.md); what was checked and what is not done is in [the implementation notes](IMPLEMENTATION_AND_TESTS.md) and [the validation results](VALIDATION_RESULTS.md).
+
 # Origin Plot Studio
 
 A Windows desktop app that reads measurement files (XRD patterns and fits, TGA, FTIR, calorimetry, particle

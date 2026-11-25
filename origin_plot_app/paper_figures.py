@@ -463,7 +463,7 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     nt = 0
     try: nt = len(tick_rows(book.sheet(p["ticks"]))) if p.get("ticks") else 0
     except Exception: nt = 0
-    has_t = bool(p.get("ticks")); show_diff = p.get("show_diff", True)
+    has_t = bool(p.get("ticks")) and p.get("show_ticks", True); show_diff = p.get("show_diff", True)
     if show_diff:
         hr = p.get("heights") or ([3.0, 0.85, max(0.6, 0.95 * max(nt, 7) / 7)] if has_t else [3.0, 0.85])     # the tick block grows with the number of phases
     else:
@@ -519,7 +519,7 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     if p.get("zoom"):
         r = p.get("inset", [0.60, 0.50, 0.38, 0.46]); ins = a1.inset_axes(r); _apply_axes(ins, st); ins.tick_params(labelsize=st["tick_label"] - 1.5, length=2); zs = p["zoom"]; zr = p.get("zoom_xlim", [31, 35])
         try:
-            zx, zo, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "observed"}); ins.plot(zx, zo, linestyle="none", marker="o", ms=1.8, mfc="none", mec="#000000", mew=0.35, zorder=3)
+            zx, zo, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "observed"}); ins.plot(zx, zo, linestyle="none" if dots else "-", marker="o" if dots else None, lw=p.get("obs_lw", 0.5), ms=1.8, mfc="none", mec="#000000", mew=0.35, color="#000000", zorder=3)
             zx2, zc, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "calculated"}); ins.plot(zx2, zc, color="#CC0000", lw=0.7, zorder=4)
             try: zx3, zd, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "difference"}); ins.plot(zx3, zd, color="#555555", lw=0.5, zorder=2)
             except Missing as e: book.note(f"{tag}: inset without difference, {e}")

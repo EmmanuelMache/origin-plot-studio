@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.56.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.57.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -12,6 +12,31 @@ Read this file first. It says what exists in the code now, not what is intended.
   grid and batch actions; "Draw in Origin like this"; command area and session basics; the TGA / DTG module; Tier 1 of
   the graph catalogue (14 of 17 rows).
 * The repository's history was replaced by one clean commit at 5.51.0 (the owner asked for it). Do not restore old history.
+* **5.57.0: the project workbench.** A delivered update (written against 5.55.7) was merged into the app at 5.56.0 on branch
+  `integrate/project-workbench`: the package is one commit on its 5.55.7 baseline, merged three ways. Rule of the merge,
+  from the owner: *the look and the new project features come from the update; nothing the app did before changes or goes
+  missing.* Read section 2b before touching Start here, the header, Workbook or the recommender.
+
+## 2b. The project workbench (5.57.0) - what exists now
+
+| File / module | What it is | Tests |
+|---|---|---|
+| `workspace_workbench.py` (new) | `Workbench`, installed on the window as `ws.workbench` by `install(ws)` when the template library is present. Owns the active project, the working copies of each input (`raw_sheets`, `_table(path, slug, sheet=None)`), per-sheet settings (`settings_for`: sheet, order, off, type, edited sheets), `recommendations(paths, together, focus)`, `create_graphs`, `open_inputs(pairs, then_workspace)`, saving / closing / restoring projects. `TemplateGraph(sp.Item)` is a template drawn as an ordinary Workspace graph. **It wraps methods of the existing pages** (`tp.table_of`, `tp.combos`, `tp.draw_combo`, `tp.add_files`, `ws.load`, `ws.draw`, `ws.refresh_list`): a change to those methods must be tried with the workbench installed | `tests/test_workbench_ui.py` (15), `tests/test_starthere_parity.py` (43) |
+| `workspace_starthere.py` | The three columns. `add_files` adds to the selected project, or to the session when none is selected (never forces a project). `open_projects` = "Open selected" (then Workspace); `open_workspace`. While files are being read, `inspect_current` waits for a file that is not read yet instead of reading it on the window's thread | same |
+| `workspace_design.py` (new) | Style of the new pages; `install_header` rebuilds the header from the widgets the shell made. **Every widget that is shown later must be put back into `topbar_layout`** (the update lost two and they covered the top-left corner). `AdaptiveHeader` hides brand / search / quick buttons / View-Tools-Help / Add files by window width; these get minimum width 1 so the window can be made narrow. `PAGE_TIPS` + `install_tooltips`: the tooltips of Start here and Workbook | `tests/test_session_basics.py`, `tests/test_workbench_ui.py` (12) |
+| `workspace_workbook.py`, `workbook_data.py` (new) | `WorkbookPage` (page 7) and `merge_tables` (append rows / join columns, both validated). The 5.55.7 dialog `arrange_workbook` is still in `workspace_workbook.py` | `tests/test_workbench_core.py` (MergeTests), `tests/test_edit_graph.py` |
+| `workspace_graph_editor.py` (new) | `GraphEditor` (template graphs: whole graph or one panel) and `NativePanelEditor` (composed previews, Sample pages). Controls are enabled only where the graph has the component (`mapping` of the graph: `tick rows`, `background`) | `tests/test_workbench_ui.py` (09) |
+| `opstudio/detection.py` (new) | `detect(table, override)` → `Detection(kind, confidence, evidence, confirmed, form)`; `xrd_form` (scan / fit / peak list); `fit_columns` (observed / calculated / difference / background by name); `KINDS` (the Data type list) with `CATEGORY_KINDS` naming whole classes of the catalogue; `compatibility(template, tables, detection, overrides)` = the input checks | `tests/test_workbench_core.py` (44) |
+| `opstudio/graph_components.py` (new) | `render_rietveld` (per-panel options of the fit templates) and `apply(fig, switches)` (markers, insets, background of any template figure, per panel through `panel_options`) | `tools/audit_graph_operations.py` |
+| `opstudio/data.py` | `_rietveld` takes its columns by name (`fit_columns`), by position only when unnamed; `read_tables` says in words when a file has no table; `_example(template)`: the template's example made once and copied (was rebuilt on every `bundle`) | `FitMappingTests` |
+| `opstudio/api.py` | `recommend` = detection + `compatibility` (returns `[]` while the kind needs confirming); the fit templates are drawn through `render_rietveld`; `RULES` is still used by the per-template sheet picker | `tests/test_opstudio.py` (63) |
+| `workspace_templates.py` | `tick_files` (ticks in one step, one ranking); `ticked_tables(first_only)`; `_table_for_template_wb` (the sheet that fits the ticked template, on the working copies); column choices are stored per file and sheet by the workbench **and** remembered per header pattern in `templates_page.mappings` as before | `tests/test_templates_page.py` (70) |
+| `workspace_qt.py` | `Loader(..., warm=)`: the reader's thread also reads the tables the pages need (`ws._warm_tables`); `ActivePageStack`; page 7; `save_cfg` returns True / False | all |
+| `tools/audit_graph_operations.py` (new) | Tries every per-graph control on every template and workbook graph type; writes `docs/GRAPH_OPERATIONS_AUDIT.md` | run it after changing `graph_components.py` or a template |
+
+Not done / to know: Windows and a live Origin were not available (PySide6 offscreen on Linux, Origin dry run). A workbook
+with dozens of sheets is parsed several times by the different readers (slow, but in the background). The `figures-5.55.2`
+workbook-of-figures work is unchanged and its tests (`tests/test_figures_general.py`, 37) pass.
 
 ## 2. What was changed (file by file)
 

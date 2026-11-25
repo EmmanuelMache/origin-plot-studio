@@ -32,7 +32,7 @@ cmds = w.commands(); check("the command search knows the commands by name (menus
 r = w.run_command("go to templ"); check("typing a part of a name runs the command", r == "Go to Templates" and w.pages.currentIndex() == 5, r)
 r = w.run_command("zzz-nothing"); check("no command found: a helpful line, nothing happens", r is None and "No command is called" in w.status.text(), w.status.text()); w.go(0)
 fm = [a.text().split("\t")[0] for a in w.file_btn.menu().actions() if a.text()]
-check("File menu: Save, Recent sessions, Clear / Start afresh first, then the rest", fm[:3] == ["Save", "Recent sessions", "Clear / Start afresh"] and "Save session as…" in fm and "Exit" in fm, fm[:8])
+check("File menu: Save project, Recent sessions, Clear / Start afresh first, then the rest", fm[:3] == ["Save project", "Recent sessions", "Clear / Start afresh"] and "Save session as…" in fm and "Exit" in fm, fm[:8])
 sub = [a.text() for a in w.session_menu.actions()]
 check("Clear / Start afresh: Clear graph, Clear all graphs, Remove ticked graphs, Start afresh, Reset layout, Recover last session", sub == ["Clear graph", "Clear all graphs", "Remove ticked graphs", "Start afresh…", "Reset layout", "Recover last session"], sub)
 from PySide6.QtWidgets import QAbstractButton
