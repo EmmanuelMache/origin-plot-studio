@@ -81,6 +81,14 @@ def install(w):
     add(d, "Paper figures from a recipe…", w.paper_figures)
     add(d, "Paper figures from a recipe, also in Origin…", lambda: w.paper_figures(origin=True))
     add(d, "Make a figure recipe from a workbook…", w.make_recipe)
+    wf = d.addMenu("Workbooks of figures")               # how a workbook with whole figures (a figure plan, label / tick sheets) is listed
+    from PySide6.QtGui import QActionGroup
+    grp = QActionGroup(wf); grp.setExclusive(True); w.figure_mode_actions = {}
+    for key, text in (("auto", "Let the app decide (recommended)"), ("both", "Figures and all sheets"), ("figures", "Figures only"),
+                      ("sheets", "Sheets only (as before 5.55)")):
+        a_ = wf.addAction(text); a_.setCheckable(True); grp.addAction(a_); w.figure_mode_actions[key] = a_
+        a_.triggered.connect(lambda _=False, k=key: w.set_figure_mode(k))
+    w.set_figure_mode((getattr(w, "cfg", None) or {}).get("figure_workbooks", "auto"), save=False)
     a = mb.addMenu("&Analysis")
     add(a, "All analyses…", lambda: w.go(1))
     add(a, "Graph gallery…", lambda: w.go(2))
@@ -312,6 +320,26 @@ def paper_figures(self, workbook=None, recipe=None, auto=None, origin=False):
         self.last_paper_figures = res
     self.start_job(work, f"Drawing the paper figures from {os.path.basename(workbook)}" + (" (and in Origin)" if origin else ""), after)
     return "started"
+
+
+def set_figure_mode(self, mode, save=True):
+    """How a workbook of figures is listed. 'auto' (the app decides): a workbook made for figures (your saved recipe fits it,
+    or it has a figure plan) gives its figures and every sheet no figure uses; a workbook with only label or tick sheets
+    gives the graphs of its sheets as before, with its figures after them; any other file as before. 'both': the figures
+    and all sheets; 'figures': only the figures; 'sheets': exactly as before 5.55. A saved session always gets back
+    every graph it had. Files already in the list keep their graphs; files added from now on follow the choice."""
+    mode = mode if mode in ("auto", "both", "figures", "sheets") else "auto"
+    sp.COMPOSED_MODE = mode
+    for k, a_ in (getattr(self, "figure_mode_actions", None) or {}).items(): a_.setChecked(k == mode)
+    if save:
+        try:
+            import workspace_qt as WQ
+            WQ.save_cfg({"figure_workbooks": mode}); self.cfg["figure_workbooks"] = mode
+        except Exception: pass
+        self.set_status({"auto": "Workbooks of figures: the app decides for each workbook (figures where the workbook is made for them).",
+                         "both": "Workbooks of figures: their figures first, then one graph per sheet (as before).", "figures": "Workbooks of figures: only their figures.",
+                         "sheets": "Workbooks of figures: one graph per sheet, exactly as before 5.55."}[mode] + " Files added from now on follow this.")
+    return mode
 
 
 def make_recipe(self, workbook=None):
@@ -882,6 +910,6 @@ def about(self):
 
 
 METHODS = {f.__name__: f for f in (new_project, autosave, resume_last, import_origin, convert_files, write_workbook, figtype_template_any, refresh_previews,
-                                   open_entry, paper_figures, make_recipe, own_graph_dialog, typed_labels_dialog, phase_library, update_source, _upd_token,
+                                   open_entry, paper_figures, make_recipe, set_figure_mode, own_graph_dialog, typed_labels_dialog, phase_library, update_source, _upd_token,
                                    startup_checks, _upd_msg, _upd_install, check_updates, update_from_zip, undo_update, update_source_dialog, restart_app,
                                    system_check, problem_report, open_error_log, about)}

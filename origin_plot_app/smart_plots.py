@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.55.1"
+VERSION = "5.55.2"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -2527,17 +2527,21 @@ def composed_recipe(path):
     if not str(path).lower().endswith((".xlsx", ".xlsm", ".xls")): return None
     try:
         import auto_recipe as ar, paper_figures as pf
+    except Exception: return None
+    try:                                                     # your own recipe for this workbook comes first, always
+        name = pf.recipe_for(path)
+        if name: return pf.load_recipe(name), f"your saved recipe '{name}'", [], "recipe"
+    except Exception: pass
+    try:
         sheets = ar.load(path); kinds = {k: ar.classify(k, v) for k, v in sheets.items()}
     except Exception: return None
     side = sum(1 for k in kinds.values() if k in ("labels", "ticks", "zoom", "stack"))
     data = sum(1 for k in kinds.values() if k in ("pattern", "fit", "stack", "spectra", "xy", "category"))
     if not ("plan" in kinds.values() or (side >= 1 and data >= 2)): return None
     try:
-        name = pf.recipe_for(path)
-        if name:
-            return pf.load_recipe(name), f"your saved recipe '{name}'", []
         rec, report = ar.build(sheets, os.path.splitext(os.path.basename(path))[0])
-        return (rec, "made from the sheets of the workbook", report) if rec.get("figures") else None
+        why = "plan" if "plan" in kinds.values() else "sheets"
+        return (rec, "made from the figure plan of the workbook" if why == "plan" else "made from the sheets of the workbook", report, why) if rec.get("figures") else None
     except Exception: return None
 
 
@@ -2546,7 +2550,7 @@ def load_composed(path):
     figure), instead of one raw graph per sheet."""
     got = composed_recipe(path)
     if not got: return None
-    rec, how, report = got; items = []
+    rec, how, report, why = got; items = []
     for f in rec["figures"]:
         nm = str(f.get("name") or "Figure")
         d = dict(kind=COMPOSED_KIND, name=nm, nums=pd.DataFrame({"x": [0.0, 1.0]}), n={"x": "x"}, x="x", ys=[], units={}, t=lambda c: str(c),
@@ -2554,7 +2558,26 @@ def load_composed(path):
         it = Item(path, d, []); it.auto = nm; it.nfile = 1; it.paper_name = re.sub(r"[^A-Za-z0-9_-]+", "_", nm).strip("_")
         items.append(it)
     lines = [f"  a workbook of figures: {len(items)} figure(s), recipe {how}"] + ["    " + r for r in report if not r.split(": ")[-1] in ("guide", "key", "other")]
+    LAST_COMPOSED[path] = {"why": why, "used": recipe_sheets(rec)}
     return items, lines
+
+
+LAST_COMPOSED = {}
+
+
+def recipe_sheets(rec):
+    """Every sheet a recipe draws from (data, labels, ticks, zoom)."""
+    out = set()
+    for f in rec.get("figures") or []:
+        for pn in f.get("panels") or []:
+            for k in ("sheet", "profile", "ticks", "zoom"):
+                if pn.get(k): out.add(str(pn[k]))
+            for s_ in pn.get("series") or []:
+                if s_.get("sheet"): out.add(str(s_["sheet"]))
+            labs = pn.get("labels"); labs = labs if isinstance(labs, list) else ([labs] if labs else [])
+            for l_ in labs:
+                if isinstance(l_, dict) and l_.get("sheet"): out.add(str(l_["sheet"]))
+    return out
 
 
 def composed_draw(spec):
@@ -2566,17 +2589,37 @@ def composed_draw(spec):
     return fig
 
 
+COMPOSED_MODE = "auto"        # a workbook of figures: "auto" (the app decides, see load_file), "both", "figures", "sheets" (as before 5.55)
+
+
 def load_file(path):
-    """Return (items to draw, text lines describing what was found)."""
+    """Return (items to draw, text lines describing what was found). A workbook of figures also gives its figures
+    (COMPOSED_MODE); the graphs of its sheets are the same as before, so sessions and your edits still find them."""
+    items, lines = _load_sheets(path)
+    if COMPOSED_MODE == "sheets" or any(figtype_id(getattr(i_, "kind", "")) for i_ in items): return items, lines
+    try: cp_ = load_composed(path)
+    except Exception: cp_ = None
+    if not cp_: return items, lines
+    figs, flines = cp_; info = LAST_COMPOSED.get(path) or {}
+    if COMPOSED_MODE == "figures": return figs, flines + ["  the graphs of the single sheets are not listed (Draw ▸ Workbooks of figures)"]
+    if COMPOSED_MODE == "both": return figs + list(items), flines + lines
+    # the app decides:
+    if info.get("why") in ("recipe", "plan"):          # made for figures (your recipe, or a figure plan): the figures, and every sheet no figure uses
+        rest = [i_ for i_ in items if str(i_.name) not in info.get("used", set())]
+        note = f"  {len(items) - len(rest)} sheet(s) are drawn inside the figures, so they are not listed again on their own; {len(rest)} other sheet graph(s) are listed after the figures"
+        return figs + rest, flines + [note] + lines
+    return list(items) + figs, lines + flines + ["  the figures the app found in this workbook are listed after the graphs of its sheets"]   # not sure: as before, figures added at the end
+
+
+def _load_sheets(path):
+    """One graph per drawable sheet (the reading of every version before 5.55)."""
     lf_ = apply_learned(path)                          # a layout the assistant converted before: read the same way, without asking again
     if lf_:
-        items_, lines_ = load_file(lf_[0])
+        items_, lines_ = _load_sheets(lf_[0])
         if items_: return items_, lf_[1] + lines_
     import_stamp(path)
     th_ = load_figtype(path)
     if th_: return th_
-    cp_ = load_composed(path)
-    if cp_: return cp_
     dets = []; note = ""; tables = read_tables(path); info = {"samples": {}, "phases": {}, "idmap": {}}; infolines = []; file_lam = None; split_notes = []
     for name, raw in tables:                           # a workbook made by 'Convert files to Excel' remembers the wavelength of the instrument file
         if str(name).lower() == "file_info" and raw.shape[1] >= 2:
@@ -4360,6 +4403,14 @@ def session_dump(singles, boards, settings):
 
 def session_load(data, opt, folder=""):
     """Read the files of a saved session again and restore graph types, sample names and panel figures."""
+    global COMPOSED_MODE
+    _mode, COMPOSED_MODE = COMPOSED_MODE, ("both" if COMPOSED_MODE != "sheets" else "sheets")    # every graph a session may name is read again
+    try: return _session_load(data, opt, folder)
+    finally: COMPOSED_MODE = _mode
+
+
+def _session_load(data, opt, folder):
+    """session_load without the choice of how workbooks of figures are listed."""
     singles, lines, moved, fresh = [], [], {}, []
     def _old(v): return re.sub(r"^Thesis:", "Gallery:", v) if isinstance(v, str) else v
     for g in data.get("graphs", []):                   # sessions saved before 5.51 name the gallery kinds with another word

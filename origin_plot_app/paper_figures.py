@@ -224,7 +224,7 @@ def _labels(ax, book, spec, curves, st, fig, obstacles=()):
     def local_max(cx_, cy_, x, w):
         m = (cx_ >= x - w) & (cx_ <= x + w)
         return float(np.nanmax(cy_[m])) if m.any() else None
-    mode = spec.get("collide_with", "own" if len(curves) > 1 else "all")
+    mode = spec.get("collide_with", "all")
     w_ = 0.004 * (x1 - x0)
     for pl in placed:                                      # the curve a label belongs to: its peak top (or the label height) is closest above that curve
         ref = pl["top"] if pl["top"] is not None else pl["y"]; best = None
@@ -253,7 +253,7 @@ def _labels(ax, book, spec, curves, st, fig, obstacles=()):
                 hi_ = float(np.nanmax(cys[m]))
                 if b[1] < hi_ + 0.008 * span:
                     d = hi_ + 0.012 * span - b[1]; b[1] += d; b[3] += d; pl["lift"] = True
-                    if d > 0.02 * span: pl["moved"] = True            # a nudge of a hair is not a move: no leader, no note
+                    if d > 0.02 * span or mode == "all": pl["moved"] = True      # 'own': a nudge of a hair is not a move (no leader, no note); 'all': as before
         for _ in range(12):                                # not on another label
             if not any(not (b[2] < o[0] or b[0] > o[2] or b[3] < o[1] or b[1] > o[3]) for o in boxes): break
             b[1] += step; b[3] += step; pl["moved"] = True
@@ -306,7 +306,7 @@ def _panel_xy(fig, ax, book, p, recipe, st, drawn):
     obst = _names_left(ax, curves, p.get("names_left"), st) or []
     for spec in (p.get("labels") if isinstance(p.get("labels"), list) else [p.get("labels")]):
         if not spec: continue
-        try: _labels(ax, book, dict(spec, _ylim_fixed=bool(p.get("ylim"))), curves, st, fig, obst)
+        try: _labels(ax, book, dict(spec, _ylim_fixed=bool(p.get("ylim")), collide_with=spec.get("collide_with", "own" if p.get("names_left") else "all")), curves, st, fig, obst)
         except Missing as e: book.note(f"{p.get('_fig', '')} {p.get('letter', '')}: labels not drawn, {e}")
     _letter(ax, p, st)
 
@@ -441,10 +441,12 @@ def _ticks(ax, book, sheet, recipe, st, size=None):
     order = recipe.get("tick_order")                     # optional: the codes from top to bottom
     if order: rows.sort(key=lambda r: order.index(r[0]) if r[0] in order else len(order))
     elif all(r[2] is not None for r in rows): rows.sort(key=lambda r: -r[2])         # the file's own row numbers: highest on top
+    al = next((i for i, r in enumerate(rows) if str(r[3].get("name", "")).lower().startswith("alite")), None)
+    if not order and al is not None and al > (len(rows) - 1) / 2: rows.reverse()      # as before 5.55: alite is the top row
     n = len(rows); pos, labs, cols = [], [], []
     for i, (name, x, _, ph) in enumerate(rows):                                      # evenly spaced rows, first one on top
         y = n - 1 - i; col = ph.get("color") or recipe.get("_auto_colors", {}).get(name) or "#000000"
-        ax.plot(x, [y] * len(x), linestyle="none", marker="|", ms=max(3.0, min(6.0, 34.0 / max(n, 1))), mew=0.7, color=col, zorder=3)
+        ax.plot(x, [y] * len(x), linestyle="none", marker="|", ms=6.0 if n <= 7 else max(3.0, 42.0 / n), mew=0.7, color=col, zorder=3)
         pos.append(y); labs.append(ph.get("letter") or name); cols.append(col)
     ax.set_ylim(-0.7, n - 0.3)
     fs = size or max(4.5, min(st["tick_label"] - 1.5, 44.0 / max(n, 1)))                 # many phases: smaller letters, never overlapping
@@ -461,7 +463,7 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     except Exception: nt = 0
     has_t = bool(p.get("ticks"))
     hr = p.get("heights") or ([3.0, 0.85, max(0.6, 0.95 * max(nt, 7) / 7)] if has_t else [3.0, 0.85])     # the tick block grows with the number of phases
-    gs = cell.subgridspec(len(hr), 1, height_ratios=hr, hspace=p.get("gap", 0.10))
+    gs = cell.subgridspec(len(hr), 1, height_ratios=hr, hspace=p.get("gap", 0.0))
     a1 = fig.add_subplot(gs[0]); a2 = fig.add_subplot(gs[1], sharex=a1); a3 = fig.add_subplot(gs[2], sharex=a1) if has_t else a2
     tag = f"{p.get('_fig', '')} {p.get('letter', '')}"
     for a in {a1, a2, a3}: _apply_axes(a, st)
@@ -487,7 +489,7 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     from matplotlib.ticker import MaxNLocator
     a1.tick_params(labelbottom=False); a2.tick_params(axis="y", labelsize=st["tick_label"] - 1.5)
     if has_t: a2.tick_params(labelbottom=False)
-    a1.yaxis.set_major_locator(MaxNLocator(nbins=6, prune="lower" if p.get("gap", 0.10) < 0.03 else None)); a2.yaxis.set_major_locator(MaxNLocator(nbins=2, prune="both", symmetric=True))       # the numbers of two rows never run into each other
+    a1.yaxis.set_major_locator(MaxNLocator(nbins=6, prune="lower" if p.get("gap", 0.0) < 0.03 else None)); a2.yaxis.set_major_locator(MaxNLocator(nbins=2, prune="both", symmetric=True))       # the numbers of two rows never run into each other
     if p.get("ytitle") is not None: a1.set_ylabel(p["ytitle"], fontsize=st["axis_title"])
     if p.get("diff_title", "Diff.") and p.get("ytitle") is not None: a2.set_ylabel(p.get("diff_title", "Diff."), fontsize=st["tick_label"])
     if p.get("xtitle") is not None: a3.set_xlabel(p["xtitle"], fontsize=st["axis_title"])
@@ -509,7 +511,7 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
         try:
             vis = [l_.get_ydata()[(np.asarray(l_.get_xdata(), float) >= zr[0]) & (np.asarray(l_.get_xdata(), float) <= zr[1])] for l_ in ins.get_lines()]
             vis = np.concatenate([np.asarray(v_, float) for v_ in vis if len(v_)]); lo_, hi_ = float(np.nanmin(vis)), float(np.nanmax(vis))
-            ins.set_ylim(lo_ - 0.05 * (hi_ - lo_), hi_ + 0.22 * (hi_ - lo_))          # room for the caption above the highest point
+            if p.get("inset_headroom"): ins.set_ylim(lo_ - 0.05 * (hi_ - lo_), hi_ + float(p["inset_headroom"]) * (hi_ - lo_))     # room for the caption above the highest point
         except Exception: pass
         ins.set_yticklabels([]); ins.tick_params(axis="y", labelleft=False)
         ins.text(0.5, 0.97, p.get("zoom_text", "Zoom of shaded region"), transform=ins.transAxes, ha="center", va="top", fontsize=st["tick_label"] - 2)

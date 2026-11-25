@@ -84,8 +84,21 @@ os.environ["OPS_ORIGIN_DRY"] = "1"; w.paper_figures(str(nb), auto=True, origin=T
 res_ = getattr(w, "last_paper_figures", None) or {}
 check("Paper figures with no saved recipe: made from the workbook, drawn, and built in Origin (dry run)", len(res_.get("figures") or []) >= 5 and len(res_.get("origin") or []) >= 5, res_.get("text"))
 os.environ.pop("OPS_RECIPE_DIR", None)
-its_, lines_ = sp.load_file(str(nb))
-check("Add data files with a workbook of figures: one graph per figure (not one raw graph per sheet)", len(its_) == 5 and all(i_.det.get("_composed") for i_ in its_), [i_.name for i_ in its_])
+sp.COMPOSED_MODE = "sheets"; sheets_, _ = sp.load_file(str(nb))
+sp.COMPOSED_MODE = "auto"; auto_, _ = sp.load_file(str(nb))
+check("Workbooks of figures, the app decides: without a figure plan the sheet graphs come first exactly as before, the figures after them",
+      [(i_.name, i_.kind) for i_ in auto_[:len(sheets_)]] == [(i_.name, i_.kind) for i_ in sheets_] and len(auto_) == len(sheets_) + 5 and all(i_.det.get("_composed") for i_ in auto_[len(sheets_):]))
+pb = TMP / "neutral_plan.xlsx"
+with pd.ExcelWriter(pb) as _w:
+    for _k, _v in _MB.book(plan=True).items(): _v.to_excel(_w, sheet_name=_k, index=False)
+ap_, _ = sp.load_file(str(pb)); used_ = sp.LAST_COMPOSED[str(pb)]["used"]
+check("Workbooks of figures, the app decides: with a figure plan the figures come first, then only the sheets no figure uses",
+      [bool(i_.det.get("_composed")) for i_ in ap_[:2]] == [True, True] and not any(i_.name in used_ for i_ in ap_[2:]) and len(ap_) > 2, [i_.name for i_ in ap_])
+sess_ = sp.session_dump(sheets_, [], {}); sg_, _, _ = sp.session_load(sess_, {}, str(TMP))
+check("a session saved with the sheet graphs gets every one of them back", sorted(i_.name for i_ in sg_) == sorted(i_.name for i_ in sheets_) and sp.COMPOSED_MODE == "auto")
+w.set_figure_mode("sheets"); check("Draw ▸ Workbooks of figures: the choice is kept in the settings", sp.COMPOSED_MODE == "sheets" and w.cfg.get("figure_workbooks") == "sheets"); w.set_figure_mode("auto")
+sp.COMPOSED_MODE = "figures"; its_, lines_ = sp.load_file(str(nb)); sp.COMPOSED_MODE = "auto"
+check("Add data files with a workbook of figures ('Figures only'): one graph per figure", len(its_) == 5 and all(i_.det.get("_composed") for i_ in its_), [i_.name for i_ in its_])
 for i_ in its_: i_.build(w.opt)
 from matplotlib.figure import Figure as _F
 pf_ = sp.preview_figure(its_[0].spec, _F(figsize=(7, 5)))

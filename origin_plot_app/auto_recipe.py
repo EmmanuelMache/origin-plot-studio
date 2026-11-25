@@ -293,7 +293,7 @@ def fig_stack(name, sh, sheets, labels, phases, meaning, xlim=None, zoom=None, x
     if zoom:
         b = {"cell": [0, 1], "letter": "(b)", "xlim": zoom, "xtitle": xtitle or axis_title(x), "hide_yticklabels": hide_y,
              "series": [{"sheet": sh, "x": x, "y": "others", "color": "#000000", "lw": 0.6}]}
-        if narrow: b["labels"] = [{"sheet": l} for l in narrow] if len(narrow) > 1 else {"sheet": narrow[0]}
+        if narrow: b["labels"] = [{"sheet": l, "collide_with": "own"} for l in narrow] if len(narrow) > 1 else {"sheet": narrow[0], "collide_with": "own"}
         panels.append(b); cols = [2.4, 1]
     leg = _legend_codes(lab_all, sheets, phases, meaning)
     note = bracket_note(sheets) if any(re.search(r"\(\w+'?\)", str(t)) for ls in lab_all for t in _label_texts(sheets[ls])) else None
@@ -365,7 +365,7 @@ def fig_fits(name, fits, sheets, kinds, labels, rwp, phases, meaning, ncols=None
         pn = {"cell": [i // nc, i % nc], "type": "rietveld", "letter": _letters(i), "title": chem(titles[i] if titles else pretty(fs)),
               "profile": fs, "x": x, "obs": o, "calc": c, "xlim": xlim or rng,
               "ytitle": (ytitle or "Intensity (counts)") if i % nc == 0 else None, "xtitle": (xtitle or axis_title(x)) if i // nc == nr - 1 else None,
-              "legend_in_panel": i == 0 and nc == 1, "rwp_newline": nc > 1}
+              "legend_in_panel": i == 0 and nc == 1, "rwp_newline": nc > 1, "gap": 0.10, "inset_headroom": 0.22}
         if d: pn["diff"] = d
         if parts[fs]["ticks"]: pn["ticks"] = parts[fs]["ticks"]
         if parts[fs]["zoom"]:

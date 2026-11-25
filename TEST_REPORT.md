@@ -1,4 +1,4 @@
-# TEST_REPORT – upgrade v2, app version 5.55.1
+# TEST_REPORT – upgrade v2, app version 5.55.2
 
 Where it was run: a Linux container, Python 3.12, PySide6 with `QT_QPA_PLATFORM=offscreen`. **No Windows and no Origin were
 available.** Everything that needs Origin was run through the app's own Origin driver in dry-run mode (it records the
@@ -135,3 +135,15 @@ Run in the same container (Python 3.12, PySide6 offscreen, matplotlib 3.11, pand
 | The figure is shown in the window as saved; never overlaid with another figure | **pass** | same (2 checks) |
 | *Draw in Origin*: one Origin graph per figure and its publication file | **pass in dry run**; real Origin **not verified** | same |
 | All other suites | **pass** (unchanged counts) | full run |
+
+## 5.55.2 – hybrid (checked against the unchanged 5.54.3)
+
+| Check | Result |
+|---|---|
+| *Sheets only* gives exactly the graphs of 5.54.3 for a workbook of figures (40 of 40, same names and kinds) | **pass** |
+| *Let the app decide*: figure plan → figures first, then only sheets no figure uses; no plan → sheet graphs first as before, figures after; ordinary file unchanged | **pass** |
+| A saved recipe that fits the workbook is used first | **pass** |
+| A 5.54.3 session of a workbook of figures restores all 40 graphs | **pass** |
+| Changed templates drawn from plain files: 8 of 9 pixel-identical to 5.54.3; the 9th (stack + zoom) differs only by the aligned zoom panel (fix) | **pass** |
+| A recipe of 5.54.3 drawn by both versions: 2 of 7 identical; the 5 others differ only where a fault was fixed (cut label shown, tick-row pairing, titles / legend on the page, stack labels) | **pass** (checked region by region) |
+| All suites | **pass** | 

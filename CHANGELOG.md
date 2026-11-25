@@ -2,6 +2,17 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.2 – hybrid: nothing of before is lost
+
+* **The app decides for each workbook** (*Draw ▸ Workbooks of figures ▸ Let the app decide*, the default):
+  * made for figures – **your saved recipe fits it, or it has a figure-plan sheet**: its figures first, then every sheet that no figure uses (sheets drawn inside a figure are not listed twice);
+  * only label / tick / zoom sheets beside the data: the graphs of its sheets **exactly as before**, with the figures added after them;
+  * any other file: exactly as before.
+  Your own choice is kept in the settings: *Figures and all sheets*, *Figures only*, *Sheets only (as before 5.55)*.
+* **Sessions:** a saved session always reads every graph of its files again, so sessions saved before 5.55 open with all their graphs (5.55.1 could lose them for a workbook of figures).
+* **Your recipes:** a saved recipe that fits the workbook is always used first. The defaults of the recipe engine are those of before 5.55 (no gap between fit and difference, tick marks of 6 pt up to seven phases, alite on top, inset scaled as before, labels kept clear of every curve); the automatic recipes switch the new behaviour on themselves. What still changes in your recipes are fixes only: the exact pairing of tick rows, labels that were cut and are now shown (or listed in the report), titles and legends kept on the page, labels of a stack (a panel with names at the left) kept at their own pattern.
+* **Templates draw exactly as before** for the same files (checked pixel by pixel): the new drawing of labels, coloured tick rows, Rwp and insets is used only when you tick a label, tick or Rwp table, and such tables are only set aside in templates that can draw them – elsewhere they are data, as before. The one deliberate change: in *Stacked XRD + zoom* the zoom panel keeps the offsets of the full panel (the traces used to sit at other heights).
+
 ## 5.55.1
 
 * **Fixed: a workbook of figures gave the wrong graphs in the Workspace.** *Add data files* split such a workbook into one raw graph per sheet (model tables read as fits, tick lists as x–y graphs, zoom sheets as fits of their own …) and the composed figures were only reachable through *Tools ▸ Draw ▸ Paper figures from a recipe*. Now a workbook with a figure-plan sheet, or with label / tick / zoom sheets beside its data, comes in as **one graph per figure**: the whole figure is shown in the window, saved as PNG / PDF / SVG / TIFF, and built in Origin by *Draw in Origin*. A saved recipe for the workbook is used when there is one; otherwise it is made from the sheets. Figures of a workbook are never overlaid with each other.

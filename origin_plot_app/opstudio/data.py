@@ -129,13 +129,16 @@ def bundle(template, tables, overrides=None):
     """(bundle, mapping). tables: list of Table. overrides: {key: value} set by the user (labels, zones ...)."""
     if not tables: raise NeedData("no data: tick a file first")
     from . import side_tables as SD
+    ex = template.demo()
+    fit_like = "items" in ex or {"obs", "calc"} <= set(ex)
+    takes = {"labels": fit_like or "labels" in ex or "XRD" in str(getattr(template, "category", "")), "ticks": fit_like, "rwp": fit_like}
     side = {"labels": [], "ticks": [], "rwp": []}; data_tables = []
-    for x in tables:                                                        # peak-label lists, tick lists and Rwp tables ticked beside the data
-        k = SD.kind(x)
-        (side[k].append(x) if k else data_tables.append(x))
-    if not data_tables: raise NeedData("only label, tick or Rwp tables are ticked: tick the data table(s) as well")
+    for x in tables:            # peak-label lists, tick lists and Rwp tables ticked beside the data, for the templates that draw them;
+        k = SD.kind(x)          # in any other template such a table is data, as before 5.55
+        (side[k].append(x) if k and takes.get(k) else data_tables.append(x))
+    if not data_tables: data_tables = [x for k_ in side for x in side[k_]]; side = {"labels": [], "ticks": [], "rwp": []}     # nothing else ticked: read them as data, as before
     tables = data_tables
-    ex = template.demo(); t = tables[0]; mp = []; d = {}
+    t = tables[0]; mp = []; d = {}
     keys = list(ex)
     k_set = set(keys)
     # ---- whole-shape rules

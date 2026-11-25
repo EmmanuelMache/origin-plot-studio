@@ -38,10 +38,13 @@ x = np.linspace(10, 40, 1500)
 lo = 100 + 800 * np.exp(-((x - 20) / 0.1) ** 2); hi = 3000 + 100 + 2000 * np.exp(-((x - 20.0) / 0.1) ** 2)       # the upper trace has a tall peak at the same x
 stack = pd.DataFrame({"2θ (°)": x, "Upper + offset (counts)": hi, "Lower + offset (counts)": lo})
 labs = pd.DataFrame({"Sample": ["Lower"], "Label": ["P"], "2θ (°)": [20.0], "Peak top incl. offset (counts)": [900.0], "Label height (counts)": [960.0], "Stagger level": [0], "Colour (hex)": ["#0072B2"]})
-rec = {"figures": [{"name": "S", "width_mm": 120, "height_mm": 90, "panels": [{"cell": [0, 0], "series": [{"sheet": "St", "x": 0, "y": "others"}], "labels": {"sheet": "Lab"}}]}]}
+rec = {"figures": [{"name": "S", "width_mm": 120, "height_mm": 90, "panels": [{"cell": [0, 0], "series": [{"sheet": "St", "x": 0, "y": "others"}], "labels": {"sheet": "Lab"}, "names_left": ["Upper", "Lower"]}]}]}
 bk = pf.Book({"St": stack, "Lab": labs}); fg = pf.draw_figure(rec["figures"][0], bk, rec)
 t = [tt for tt in fg.axes[0].texts if tt.get_text() == "P"][0]
 check("stack labels: a label stays at its own peak; the taller trace above it does not push it up", abs(t.get_position()[1] - 960) < 0.03 * 5200, t.get_position())
+rec_old = {"figures": [{"name": "S", "width_mm": 120, "height_mm": 90, "panels": [{"cell": [0, 0], "series": [{"sheet": "St", "x": 0, "y": "others"}], "labels": {"sheet": "Lab"}}]}]}
+fo = pf.draw_figure(rec_old["figures"][0], pf.Book({"St": stack, "Lab": labs}), rec_old); to = [tt for tt in fo.axes[0].texts if tt.get_text() == "P"][0]
+check("labels: a recipe that is not a stack keeps the rule of before 5.55 (clear of every curve)", to.get_position()[1] > 5000, to.get_position())
 # label above the axis: the axis grows; with a fixed range, a note
 tall = pd.DataFrame({"2θ (°)": x, "Y (counts)": lo})
 lab2 = pd.DataFrame({"Label": ["Q"], "2θ (°)": [30.0], "Label height (counts)": [5000.0], "Colour (hex)": ["#000000"]})
