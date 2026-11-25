@@ -79,11 +79,33 @@ def clear_all_graphs(w):
 
 
 def remove_ticked(w):
-    its = [i for i in w.ticked() if isinstance(i, (sp.Item, sp.Board))]
-    if not its: w.set_status("Tick the graphs to remove first."); return None
-    if not _ask(w, "Remove ticked graphs", f"Remove {len(its)} ticked graph(s) from {_files(its)} file(s) from the list?"): return "kept"
-    _snapshot(w, f"remove {len(its)} graph(s)"); ids = {id(i) for i in its}
-    w.singles = [s for s in w.singles if id(s) not in ids]; w.boards = [b for b in w.boards if id(b) not in ids]; w.regroup(); w.refresh_list()
+    return _remove_selection(w, w.ticked(), "ticked", "Tick the graphs to remove first.")
+
+
+def remove_selected(w):
+    """Delete (or right-click > Remove), on the highlighted rows of Your graphs - the ones you clicked, not the ticked ones."""
+    return _remove_selection(w, w.selected(), "highlighted", "Click a graph (or Ctrl / Shift-click several) to remove it first.")
+
+
+def _remove_selection(w, sel, adj, none_msg):
+    # a ★ combined figure the app made on its own (not one of your ◆ groups) isn't a thing to delete directly
+    autos = [i for i in sel if isinstance(i, sp.Combined) and not getattr(i, "mine", False)]
+    its = [i for i in sel if isinstance(i, (sp.Item, sp.Board)) or getattr(i, "mine", False)]
+    if not its:
+        w.set_status("A ★ combined figure is made by the app: change the Group list (or remove its graphs) instead." if autos else none_msg)
+        return "auto" if autos else None
+    return _remove_items(w, its, adj, none_msg)
+
+
+def _remove_items(w, its, adj, none_msg):
+    if not its: w.set_status(none_msg); return None
+    if not _ask(w, f"Remove {adj} graphs", f"Remove {len(its)} {adj} graph(s) from {_files(its)} file(s) from the list?"): return "kept"
+    _snapshot(w, f"remove {len(its)} graph(s)")
+    mine_keys = {tuple(sp.key_of(m) for m in it.members) for it in its if getattr(it, "mine", False)}
+    ids = {id(i) for i in its if not getattr(i, "mine", False)}
+    w.singles = [s for s in w.singles if id(s) not in ids]; w.boards = [b for b in w.boards if id(b) not in ids]
+    if mine_keys: w.user_groups = [g for g in w.user_groups if tuple(g[1]) not in mine_keys]
+    w.regroup(); w.refresh_list()
     (w.list.setCurrentRow(0) if w.items else w.show_empty()); w.set_status(f"{len(its)} graph(s) removed from the list. Undo: Ctrl+Z."); return "removed"
 
 
@@ -191,7 +213,7 @@ def install(w):
         if r != "removed": w._session_undo.pop()
         return r
     w.remove_current = remove_current
-    for name, fn in (("undo_any", undo_any), ("redo_any", redo_any), ("clear_graph", clear_graph), ("clear_all_graphs", clear_all_graphs), ("remove_ticked", remove_ticked), ("start_afresh", start_afresh),
+    for name, fn in (("undo_any", undo_any), ("redo_any", redo_any), ("clear_graph", clear_graph), ("clear_all_graphs", clear_all_graphs), ("remove_ticked", remove_ticked), ("remove_selected", remove_selected), ("start_afresh", start_afresh),
                      ("save", save), ("recover_last", recover_last), ("needs_recovery", needs_recovery), ("run_command", run_command), ("commands", commands)):
         setattr(w, name, types.MethodType(fn, w))
     # sessions: remember the file in use and the recent ones

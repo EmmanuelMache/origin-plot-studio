@@ -34,7 +34,7 @@ SHORTCUTS = [
     ("Ctrl+A", "Tick all graphs", lambda w: w.tick_all(True)),
     ("Ctrl+Shift+A", "Untick all graphs", lambda w: w.tick_all(False)),
     ("Space", "Tick / untick the graph on show (in Your graphs)", "toggle_tick"),
-    ("Delete", "Remove the graph on show from the list (the file stays)", "remove_current"),
+    ("Delete", "Remove the highlighted graph(s), or the graph on show, from the list (the file stays)", "remove_current_or_selected"),
     ("Ctrl+F", "Find a graph by name", lambda w: (w.go(0), w.search.setFocus(), w.search.selectAll())),
     ("Ctrl+R", "Reset the axes of the graph", "reset_axes"),
     ("Z", "Zoom mode on the graph (drag a box)", lambda w: w.modes.button(0).click()),
@@ -164,6 +164,11 @@ def remove_current(self, it=None):
         self.show_empty()
     self.set_status(f"Removed from the list: {it.title.strip()[:60]} (the file is not changed).")
     return "removed"
+
+
+def remove_current_or_selected(self):
+    """The Delete key: the highlighted row(s) if any are highlighted (click, or Ctrl / Shift-click several), else the graph on show."""
+    return self.remove_selected() if self.selected() else self.remove_current()
 
 
 def reorder_from_list(self):
@@ -465,6 +470,6 @@ def quick_tool(self, it, label):
     return self.tools.run_tool(label, page.settings(), page)
 
 
-METHODS = {f.__name__: f for f in (tick_all, toggle_tick, remove_current, reorder_from_list, wheel_zoom, copy_view, save_view, save_table, copy_table,
+METHODS = {f.__name__: f for f in (tick_all, toggle_tick, remove_current, remove_current_or_selected, reorder_from_list, wheel_zoom, copy_view, save_view, save_table, copy_table,
                                    save_session, open_session, save_chat, show_shortcuts, menu_graphs, menu_canvas, menu_table, menu_chat, rename_sample,
                                    quick_tool)}

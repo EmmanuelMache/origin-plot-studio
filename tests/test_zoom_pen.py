@@ -64,7 +64,7 @@ app = QApplication.instance() or QApplication(sys.argv)
 import workspace_qt as W, workspace_tools as WT
 w = W.Workspace([]); w.show(); app.processEvents()
 xrd_rows = [r for g_, rows in WT.analysis_tree() if g_ == "XRD" for r in rows]
-check("Analysis > XRD: 'Zoomed part (inset): on or off'", any(r[0].startswith("Zoomed part") and r[3] == {"do": "zoom"} for r in xrd_rows))
+check("Analysis > XRD no longer duplicates 'Zoomed part' as its own entry (it is in the ribbon and Settings > XRD, not a third place)", not any(r[0].startswith("Zoomed part") for r in xrd_rows))
 check("Settings > XRD has 'Zoomed part (inset)' (a typed range works too)", "inset" in w.set_fields and w.set_fields["inset"].isEditable())
 w.load_sync([str(D / "F1.CSV"), XRD]); app.processEvents()
 f_ = next(i for i in w.singles if i.kind.startswith("Fit")); p_ = next(i for i in w.singles if i.kind == "XRD")

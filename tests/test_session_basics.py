@@ -62,6 +62,22 @@ w.clear_all_graphs(); check("Clear all graphs empties the list", not w.singles a
 w.undo_any(); check("Undo brings all graphs back", len(w.singles) == n0)
 w.tick_all(False); w.list.item(0).setCheckState(Qt.Checked); app.processEvents(); nt = len([i for i in w.ticked() if isinstance(i, sp.Item)]); w.remove_ticked()
 check("Remove ticked graphs removes only the ticked ones; Undo restores", len(w.singles) == n0 - nt and w.undo_any() == "session" and len(w.singles) == n0, (nt, len(w.singles)))
+# ---- Delete key / 'Remove selected' on a highlighted (not ticked) row of Your graphs
+w.list.clearSelection(); row = next(i for i in range(w.list.count()) if isinstance(w.items[i], sp.Item))
+w.list.item(row).setSelected(True); app.processEvents(); target = w.items[row]
+check("selected() reports the highlighted row, not the ticked ones", w.selected() == [target])
+r = w.remove_selected()
+check("Delete / 'Remove selected' removes the highlighted graph; Undo restores", r == "removed" and target not in w.singles and w.undo_any() == "session" and target in w.singles)
+w.list.clearSelection(); app.processEvents()
+check("with nothing highlighted, Remove selected says so and removes nothing", w.remove_selected() is None and len(w.singles) == n0)
+auto_row = next((i for i in range(w.list.count()) if isinstance(w.items[i], sp.Combined) and not getattr(w.items[i], "mine", False)), None)
+if auto_row is not None:
+    w.list.item(auto_row).setSelected(True); app.processEvents()
+    check("a ★ combined figure the app made can't be deleted directly; a clear message says so (not a silent no-op)",
+          w.remove_selected() == "auto" and "change the Group list" in w.status.text() and len(w.singles) == n0)
+    w.list.clearSelection(); app.processEvents()
+del_act = next((a for a in w.list.actions() if a.shortcut().toString() == "Del"), None)
+check("Your graphs has one Delete action, removing the highlighted graph(s) (or the one on show)", del_act is not None)
 w.start_afresh(keep=True); check("Start afresh: an empty session, settings and layout kept", not w.singles and w.outdir is not None)
 w.undo_any(); check("Start afresh can be undone", len(w.singles) == n0)
 # ---- undo of a change of look still works through the same Undo

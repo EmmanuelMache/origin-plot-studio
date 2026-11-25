@@ -2,6 +2,13 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.3
+
+* **Fixed: selecting a graph in "Your graphs" and pressing Delete (or right-click › Remove) did nothing** when the row was a ★ combined figure (several files grouped on shared axes) instead of a plain single graph - the Delete key and "Remove ticked graphs" only recognised single graphs and panel figures, silently skipping combined ones. Delete (and the new right-click menu) now removes a highlighted single graph, ungroups a highlighted ◆ group of yours, or - for a ★ figure the app made on its own - says clearly that the Group list (or the graphs it is made of) is what to change instead, rather than doing nothing.
+* **New: a right-click menu on "Your graphs"** ("Remove this graph(s) from the list") alongside the existing Delete key, for removing the highlighted row(s) without first ticking a box.
+* **Fixed: "Draw in Origin" / "Draw all in Origin" asked where to put the {sample}_{template}.opju files every single time.** The folder is now remembered after the first time; Draw in Origin then goes straight to Origin without asking again, until you pick "Change the Origin output folder…" from More ▾.
+* **Calculations ▸ XRD no longer repeats Analysis ▸ Graphs and templates.** The plain re-drawing entries that duplicated a picture already in the gallery (fits as panels, patterns/fits stacked or overlaid, the zoomed part on/off) are removed from Calculations; they stay available as gallery templates and, for the zoomed part, in the ribbon and Settings ▸ XRD. What is kept here is what the gallery cannot do: deciding for you across several fits, the Sample pages layout, and the HighScore file-pairing tools.
+
 ## 5.55.2 – hybrid: nothing of before is lost
 
 * **The app decides for each workbook** (*Draw ▸ Workbooks of figures ▸ Let the app decide*, the default):
