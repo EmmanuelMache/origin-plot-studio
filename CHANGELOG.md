@@ -2,6 +2,14 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.56.0
+
+* **"Start here" redesigned as three columns.** Left: **Your projects**, now with a search box that narrows the list as you type. Middle: **Inspect data** - click a file to see what kind of data the app thinks it is, its first rows as a table, and a quick plot of its first two numeric columns. Right: **Choose a graph** - the templates that fit the file as pictures, the best one first (★); click any of them, then **Create graph**.
+* **New: you choose which graph is drawn from Start here.** Before, the button could only draw the single best-fitting template; now it draws the one you picked, from the file you are looking at.
+* **New: "Change type".** If the app's guess of what the file is (diffraction, thermal analysis, calorimetry …) is wrong, pick the right kind from the list beside it; the graphs on the right re-sort to put that kind first. "Automatic" gives the app's own pick back.
+* The file you add is shown at once (selected, with its preview). Delete / right-click still removes the highlighted file(s).
+* Not in this version: choosing the plot preview's x and y columns yourself (it uses the first two numeric columns), and a separate "Workbook" tab (arranging a workbook's figures stays on the right-click menu of Your graphs).
+
 ## 5.55.7
 
 * **New: "Arrange this workbook's figures…"** - right-click a graph read from a file that gives several (a workbook of composed figures, or several sheets each drawn as a picture), under Your graphs. Drag to reorder the figures of that file (or use Move up / Move down), and untick one to leave it out of "Draw ticked" and the paper set. The new order is kept in Your graphs, and "Draw all in Origin" / "Draw ticked" / the paper set all follow it, the same way dragging a row in Your graphs already did - this just gives a focused view of one workbook's own figures instead of the whole list.

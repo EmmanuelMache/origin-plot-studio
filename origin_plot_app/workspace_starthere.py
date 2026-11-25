@@ -1,17 +1,27 @@
-"""Origin Plot Studio - "Start here": add your data, see what the app thinks it is and which templates fit, then either
-let the app draw the best one at once or go browse the gallery yourself; from there, review it in Workspace and draw it
-in Origin. Every step here calls code the Templates page (workspace_templates.py) and Workspace already have and test -
-this page only orchestrates them, so a file added here is the same file everywhere else in the app."""
+"""Origin Plot Studio - "Start here": three columns - your projects, a look at the data you add (what it is, its
+columns, a quick preview), and the graphs that fit it, picked for you. Pick one (or let the app pick) and it is drawn
+at once; from there, review it in Workspace and draw it in Origin. Every step here calls code the Templates page
+(workspace_templates.py) and Workspace already have and test - this page only orchestrates and shows them, so a file
+added here is the same file everywhere else in the app."""
 from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QMenu, QMessageBox,
-                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QIcon, QKeySequence, QPixmap, QShortcut
+from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QListWidget,
+                                QListWidgetItem, QMenu, QMessageBox, QPushButton, QSizePolicy, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 import workspace_projects as WP
+
+try:
+    from opstudio.api import RULES as _KIND_RULES          # the same rules 'what the app thinks your data is' already uses
+except Exception:
+    _KIND_RULES = []
+KIND_CHOICES = [(None, "Automatic (let the app decide)")] + [(keys, why[0].upper() + why[1:]) for _pat, keys, why in _KIND_RULES]
+
+PREVIEW_ROWS = 6                   # the data table here is a look at the file, not the whole thing - Workspace shows all of it
+GRAPH_THUMB = (128, 86)           # the picture of each template in 'Choose a graph'
 
 
 class StartHerePage(QWidget):
@@ -20,103 +30,140 @@ class StartHerePage(QWidget):
     def __init__(self, ws):
         super().__init__()
         self.ws = ws
+        self._table = None                                  # the opstudio.data.Table of the file on show here (for the quick plot / data preview)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(14)
-        outer.addWidget(QLabel("Start here", objectName="title"))
-        sub = QLabel("Add your data. The app looks at its columns and tells you what it thinks it is, with the "
-                      "templates that fit it marked ★ - draw the best one at once, or pick one yourself. From there, "
-                      "review the graph in Workspace and draw it in Origin.", objectName="soft")
-        sub.setWordWrap(True)
-        outer.addWidget(sub)
+        outer.setContentsMargins(20, 18, 20, 16)
+        outer.setSpacing(12)
 
-        pcard, play = self._card()
-        play.addWidget(QLabel("Your projects", objectName="h3"))
-        psub = QLabel("A project is a name for a set of data files you come back to - add several kinds (CSV, TSV, Excel …) to "
-                       "one, then open it (or several together) to bring all of it into Workspace and Analysis at once. Right "
-                       "click a project to rename, delete it, or see which of its files have moved.", objectName="soft")
-        psub.setWordWrap(True)
-        play.addWidget(psub)
-        prow = QHBoxLayout()
-        self.p_new = QPushButton("New project…", objectName="primary")
+        head = QHBoxLayout()
+        htxt = QVBoxLayout()
+        htxt.addWidget(QLabel("Start here", objectName="title"))
+        sub = QLabel("Open a project, add your data, and create a graph.", objectName="soft")
+        htxt.addWidget(sub)
+        head.addLayout(htxt, 1)
+        self.p_new = QPushButton("+ New project", objectName="accent")
         self.p_new.setToolTip("Name a project, then add data files to it (right away, or any time after with 'Add files to it')")
         self.p_new.clicked.connect(self.new_project)
-        prow.addWidget(self.p_new)
-        self.p_add = QPushButton("Add files to it…")
-        self.p_add.setToolTip("Tick one project first, then add more data files to it")
-        self.p_add.clicked.connect(self.add_to_project)
-        prow.addWidget(self.p_add)
-        self.p_open = QPushButton("Open ticked", objectName="teal")
-        self.p_open.setToolTip("Tick one or several projects, then open them: their files come into Workspace and Analysis, kept apart by project")
+        head.addWidget(self.p_new)
+        self.p_open = QPushButton("Open ticked")
+        self.p_open.setToolTip("Tick one or several projects on the left, then open them: their files come into Workspace and Analysis, kept apart by project")
         self.p_open.clicked.connect(self.open_projects)
-        prow.addWidget(self.p_open)
-        prow.addStretch(1)
-        play.addLayout(prow)
-        self.projects = QListWidget()
-        self.projects.setMaximumHeight(140)
-        self.projects.setToolTip("Tick one or several, then 'Open ticked'; right click one for more")
-        self.projects.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.projects.customContextMenuRequested.connect(self._project_menu)
-        self.projects.itemChanged.connect(lambda _i: self._sync_project_buttons())
-        play.addWidget(self.projects)
-        outer.addWidget(pcard)
+        head.addWidget(self.p_open)
+        outer.addLayout(head)
 
-        card, lay = self._card()
-        self.add_btn = QPushButton("Add data files…", objectName="primary")
-        self.add_btn.setToolTip("Excel, CSV or text files. They are only read, never changed, and appear here, in Workspace and in Analysis ▸ Graphs and templates alike")
-        self.add_btn.clicked.connect(self.add_files)
-        lay.addWidget(self.add_btn)
-        self.files = QListWidget()
-        self.files.setMaximumHeight(110)
-        self.files.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.files.setToolTip("Your data files this session (added here, in Workspace, or in Analysis ▸ Graphs and templates). Click (or Ctrl / Shift-click several), then Delete or right-click to remove")
-        self.files.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.files.customContextMenuRequested.connect(self._file_menu)
-        del_sc = QShortcut(QKeySequence(Qt.Key_Delete), self.files); del_sc.setContext(Qt.WidgetShortcut); del_sc.activated.connect(self.remove_selected_files)
-        lay.addWidget(self.files)
-        outer.addWidget(card)
-
-        card2, lay2 = self._card()
-        lay2.addWidget(QLabel("What the app thinks your data is", objectName="h3"))
-        self.detect = QLabel("Add a file above to see this.", objectName="soft")
-        self.detect.setWordWrap(True)
-        lay2.addWidget(self.detect)
-        self.sc = QScrollArea()
-        self.sc.setWidgetResizable(True)
-        self.sc.setMaximumHeight(150)
-        self.rec_list = QWidget()
-        self.rec_lay = QVBoxLayout(self.rec_list)
-        self.rec_lay.setContentsMargins(4, 4, 4, 4)
-        self.rec_lay.setSpacing(4)
-        self.rec_lay.addStretch(1)
-        self.sc.setWidget(self.rec_list)
-        lay2.addWidget(self.sc)
-        outer.addWidget(card2)
-
-        row = QHBoxLayout()
-        self.b_auto = QPushButton("Draw the best one for me", objectName="accent")
-        self.b_auto.setToolTip("The app picks the best-fitting template for your added files and draws it at once, in Analysis ▸ Graphs and templates")
-        self.b_auto.clicked.connect(self.draw_recommended)
-        row.addWidget(self.b_auto)
-        self.b_browse = QPushButton("Browse all templates myself")
-        self.b_browse.setToolTip("Open the full gallery (Analysis ▸ Graphs and templates): every template, searchable and filterable")
-        self.b_browse.clicked.connect(lambda: self.ws.go(self.ws.gallery_last if hasattr(self.ws, "gallery_last") else 5))
-        row.addWidget(self.b_browse)
-        self.b_workspace = QPushButton("Review in Workspace, then draw in Origin", objectName="teal")
-        self.b_workspace.setToolTip("Workspace: zoom, pan and check the graph, then 'Draw in Origin' for the full, editable graph with your data in worksheets")
-        self.b_workspace.clicked.connect(lambda: self.ws.go(0))
-        row.addWidget(self.b_workspace)
-        row.addStretch(1)
-        outer.addLayout(row)
-        outer.addStretch(1)
+        cols = QHBoxLayout()
+        cols.setSpacing(14)
+        cols.addWidget(self._left_column(), 0)
+        cols.addWidget(self._center_column(), 1)
+        cols.addWidget(self._right_column(), 0)
+        outer.addLayout(cols, 1)
         self.refresh()
 
     def _card(self):
         f = QFrame(objectName="card")
         lay = QVBoxLayout(f)
-        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setContentsMargins(14, 12, 14, 12)
         lay.setSpacing(8)
         return f, lay
+
+    # ------------------------------------------------------------------------------------------------ left: projects
+    def _left_column(self):
+        card, lay = self._card()
+        card.setFixedWidth(280)
+        lay.addWidget(QLabel("Your projects", objectName="h3"))
+        self.p_search = QLineEdit(placeholderText="Search projects and files…")
+        self.p_search.textChanged.connect(self._filter_projects)
+        lay.addWidget(self.p_search)
+        prow = QHBoxLayout()
+        self.p_add = QPushButton("Add files to it…")
+        self.p_add.setToolTip("Tick one project first, then add more data files to it")
+        self.p_add.clicked.connect(self.add_to_project)
+        prow.addWidget(self.p_add)
+        lay.addLayout(prow)
+        self.projects = QListWidget()
+        self.projects.setToolTip("Tick one or several, then Open ticked; right click one for more; type above to search")
+        self.projects.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.projects.customContextMenuRequested.connect(self._project_menu)
+        self.projects.itemChanged.connect(lambda _i: self._sync_project_buttons())
+        lay.addWidget(self.projects, 1)
+        note = QLabel("A project is a name for a set of data files you come back to. Right click one to rename, delete "
+                       "it, or see which files have moved.", objectName="soft")
+        note.setWordWrap(True)
+        lay.addWidget(note)
+        return card
+
+    # ------------------------------------------------------------------------------------------------ centre: the data
+    def _center_column(self):
+        card, lay = self._card()
+        lay.addWidget(QLabel("Inspect data", objectName="h3"))
+        self.add_btn = QPushButton("Drop files here, or Add files…", objectName="primary")
+        self.add_btn.setToolTip("Excel, CSV or text files. They are only read, never changed, and appear here, in Workspace and in Analysis ▸ Graphs and templates alike")
+        self.add_btn.clicked.connect(self.add_files)
+        lay.addWidget(self.add_btn)
+        self.files = QListWidget()
+        self.files.setMaximumHeight(124)
+        self.files.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.files.setToolTip("Your data files this session. Click one to inspect it here; Delete or right-click to remove")
+        self.files.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.files.customContextMenuRequested.connect(self._file_menu)
+        self.files.currentItemChanged.connect(lambda *_a: self._show_selected_file())
+        del_sc = QShortcut(QKeySequence(Qt.Key_Delete), self.files); del_sc.setContext(Qt.WidgetShortcut); del_sc.activated.connect(self.remove_selected_files)
+        lay.addWidget(self.files)
+
+        self.file_title = QLabel("", objectName="h3")
+        lay.addWidget(self.file_title)
+        drow = QHBoxLayout()
+        self.detect = QLabel("Add a file above to see this.", objectName="soft")
+        self.detect.setWordWrap(True)
+        drow.addWidget(self.detect, 1)
+        self.kind_combo = QComboBox()
+        for _keys, label in KIND_CHOICES: self.kind_combo.addItem(label)
+        self.kind_combo.setToolTip("Not what this is? Pick the right kind yourself; the graphs on the right follow it")
+        self.kind_combo.activated.connect(lambda _i: self._apply_kind_choice())
+        drow.addWidget(self.kind_combo)
+        lay.addLayout(drow)
+
+        self.table = QTableWidget(0, 0)
+        self.table.setMaximumHeight(170)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.setToolTip("The first rows of the file on show (read only - Workspace > Data shows the whole table)")
+        lay.addWidget(self.table)
+
+        self.plot_pic = QLabel("", objectName="soft")
+        self.plot_pic.setAlignment(Qt.AlignCenter)
+        self.plot_pic.setMinimumHeight(150)
+        self.plot_pic.setStyleSheet("background: white; border: 1px solid #D8E1EC; border-radius: 6px;")
+        self.plot_pic.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        lay.addWidget(self.plot_pic, 1)
+        return card
+
+    # ------------------------------------------------------------------------------------------------ right: choose a graph
+    def _right_column(self):
+        card, lay = self._card()
+        card.setFixedWidth(364)
+        lay.addWidget(QLabel("Choose a graph", objectName="h3"))
+        lay.addWidget(QLabel("Compatible with this dataset", objectName="soft"))
+        self.graph_list = QListWidget()
+        self.graph_list.setViewMode(QListWidget.IconMode); self.graph_list.setMovement(QListWidget.Static); self.graph_list.setResizeMode(QListWidget.Adjust)
+        self.graph_list.setIconSize(QSize(*GRAPH_THUMB)); self.graph_list.setGridSize(QSize(GRAPH_THUMB[0] + 20, GRAPH_THUMB[1] + 64))
+        self.graph_list.setWordWrap(True); self.graph_list.setUniformItemSizes(True)
+        self.graph_list.setToolTip("The best-fitting templates for the file on show, best first (★ Recommended)")
+        self.graph_list.itemSelectionChanged.connect(self._sync_create_button)
+        lay.addWidget(self.graph_list, 1)
+        self.b_browse = QPushButton("Browse all templates myself")
+        self.b_browse.setToolTip("Open the full gallery (Analysis ▸ Graphs and templates): every template, searchable and filterable")
+        self.b_browse.clicked.connect(lambda: self.ws.go(self.ws.gallery_last if hasattr(self.ws, "gallery_last") else 5))
+        lay.addWidget(self.b_browse)
+        self.b_auto = QPushButton("Create graph →", objectName="accent")
+        self.b_auto.setToolTip("Draws the selected template (or the best-fitting one) from your data, in Analysis ▸ Graphs and templates")
+        self.b_auto.clicked.connect(self.draw_recommended)
+        lay.addWidget(self.b_auto)
+        self.b_workspace = QPushButton("Review in Workspace →", objectName="teal")
+        self.b_workspace.setToolTip("Review in Workspace, then draw in Origin. Workspace: zoom, pan and check the graph, then 'Draw in Origin' for the full, editable graph with your data in worksheets")
+        self.b_workspace.clicked.connect(lambda: self.ws.go(0))
+        lay.addWidget(self.b_workspace)
+        return card
 
     # ------------------------------------------------------------------------------------------------ projects
     def refresh_projects(self):
@@ -132,7 +179,13 @@ class StartHerePage(QWidget):
             li.setData(Qt.UserRole, slug)
             self.projects.addItem(li)
         self.projects.blockSignals(False)
+        self._filter_projects(self.p_search.text())
         self._sync_project_buttons()
+
+    def _filter_projects(self, text):
+        t = text.strip().lower()
+        for i in range(self.projects.count()):
+            self.projects.item(i).setHidden(bool(t) and t not in self.projects.item(i).text().lower())
 
     def _ticked_projects(self):
         return [self.projects.item(i).data(Qt.UserRole) for i in range(self.projects.count()) if self.projects.item(i).checkState() == Qt.Checked]
@@ -276,29 +329,140 @@ class StartHerePage(QWidget):
         paths = []
         if tp is not None and hasattr(tp, "files"):
             for i in range(tp.files.count()): paths.append(tp.files.item(i).data(Qt.UserRole))
+        keep = self.files.currentItem().data(Qt.UserRole) if self.files.currentItem() is not None else None
+        self.files.blockSignals(True)
         self.files.clear()
-        for p in paths:
+        row = 0
+        for i, p in enumerate(paths):
             it = QListWidgetItem(os.path.basename(p)); it.setToolTip(p); it.setData(Qt.UserRole, p); self.files.addItem(it)
-        while self.rec_lay.count() > 1: self.rec_lay.takeAt(0).widget().deleteLater()
-        if tp is None or not hasattr(tp, "ticked_tables"):
-            self.detect.setText("Add a file above to see this."); return
-        tabs = [t for _p, t in tp.ticked_tables()]
-        if not tabs:
-            self.detect.setText("Add a file above to see this." if not paths else "Tick a file in the Files list (Analysis ▸ Graphs and templates) to see this."); return
-        try: ranked = tp.api.recommend(tabs[:1])
-        except Exception: ranked = []
+            if p == keep: row = i
+        self.files.blockSignals(False)
+        if paths:
+            self.files.setCurrentRow(row)
+        self._show_selected_file()
+
+    def _show_selected_file(self):
+        """The file clicked in the Files list above: what it looks like, its first rows, a quick plot, and the
+        templates that fit it (★ the best one)."""
+        it = self.files.currentItem()
+        tp = getattr(self.ws, "templates_page", None)
+        if it is None or tp is None or not hasattr(tp, "table_of"):
+            self.file_title.setText(""); self.detect.setText("Add a file above to see this."); self.kind_combo.setVisible(False)
+            self.table.setRowCount(0); self.table.setColumnCount(0); self._set_plot(None)
+            self._fill_graphs([]); self._table = None
+            return
+        path = it.data(Qt.UserRole)
+        self.file_title.setText(os.path.basename(path))
+        try:
+            table, *_rest = tp.table_of(path)
+        except Exception as e:
+            self.detect.setText(f"This file could not be read: {e}"); self.kind_combo.setVisible(False)
+            self.table.setRowCount(0); self.table.setColumnCount(0); self._set_plot(None); self._fill_graphs([]); self._table = None
+            return
+        self._table = table
+        self._fill_table(table)
+        try: self._ranked = tp.api.recommend([table])
+        except Exception: self._ranked = []
+        self.kind_combo.setVisible(bool(self._ranked))
+        self.kind_combo.blockSignals(True); self.kind_combo.setCurrentIndex(0); self.kind_combo.blockSignals(False)
+        self._apply_kind_choice(initial=True)
+
+    def _fill_table(self, table):
+        df = table.df.head(PREVIEW_ROWS)
+        self.table.setColumnCount(len(df.columns)); self.table.setRowCount(len(df))
+        self.table.setHorizontalHeaderLabels([str(c) for c in df.columns])
+        for r in range(len(df)):
+            for c, col in enumerate(df.columns):
+                v = df.iloc[r, c]
+                self.table.setItem(r, c, QTableWidgetItem(f"{v:.6g}" if isinstance(v, float) else str(v)))
+        xs = table.numeric[:1]; ys = table.numeric[1:2]
+        self._set_plot(table if xs and ys else None, xs[0] if xs else None, ys[0] if ys else None)
+
+    def _set_plot(self, table, xcol=None, ycol=None):
+        if table is None or xcol is None or ycol is None:
+            self.plot_pic.setPixmap(QPixmap()); self.plot_pic.setText("No preview (needs two numeric columns)" if table is not None else "")
+            return
+        try:
+            from matplotlib.figure import Figure
+            from opstudio import api as opapi
+            x, y = table.arr(xcol), table.arr(ycol)
+            fig = Figure(figsize=(6.4, 2.9), dpi=100)
+            ax = fig.add_subplot(111); ax.plot(x, y, color="#2563EB", lw=1.1)
+            ax.set_xlabel(xcol, fontsize=8); ax.set_ylabel(ycol, fontsize=8); ax.tick_params(labelsize=7)
+            fig.tight_layout()
+            pm = QPixmap(); pm.loadFromData(opapi.png(fig, 640))
+            self.plot_pic.setPixmap(pm); self.plot_pic.setText("")
+        except Exception as e:
+            self.plot_pic.setPixmap(QPixmap()); self.plot_pic.setText(f"Preview not drawn: {e}")
+
+    def _apply_kind_choice(self, initial=False):
+        ranked = list(self._ranked)
         if not ranked:
-            self.detect.setText("Could not tell what kind of data this is from its columns yet. Browse the gallery yourself below."); return
+            self.detect.setText("Could not tell what kind of data this is from its columns yet. Browse the gallery yourself below.")
+            self._fill_graphs([]); return
+        i = self.kind_combo.currentIndex()
+        keys = KIND_CHOICES[i][0] if 0 <= i < len(KIND_CHOICES) else None
+        if keys:
+            ranked = sorted(ranked, key=lambda r: 0 if any(k in r[0] for k in keys) else 1)
         why = ranked[0][2]
-        self.detect.setText(f"Looks like {why}." if why != "the columns fit" else "The columns fit several kinds of graph.")
-        names = {r["id"]: r["name"] for r in tp.catalogue}
-        for tid, _score, _why in ranked[:5]:
-            lab = QLabel(("★ " if tid == ranked[0][0] else "• ") + names.get(tid, tid), objectName="soft")
-            self.rec_lay.insertWidget(self.rec_lay.count() - 1, lab)
+        self.detect.setText((f"Looks like {why}." if why != "the columns fit" else "The columns fit several kinds of graph.") +
+                            (" · Confirmed by you" if keys and not initial else ""))
+        self._fill_graphs(ranked)
+
+    def _fill_graphs(self, ranked):
+        tp = getattr(self.ws, "templates_page", None)
+        cat = {r["id"]: r for r in tp.catalogue} if tp is not None else {}
+        self.graph_list.clear()
+        for i, (tid, _score, _why) in enumerate(ranked[:8]):
+            row = cat.get(tid, {})
+            li = QListWidgetItem(("★ " if i == 0 else "") + (row.get("name") or tid))
+            li.setData(Qt.UserRole, tid)
+            prev = row.get("preview")
+            if prev and os.path.isfile(prev):
+                pm = QPixmap(prev)
+                if not pm.isNull(): li.setIcon(QIcon(pm.scaled(QSize(*GRAPH_THUMB), Qt.KeepAspectRatio, Qt.SmoothTransformation)))
+            li.setTextAlignment(Qt.AlignHCenter | Qt.AlignTop)
+            li.setToolTip(("Recommended: the best fit for this file. " if i == 0 else "") + (row.get("name") or tid) + "\n" + (row.get("use") or ""))
+            self.graph_list.addItem(li)
+        if self.graph_list.count(): self.graph_list.setCurrentRow(0)
+        self._sync_create_button()
+
+    def _sync_create_button(self):
+        self.b_auto.setEnabled(self.graph_list.count() > 0)
+
+    def selected_template(self):
+        it = self.graph_list.currentItem()
+        return it.data(Qt.UserRole) if it is not None else None
 
     def draw_recommended(self):
+        """'Create graph': the template selected on the right, drawn from the file on show here - ticks that one file
+        and that one template in the gallery (Analysis ▸ Graphs and templates) and draws it, the same as picking it
+        there yourself."""
+        try:
+            return self._draw_recommended()
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            self.ws.set_status(f"'Create graph' failed: {type(e).__name__}: {e}"); return None
+
+    def _draw_recommended(self):
+        from workspace_templates import set_checked
         tp = getattr(self.ws, "templates_page", None)
-        if tp is None or not hasattr(tp, "use_recommended"):
-            self.ws.set_status("The template gallery is not available."); return
-        n = tp.use_recommended()
-        if n is not None: self.ws.go(self.ws.gallery_last if hasattr(self.ws, "gallery_last") else 5)
+        it = self.files.currentItem()
+        if tp is None or it is None:
+            self.ws.set_status("Add and inspect a file first."); return None
+        tid = self.selected_template()
+        if tid is None:
+            self.ws.set_status("No template fits this file yet: Browse all templates myself, or try a different file."); return None
+        path = it.data(Qt.UserRole)
+        set_checked(tp.files, range(tp.files.count()), False)
+        rows = [i for i in range(tp.files.count()) if tp.files.item(i).data(Qt.UserRole) == path]
+        set_checked(tp.files, rows, True)
+        idx = next((i for i in range(tp.grid.count()) if tp.grid.item(i).data(Qt.UserRole) == tid), None)
+        if idx is None:
+            self.ws.set_status(f"The template ('{tid}') is not in the gallery right now."); return None
+        tp.source.blockSignals(True); tp.source.setCurrentIndex(0); tp.source.blockSignals(False)
+        tp.field.blockSignals(True); tp.field.setCurrentIndex(0); tp.field.blockSignals(False)
+        set_checked(tp.grid, range(tp.grid.count()), False); set_checked(tp.grid, [idx], True); tp.filter_templates()
+        tp._timer.stop(); tp.rebuild_previews()
+        self.ws.go(self.ws.gallery_last if hasattr(self.ws, "gallery_last") else 5)
+        return len(tp.tiles)
