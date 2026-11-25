@@ -1,6 +1,9 @@
 // Template bubble_colormap: layout commands (illustrative data)
 // Written by Origin Plot Studio: the same commands the app sends to Origin.
 [Main]
+win -t data origin D2a;
+win -a D2a; impASC fname:="<data folder>/data_for_origin/demo_bubble_colormap/D2a.csv" options.Names.AutoNames:=0 options.Names.FNameToBk:=0 options.Names.FNameToSht:=0 options.Names.FNameToBkComm:=0 options.sparklines:=0 orng:=[D2a]1!;
+win -a D2a;
 win -t plot line d1a;
 win -a d1a;
 page.width=7.48*page.resx; page.height=4.675*page.resy;
@@ -15,9 +18,6 @@ layer.unit=1;
 layer.left=78.375; layer.top=12.000; layer.width=2.406; layer.height=77.000;
 win -a d1a;
 page.active=1;
-win -t data origin D2a;
-win -a D2a; impASC fname:="<data folder>/data_for_origin/demo_bubble_colormap/D2a.csv" options.Names.AutoNames:=0 options.Names.FNameToBk:=0 options.Names.FNameToSht:=0 options.Names.FNameToBkComm:=0 options.sparklines:=0 orng:=[D2a]1!;
-win -a D2a;
 layer -i201 D2a_B;
 set D2a_B -c color(224,231,59);
 set D2a_B -k 2;

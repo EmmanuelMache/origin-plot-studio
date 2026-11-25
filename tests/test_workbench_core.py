@@ -87,6 +87,30 @@ class FitMappingTests(unittest.TestCase):
         self.assertTrue(next(v for v in data._example(tp).values() if isinstance(v,(list,dict))))    # changing a copy does not change the kept example
 
 
+class WorkbookCacheTests(unittest.TestCase):
+    """A workbook is parsed once per version of the file, however many parts of the app ask for its sheets."""
+    def test_one_parse_copies_and_reparse_on_change(self):
+        import workbook_cache, paper_figures as pf, auto_recipe as AR
+        with tempfile.TemporaryDirectory() as d:
+            p=str(Path(d)/'book.xlsx')
+            with pd.ExcelWriter(p) as w:
+                pd.DataFrame({'x':[1,2,3],'y':[4,5,6]}).to_excel(w,sheet_name='Data',index=False)
+                pd.DataFrame({'a':[1.0]}).to_excel(w,sheet_name='Other',index=False)
+            workbook_cache.forget(); calls=[]; real=pd.read_excel
+            def counting(*a,**k): calls.append(a); return real(*a,**k)
+            with patch.object(pd,'read_excel',counting):
+                one=pf.load_sheets(p); two=AR.load(p); three=pf.load_sheets(p); tabs=data.read_tables(p)
+                self.assertEqual(len(calls),1)                                    # four readers, one parse
+                self.assertEqual(list(one),['Data','Other']);self.assertEqual(tabs[0].df.shape,(3,2))
+                one['Data'].iloc[0,0]=999;one['Data'].columns=['p','q']             # what one reader does to its sheets ...
+                self.assertEqual(list(pf.load_sheets(p)['Data'].columns),['x','y']) # ... reaches no other
+                self.assertEqual(int(pf.load_sheets(p)['Data'].iloc[0,0]),1)
+                with pd.ExcelWriter(p) as w: pd.DataFrame({'x':[7,8],'y':[9,10],'z':[0,0]}).to_excel(w,sheet_name='Data',index=False)
+                os.utime(p,ns=(os.stat(p).st_atime_ns,os.stat(p).st_mtime_ns+5_000_000_000))
+                self.assertEqual(list(pf.load_sheets(p)['Data'].columns),['x','y','z'])   # the file changed: read again
+                self.assertEqual(len(calls),2)
+
+
 class DetectionTests(unittest.TestCase):
     def test_unicode_and_header_variations(self):
         for header in ['2θ (°)','2Theta','2-theta (deg)','Two theta','2ϑ']:
@@ -156,7 +180,22 @@ class ComponentTests(unittest.TestCase):
     def test_line_only_and_no_difference(self):
         f,_=api.draw('rietveld_fit_diff_ticks',[fit()],switches={'markers':False,'show_difference':False,'inset':False})
         self.assertEqual(len(f.axes),1)
-        self.assertTrue(all(l.get_marker() in ('None',None,'') and l.get_linestyle()=='-' for l in f.axes[0].lines))
+        self.assertTrue(all(l.get_marker() in ('None',None,'') for l in f.axes[0].lines))
+        self.assertEqual({str(l.get_label()):l.get_linestyle() for l in f.axes[0].lines},{'Observed':'-','Calculated':'--'})    # a solid line and a dashed one: both seen
+    def test_every_fit_graph_has_observed_solid_and_calculated_dashed(self):
+        look=lambda fig:{str(l.get_label()):(l.get_linestyle(),l.get_marker() not in ('None',None,'')) for a in fig.axes for l in a.lines if str(l.get_label()) in ('Observed','Calculated','Fit','Yobs','Ycalc')}
+        want={'Observed':('-',False),'Calculated':('--',False)}
+        self.assertEqual(look(api.draw('rietveld_fit_diff_ticks',[fit()])[0]),want)                      # Analysis template, no switches given
+        self.assertEqual(look(api.demo_figure('rietveld_grid_2x3')),want)
+        self.assertEqual(look(api.demo_figure('nmr_29si_deconv')),{'Observed':('-',False),'Fit':('--',False)})
+        dotted=look(api.draw('rietveld_fit_diff_ticks',[fit()],switches={'observed_markers':True})[0])
+        self.assertEqual(dotted,{'Observed':('None',True),'Calculated':('-',False)})                      # dots when asked for: then the calculated line is solid
+        import gallery_graphs as TG
+        self.assertEqual(look(TG.figure('G03',TG.read_book(str(ROOT/'tests'/'gallery_templates'/'G03_RIETVELD_FIT.xlsx')))[0]),want)
+        t=fit();cs=[sp.curve('Observed',t.arr(t.x),t.arr('Yobs'),(0,0,0)),sp.curve('Calculated',t.arr(t.x),t.arr('Ycalc'),(224,0,0),dash=True)]
+        self.assertNotIn('dash',cs[0]);self.assertTrue(cs[1]['dash'])
+        fig=sp.preview_figure(sp.finish(dict(title='f',xname='2θ',panels=[sp.panel('Counts',cs)])))
+        self.assertEqual(look(fig),want)                                                                  # the app's own Fit view
     def test_independent_panels(self):
         sw={'markers':False,'inset':True,'panel_options':{'0':{'inset':False,'show_difference':False},'1':{'markers':True}}}
         f,_=api.draw('rietveld_grid_2x3',[fit('a'),fit('b')],switches=sw)

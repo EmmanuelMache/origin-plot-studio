@@ -320,9 +320,9 @@ class Loader(QObject):
     done = Signal(object, object)          # [items], [messages]
     progress = Signal(str)
 
-    def __init__(self, paths, opt, existing=(), warm=None):
+    def __init__(self, paths, opt, existing=()):
         super().__init__()
-        self.warm = warm                    # warm(path): reads what the window will need next for this file (its tables), here, off the window's thread
+        self.stop = False                   # set when the window is closing: no further file is started
         self.paths, self.opt, self.existing = paths, opt, list(existing)
 
     def run(self):
@@ -333,11 +333,9 @@ class Loader(QObject):
         for index, p in enumerate(self.paths):
             self.progress.emit(f"Reading {index+1} of {len(self.paths)}: {Path(p).name}")
             try:
+                if self.stop: break
                 its, lines = sp.load_file(p)
                 fresh += its
-                if self.warm is not None:
-                    try: self.warm(p)
-                    except Exception: pass
                 msgs += [l for l in (lines or []) if isinstance(l, str)][:4]
             except Exception as e:
                 msgs.append(f"{Path(p).name}: not read ({e})")
@@ -1499,7 +1497,7 @@ class Workspace(QMainWindow):
         self.thread = QThread(self)
         existing = [i for i in self.singles if not getattr(i, 'combo', None)]
         if project: existing = [i for i in existing if getattr(i, 'project', None) == project]
-        self.loader = Loader(paths, self.opt, existing, warm=getattr(self, '_warm_tables', None))
+        self.loader = Loader(paths, self.opt, existing)
         self.loader.moveToThread(self.thread)
         self.thread.started.connect(self.loader.run)
         self.loader.progress.connect(self.set_status)
@@ -2113,8 +2111,11 @@ class Workspace(QMainWindow):
         if self.job_thread is not None:
             self.cancel[0] = True
             self.job_thread.wait(30000)
-        if self.thread is not None:                              # a file is still being read in the background: let it finish
-            self.thread.quit(); self.thread.wait(30000)           # (Qt aborts if a running QThread is destroyed without this)
+        if self.thread is not None:                              # files are still being read in the background
+            if getattr(self, "loader", None) is not None: self.loader.stop = True      # no further file is started
+            self.thread.quit()
+            if not self.thread.wait(4000):                         # a very large file is in the middle of being read: closing must not wait half a minute
+                self.thread.terminate(); self.thread.wait(3000)    # for it, and Qt aborts the whole program if a running thread is destroyed
         try:
             import workspace_session
             workspace_session.closed_properly(self)            # closed properly: nothing to recover next time

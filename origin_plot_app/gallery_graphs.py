@@ -722,7 +722,7 @@ def draw_g03(book, fig, res):
         off = -0.06 * float(np.nanmax(obs)) - float(np.nanmax(diff))
     ax = _new_ax(fig)
     ax.plot(x, obs, color="#1F3BFF", lw=1.5, label="Observed")
-    ax.plot(x, calc, color="#E00000", lw=1.2, label="Calculated")
+    ax.plot(x, calc, color="#E00000", lw=1.3, linestyle=(0, (4.0, 1.6)), label="Calculated")      # dashed over the solid observed line
     ax.plot(x, diff + off, color="0.5", lw=1.0, label="Difference")
     ax.axhline(off, color="0.8", lw=0.6, zorder=0)
     ax.set_xlim(float(np.nanmin(x)), float(np.nanmax(x)))
@@ -1989,7 +1989,7 @@ def origin_specs(tid, book):
             obs, calc = nums(df, cmap["observed"]), nums(df, cmap["calculated"])
             diff = nums(df, cmap["difference"]) if "difference" in cmap else obs - calc
             off = book.num_opt("difference_offset") or (-0.06 * float(np.nanmax(obs)) - float(np.nanmax(diff)))
-            cv = [C("Observed", x, obs, (31, 59, 255)), C("Calculated", x, calc, (224, 0, 0)), C("Difference", x, diff + off, (128, 128, 128))]
+            cv = [C("Observed", x, obs, (31, 59, 255)), C("Calculated", x, calc, (224, 0, 0), dash=True), C("Difference", x, diff + off, (128, 128, 128))]
             p = P(str(book.opt("y_title", "Intensity (counts)")), cv)
         else:
             y = nums(df, [c for c in df.columns[1:] if is_num(df, c)][0])

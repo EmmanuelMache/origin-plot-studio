@@ -275,6 +275,9 @@ def _riet_title(d):
     return t
 
 
+FIT_DASH = (0, (4.0, 1.6))        # the calculated / fitted curve of a fit, dashed over the solid observed line
+
+
 def _riet_block(fig, cell, d, st, p, k, small=False, show_labels=True, legend=True, xlabel=True, ylabel=True):
     options = p.get('_component_options') or {}
     has_ticks = bool(d.get('ticks')) and options.get('show_bragg', True)
@@ -291,11 +294,13 @@ def _riet_block(fig, cell, d, st, p, k, small=False, show_labels=True, legend=Tr
     a = axes['main']; bottom = axes[roles[-1]]
     x = np.asarray(d['x'], float); observed = np.asarray(d['obs'], float); calculated = np.asarray(d['calc'], float)
     difference = np.asarray(d['diff'], float)
-    dots = options.get('observed_markers', options.get('markers', p.get('obs_marker', 'o') not in ('', None, 'None')))
-    observed_marker = 'o' if dots else None
+    # Observed: a solid line; calculated: dashed over it - two lines of different kinds, both seen where they lie on
+    # each other. Dots for the measured points only when asked for (Edit this graph > markers on measured data).
+    dots = bool(options.get('observed_markers', options.get('markers', False)))
+    observed_marker = 'o' if dots else None; calc_ls = '-' if dots else FIT_DASH
     a.plot(x, observed, ls='none' if dots else '-', marker=observed_marker,
-           ms=1.2 if small else 1.6, mfc='none', mec='k', mew=.35, lw=.65, color='#424b57', label='Observed')
-    a.plot(x, calculated, color='#C0141E', lw=.5 if small else .8, marker='o' if options.get('fitted_markers', False) else None, ms=1.5, label='Calculated')
+           ms=1.2 if small else 1.6, mfc='none', mec='k', mew=.35, lw=.7, color='#1c232b', label='Observed')
+    a.plot(x, calculated, color='#C0141E', lw=(.5 if small else .8) if dots else (.7 if small else .9), ls=calc_ls, marker='o' if options.get('fitted_markers', False) else None, ms=1.5, label='Calculated')
     if d.get('background') is not None and options.get('show_background', False):      # only a background the file itself gives (named column); off until you switch it on
         a.plot(x, np.asarray(d['background'], float), color='#2E7D32', lw=.5 if small else .7, label='Background')
     z0, z1 = sorted(p['zoom']) if p.get('zoom') else (0, 0)
@@ -311,8 +316,8 @@ def _riet_block(fig, cell, d, st, p, k, small=False, show_labels=True, legend=Tr
         ins = a.inset_axes([.6, .5, .38, .45]); ins._ops_panel = k; ins._ops_role = 'inset'
         m = (x >= z0) & (x <= z1)
         ins.plot(x[m], observed[m], ls='none' if dots else '-', marker=observed_marker,
-                 ms=1.4, mfc='none', mec='k', mew=.35, color='#424b57', lw=.6)
-        ins.plot(x[m], calculated[m], color='#C0141E', lw=.7, marker='o' if options.get('fitted_markers', False) else None, ms=1.2)
+                 ms=1.4, mfc='none', mec='k', mew=.35, color='#1c232b', lw=.65)
+        ins.plot(x[m], calculated[m], color='#C0141E', lw=.7 if dots else .85, ls=calc_ls, marker='o' if options.get('fitted_markers', False) else None, ms=1.2)
         if has_diff:
             lift = np.nanmin(np.r_[observed[m], calculated[m]]) - np.nanmax(np.abs(difference[m]))*1.2
             ins.plot(x[m], difference[m] + lift, color='#444444', lw=.5)
@@ -417,7 +422,7 @@ def _draw_rietveld_grid_v2(d, st, p):
         _riet_block(fig, outer[k // nc, k % nc], it, st, {**p, "inset": p.get("inset", True)}, k, small=True, show_labels=p.get("labels", False),
                     legend=False, xlabel=k // nc == nr - 1, ylabel=k % nc == 0)
     from matplotlib.lines import Line2D
-    fig.legend(handles=[Line2D([], [], ls="none", marker="o", mfc="none", mec="k", label="Observed"), Line2D([], [], color="#C0141E", label="Calculated"),
+    fig.legend(handles=[Line2D([], [], color="#1c232b", label="Observed"), Line2D([], [], color="#C0141E", ls=FIT_DASH, label="Calculated"),
                         Line2D([], [], color="#444444", label="Difference")], loc="lower center", ncols=3, frameon=False, bbox_to_anchor=(0.5, 0.0))
     return fig
 
@@ -1209,7 +1214,7 @@ def demo_nmr():
           "Origin: Peak Analyzer (Fit Peaks Pro) output graph.", "generic", ["NMR", "XPS", "DTG deconvolution"], ["component areas %, MCL = 2(Q1+Q2+1.5Q2(1Al))/Q1 (user-confirmed)"])
 def draw_nmr(d, st, p):
     fig, (a, b) = new_fig(st, 2, 1, sharex=True, gridspec_kw={"height_ratios": [4, 1], "hspace": 0.05})
-    a.plot(d["x"], d["obs"], "k", lw=0.8, label="Observed"); a.plot(d["x"], d["fit"], color="#C0141E", lw=0.8, label="Fit")
+    a.plot(d["x"], d["obs"], "k", lw=0.8, label="Observed"); a.plot(d["x"], d["fit"], color="#C0141E", lw=0.9, ls=FIT_DASH, label="Fit")
     for i, c in enumerate(d["components"]):
         a.fill_between(d["x"], c["y"], color=st["palette"]["series"][i + 1], alpha=0.35, lw=0, label=c["name"])
     b.plot(d["x"], d["obs"] - d["fit"], color="#555555", lw=0.5); b.set_ylabel("Res.")

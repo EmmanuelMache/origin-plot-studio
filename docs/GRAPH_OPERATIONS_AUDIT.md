@@ -1,6 +1,6 @@
 # Graph operations audit
 
-Made by `tools/audit_graph_operations.py` on 2026-11-25 (app 5.57.0). Every cell is the result of trying that control on that graph, drawn from
+Made by `tools/audit_graph_operations.py` on 2026-11-25 (app 5.57.1). Every cell is the result of trying that control on that graph, drawn from
 the template's own example or the workbook type's test workbook - it is not inferred from the number of passing tests.
 
 * **works**: the graph has that component and the control changed it, and only it.

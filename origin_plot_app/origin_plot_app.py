@@ -391,6 +391,7 @@ class Driver:
             for j, c in enumerate(p["curves"]):
                 col_, w_ = sp.fmt_curve(self.fmt, c["label"], c["colour"], st.tick if (p.get("thin") or c["width"] == "thin") else st.obs if c["width"] == "obs" else st.curve)
                 self.plot(G, idx, dsn[j], col_, w_, PLOT_CODES.get(c["kind"], 200))
+                if c.get("dash"): self.soft(f"set {dsn[j]} -d 1;")           # the calculated curve of a fit: dashed, as in the app
             for k_, (bx, blo, bhi, bcol) in enumerate(p.get("bands", [])):          # ± SD band: its two edges as thin lines
                 Bb = self.book(short("B", f"{tag}{idx}{k_}"), [bx, blo, bhi])
                 self.plot(G, idx, f"{Bb}_B", bcol, st.tick); self.plot(G, idx, f"{Bb}_C", bcol, st.tick)
@@ -479,6 +480,7 @@ class Driver:
             for q, c in enumerate(ins["curves"]):
                 col_, w_ = sp.fmt_curve(self.fmt, c["label"], c["colour"], st.zoom_curve)
                 self.plot(G, j, dsi[q], col_, w_ if w_ == st.zoom_curve else w_ * st.zoom_curve / max(st.curve, 0.1), PLOT_CODES.get(c["kind"], 200))
+                if c.get("dash"): self.soft(f"set {dsi[q]} -d 1;")
             a_, b_ = ins.get("xdraw", ins["xlim"]); i0, i1 = ins["ylim"]; _, _, xi = nice_range(min(a_, b_), max(a_, b_)); _, _, yi = nice_range(i0, i1); isp = i1 - i0
             self.axes(G, j, i0, i1, yinc=yi, x0=a_, x1=b_, xinc=xi, xlabels=True, ylabels=False)
             self.soft(f"layer.x.label.pt={max(10 if self.jk >= 1 else 5, int(round(0.85 * st.zoom_label * self.jk)))};"); self.soft("layer.x.label.bold=1;")      # the numbers under the zoom: large and bold, like its labels
@@ -653,6 +655,7 @@ def run_items(items, outdir, log, style=None, dry=False, png=True, pdf=True, kee
             if it.spec.get("composed"):                                             # a whole figure of a workbook of figures: its panels, curves, labels and tick rows as Origin layers
                 from opstudio import origin as O_
                 g_, diff_ = O_.send(drv, sp.composed_draw(it.spec), tag[:40])
+                drv.graphs[tag] = g_; drv.export(g_, tag)                           # the PNG / PDF from Origin, as for every other graph
                 log(f"   Origin: the figure as {g_}" + (f"; not as in the app: {'; '.join(diff_[:3])}" if diff_ else ""))
                 final = None
             elif it.spec.get("figtype"):                                            # gallery graph types: the equivalent graphs, and one line on what Origin does not get

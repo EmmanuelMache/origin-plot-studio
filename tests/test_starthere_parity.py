@@ -35,6 +35,10 @@ w.header_nav.button(6).click(); pump(); sh = w.pages.currentWidget(); c = w.work
 check("clicking it opens the Start here page", sh.label == "Start here" and w.pages.currentIndex() == 6)
 check("before any file, it says so plainly", sh.detect.text().startswith("Add a file"), sh.detect.text())
 check("no projects yet: the list is empty and says what a project is", sh.projects.topLevelItemCount() == 0 and sh.project_hint.isVisible())
+bigf = TMP / "big.csv"; bigf.write_text("x,y\n" + "\n".join(f"{i},{i * 2}" for i in range(260000)), encoding="utf-8")
+first_ready = c.ready(str(bigf)); in_bg = str(bigf) in c._reading or str(bigf) in w.templates_page.tables
+check("a large file is read in the background, not on the window's thread (the window used to stop while it was read)", first_ready is False and in_bg, (first_ready, os.path.getsize(bigf)))
+check("... and is there shortly after", pump(lambda: c.ready(str(bigf)), 60) and w.templates_page.raw_tables(str(bigf))["sheets"])
 check("View, Tools and Help are buttons of the header on a wide window, as before (and in the ••• menu on a narrow one)",
       all(b.isVisible() and b.menu() is not None and len(b.menu().actions()) > 3 for b in (w.panels_btn, w.tools_btn, w.help_btn)))
 check("nothing shown later sits outside the header's layout (a button outside it lands over the top-left corner)",
@@ -50,6 +54,11 @@ QInputDialog.getText = real_text
 check("a file can be added without a project: no project name is asked for", not asked and WP.list_projects() == [], asked)
 check("a file added here is also in Workspace and in Analysis > Graphs and templates", sh.files.count() == 1 and any(getattr(it, "path", None) == str(p) for it in w.singles) and w.templates_page.files.count() == 1)
 check("the file you add is shown at once (its name above the data)", "xrd_sample.csv" in sh.breadcrumb.text(), sh.breadcrumb.text())
+loose_root = sh.projects.topLevelItem(0); loose_file = loose_root.child(0) if loose_root is not None and loose_root.childCount() else None
+check("... and it is listed on the left, under 'Files not in a project': ticked, and highlighted as the one on show",
+      loose_root is not None and loose_root.text(0).startswith("Files not in a project\n1 file") and loose_file is not None and loose_file.text(0) == "xrd_sample.csv"
+      and loose_file.checkState(0) == Qt.Checked and loose_file.isSelected() and sh.selected_inputs() == [(None, str(p))], loose_root.text(0) if loose_root is not None else None)
+check("the small list that used to hold such files in the middle column is no longer what you have to find them in", not sh.files.isVisible() and sh.files.count() == 1)
 check("the app says what kind of file it looks like, from the real column headers", "XRD" in sh.detect.text() and "2theta" in sh.evidence.text(), (sh.detect.text(), sh.evidence.text()))
 first = sh.recs.item(0)
 check("the best-fitting templates are listed with their pictures, the best one first and marked", sh.recs.count() > 2 and "Recommended" in first.text() and not first.icon().isNull() and first.data(Qt.UserRole) == "xrd_single_labeled", first.text())
@@ -126,6 +135,30 @@ sh._close_project_graphs("Batch B"); pump()
 check("closing a project takes only that project's graphs out of Workspace", not any(getattr(s, "project_id", None) == slug_b for s in w.singles) and any(getattr(s, "project_id", None) == slug_a for s in w.singles))
 sh._delete_project(slug_b, "Batch B"); pump()
 check("deleting a project removes it from the list; its files stay on the disk", [s for s, _p in WP.list_projects()] == [slug_a] and os.path.isfile(pb))
+
+# ------------------------------------------------------------------------------------------------ a whole folder of the disk
+big = TMP / "Series 7"; (big / "day 1").mkdir(parents=True); (big / "day 28" / "repeat").mkdir(parents=True); (big / ".hidden").mkdir()
+def put(folder, name, k=400): pd.DataFrame({"2theta (deg)": x, "Intensity (counts)": 100 + k * np.exp(-(x - 29) ** 2 / 0.5)}).to_csv(folder / name, index=False); return str(folder / name)
+f_top = put(big, "top.csv"); f_d1 = put(big / "day 1", "a.csv"); f_d28 = put(big / "day 28", "b.csv"); f_rep = put(big / "day 28" / "repeat", "c.csv")
+put(big / ".hidden", "no.csv"); (big / "notes.docx").write_text("x"); (big / "~$lock.csv").write_text("x")
+sh._select_node(("project", slug_a, "")); pump()
+got = sh.add_disk_folder(str(big)); idle(w)
+pr = WP.get(slug_a); fold = {f["id"]: f for f in pr["folders"]}; name_of = lambda path: fold[pr["locations"][path]]["name"]
+parent_of = lambda path: fold.get(fold[pr["locations"][path]].get("parent", ""), {}).get("name", "")
+check("'Add folder…' brings in every data file of a folder of the disk, its sub-folders too - not hidden folders, lock files or other documents",
+      got == slug_a and {f_top, f_d1, f_d28, f_rep} <= set(pr["files"]) and not any("no.csv" in f or "lock" in f or "docx" in f for f in pr["files"]), [os.path.basename(f) for f in pr["files"]])
+check("... under a folder of the same name in the selected project, with its sub-folders as folders inside it",
+      (name_of(f_top), name_of(f_d1), parent_of(f_d1), name_of(f_rep), parent_of(f_rep)) == ("Series 7", "day 1", "Series 7", "repeat", "day 28"), (name_of(f_top), name_of(f_d1), name_of(f_rep), parent_of(f_rep)))
+check("... its files are read like any other: in Workspace, tagged with the project", {f_top, f_d1, f_d28, f_rep} <= {getattr(i, "path", "") for i in w.singles if getattr(i, "project_id", None) == slug_a})
+n_fold = len(pr["folders"]); sh._select_node(("project", slug_a, "")); pump(); sh.add_disk_folder(str(big)); idle(w)
+check("adding the same folder again makes nothing double", len(WP.get(slug_a)["folders"]) == n_fold and len(WP.get(slug_a)["files"]) == len(pr["files"]))
+sh.projects.setCurrentItem(None); sh.projects.clearSelection(); sh._current_project = None; n_proj = len(WP.list_projects())
+lone = TMP / "Loose scans"; lone.mkdir(); f_l = put(lone, "l1.csv"); got2 = sh.add_disk_folder(str(lone)); idle(w)
+check("with no project selected, a folder becomes a project named after it", len(WP.list_projects()) == n_proj + 1 and WP.get(got2)["name"] == "Loose scans" and WP.get(got2)["files"] == [f_l] and not WP.get(got2)["folders"], WP.get(got2)["name"] if got2 else got2)
+empty = TMP / "Nothing here"; empty.mkdir(); n_proj = len(WP.list_projects())
+check("a folder with no data files says so and adds nothing", sh.add_disk_folder(str(empty)) is None and "No data files" in w.status.text() and len(WP.list_projects()) == n_proj, w.status.text())
+fm_all = [a.text().split("\t")[0] for a in w.file_btn.menu().actions() if a.text()]
+check("File ▸ 'Add a folder of data files…' is right under 'Add data files…'", "Add a folder of data files…" in fm_all and fm_all.index("Add a folder of data files…") == next(i for i, t in enumerate(fm_all) if t.startswith("Add data files")) + 1, fm_all[:8])
 
 # ------------------------------------------------------------------------------------------------ every button says what it does
 from PySide6.QtWidgets import QAbstractButton, QToolButton

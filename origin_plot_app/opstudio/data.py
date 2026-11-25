@@ -403,7 +403,8 @@ def read_tables(path, sheet=None, max_rows=200000):
     import os
     low = path.lower(); name = os.path.splitext(os.path.basename(path))[0]; out = []
     if low.endswith((".xlsx", ".xlsm", ".xls")):
-        book = pd.read_excel(path, sheet_name=None, nrows=max_rows)
+        import workbook_cache                                     # the app's shared parse of the workbook; the row limit is applied to it
+        book = {s: df.iloc[:max_rows] for s, df in workbook_cache.sheets(path).items()}
         pick = [sheet] if sheet and sheet in book else ([s for s in book if s.strip().lower() == "data"] or list(book))
         for s in pick:
             df = book[s]

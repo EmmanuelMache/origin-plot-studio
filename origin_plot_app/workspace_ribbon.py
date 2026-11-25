@@ -890,9 +890,10 @@ class Ribbon(QWidget):
             on = bool(has_zoom)
             m.addAction("Zoomed part: switch off (this panel only)" if on else "Zoomed part: switch on (this panel only)",
                         lambda: self.set_panel_fmt(key, zoom=False if on else None))
-        dots = sp.composed_panel_value(it, key, "obs_style", "dots") != "line"
-        m.addAction("Observed: draw as a line, not dots (this panel only)" if dots else "Observed: draw as dots again (this panel only)",
-                    lambda: self.set_panel_fmt(key, obs_style="line" if dots else None))
+        import paper_figures as pf
+        dots = sp.composed_panel_value(it, key, "obs_style", pf.OBS_STYLE) != "line"
+        m.addAction("Observed: draw as a line, not dots (this panel only)" if dots else "Observed: draw as dots (this panel only)",
+                    lambda: self.set_panel_fmt(key, obs_style="line" if dots else "dots"))
         show_diff = sp.composed_panel_value(it, key, "show_diff", True)
         m.addAction("Difference row: switch off (this panel only)" if show_diff else "Difference row: switch on (this panel only)",
                     lambda: self.set_panel_fmt(key, show_diff=False if show_diff else None))
@@ -978,7 +979,7 @@ class Ribbon(QWidget):
         w.panel_zoom_cb.setEnabled(has_zoom is not None)
         w.panel_zoom_cb.setToolTip("This panel's zoomed part (inset) - on or off" if has_zoom is not None else "This panel has no zoomed part to switch")
         w.panel_zoom_cb.blockSignals(True); w.panel_zoom_cb.setChecked(bool(has_zoom)); w.panel_zoom_cb.blockSignals(False)
-        w.panel_dots.blockSignals(True); w.panel_dots.setChecked(sp.composed_panel_value(it, key, "obs_style", "dots") != "line"); w.panel_dots.blockSignals(False)
+        w.panel_dots.blockSignals(True); w.panel_dots.setChecked(sp.composed_panel_value(it, key, "obs_style", __import__("paper_figures").OBS_STYLE) != "line"); w.panel_dots.blockSignals(False)
         w.panel_diff.blockSignals(True); w.panel_diff.setChecked(bool(sp.composed_panel_value(it, key, "show_diff", True))); w.panel_diff.blockSignals(False)
 
     def sketch(self):
@@ -1224,8 +1225,8 @@ def install(w):
     w.panel_combo.currentIndexChanged.connect(lambda *_: rb.composed_bar())
     w.panel_zoom_cb = QCheckBox("Zoomed part")
     w.panel_zoom_cb.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), zoom=None if on else False))
-    w.panel_dots = QCheckBox("Observed as dots"); w.panel_dots.setToolTip("Off: the observed curve is drawn as a plain line instead of dots, for this panel only")
-    w.panel_dots.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), obs_style=None if on else "line"))
+    w.panel_dots = QCheckBox("Observed as dots"); w.panel_dots.setToolTip("On: the observed curve of this panel is drawn as dots (open circles) with a solid calculated line. Off: a plain line, with the calculated curve dashed over it")
+    w.panel_dots.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), obs_style="dots" if on else "line"))
     w.panel_diff = QCheckBox("Difference row"); w.panel_diff.setToolTip("Off: the difference (observed - calculated) row is left out, for this panel only")
     w.panel_diff.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), show_diff=None if on else False))
     if gt is not None and host is not None:

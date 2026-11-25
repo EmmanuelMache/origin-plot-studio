@@ -108,6 +108,7 @@ Written by `tools/build_origin_scripts.py`. An empty cell means: the same graph.
 | `pareto_front` | points coloured by a value are sent in one colour (map the colour in Origin: Plot Details > Symbol > Colour > Map)<br>fine line sets (for example error whiskers or tick rows) are not sent as objects; error bars: add the error column in Origin (Plot Details > Error Bar)<br>a colour map is sent as a picture of the app's figure (use Plot > Contour > Colour Fill in Origin on the worksheet that is sent) |
 | `sankey_mass_energy` |  |
 | `sensitivity_tornado` | horizontal bars are sent as columns over the category positions (turn the graph in Origin with Graph > Exchange X-Y Axes) |
+| `scientific_line` |  |
 | `ofw_kas_plot` |  |
 | `friedman_plot` |  |
 | `xrd_ref_ticks` |  |

@@ -1,4 +1,4 @@
-# TEST_REPORT – upgrade v2, app version 5.57.0
+# TEST_REPORT – upgrade v2, app version 5.57.1
 
 Where it was run: a Linux container, Python 3.12, PySide6 with `QT_QPA_PLATFORM=offscreen`. **No Windows and no Origin were
 available.** Everything that needs Origin was run through the app's own Origin driver in dry-run mode (it records the
@@ -37,23 +37,23 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_drag_labels.py` | 8 | 0 |  |
 | `tests/test_edit_dialog.py` | 10 | 0 |  |
 | `tests/test_edit_graph.py` | 40 | 0 |  |
-| `tests/test_figures_general.py` | 37 | 0 |  |
+| `tests/test_figures_general.py` | 40 | 0 |  |
 | `tests/test_gallery_graphs.py` | 34 | 0 |  |
 | `tests/test_highscore.py` | 27 | 0 |  |
 | `tests/test_look_progress.py` | 14 | 0 |  |
-| `tests/test_opstudio.py` | 63 | 0 |  |
+| `tests/test_opstudio.py` | 66 | 0 |  |
 | `tests/test_peak_correct_tab.py` | 18 | 0 |  |
 | `tests/test_ribbon_sketch.py` | 37 | 0 |  |
 | `tests/test_session_basics.py` | 48 | 0 |  |
 | `tests/test_shell_layout.py` | 42 | 0 |  |
 | `tests/test_starthere.py` | 15 | 0 | runs the desktop-workflow suite of `test_workbench_ui.py` (kept as an entry point) |
-| `tests/test_starthere_parity.py` | 43 | 0 | what Start here did at 5.56.0, checked on the new page |
+| `tests/test_starthere_parity.py` | 54 | 0 | what Start here did at 5.56.0, checked on the new page |
 | `tests/test_stop_analysis.py` | 9 | 0 |  |
 | `tests/test_templates_page.py` | 70 | 0 |  |
 | `tests/test_tga_core.py` | 1 | 0 | 3 known-answer functions (prints OK) |
 | `tests/test_tga_module.py` | 37 | 0 |  |
 | `tests/test_thermal_photo.py` | 18 | 0 |  |
-| `tests/test_workbench_core.py` | 44 | 0 | detection, fit columns, merges, project archives (no Qt) |
+| `tests/test_workbench_core.py` | 46 | 0 | detection, fit columns, merges, project archives (no Qt) |
 | `tests/test_workbench_ui.py` | 15 | 0 | real widgets: projects, graphs, Workbook, save / reopen, portable projects |
 | `tests/test_workspace_actions.py` | 30 | 0 |  |
 | `tests/test_workspace_main.py` | 83 | 0 |  |
@@ -66,7 +66,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **1067** | **1** | 35 files |
+| **Total** | **1086** | **1** | 35 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.56.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

@@ -119,10 +119,10 @@ class StartHerePage(QWidget):
         refresh = self._button('↻', self.refresh_from_disk); refresh.setFixedWidth(38); refresh.setToolTip('Refresh projects and recheck files')
         row.addWidget(refresh); lay.addLayout(row)
         row = QHBoxLayout()
-        row.addWidget(self._button('New folder', self.new_folder))
         self.p_add = self._button('Add files', self.add_files); row.addWidget(self.p_add)
+        self.p_add_folder = self._button('Add folder…', self.add_disk_folder); row.addWidget(self.p_add_folder)
         more = QPushButton('•••'); more.setFixedWidth(38); menu = QMenu(more)
-        for name, fn in [('File details…', self.show_file_details), ('Rename…', self.rename_selected), ('Move to folder…', self.move_dialog),
+        for name, fn in [('New empty folder…', self.new_folder), ('File details…', self.show_file_details), ('Rename…', self.rename_selected), ('Move to folder…', self.move_dialog),
                          ('Move up', lambda: self.reorder_selected(-1)), ('Move down', lambda: self.reorder_selected(1)),
                          ('Save project', self.save_project), ('Export project…', self.export_project),
                          ('Close project', self.close_project), ('Remove selected…', self.delete_selected)]:
@@ -150,9 +150,9 @@ class StartHerePage(QWidget):
         card, lay = self._card('Inspect data')
         lay.setSpacing(8)
         self.breadcrumb = QLabel('No file selected', objectName='soft'); self.breadcrumb.setWordWrap(True); lay.addWidget(self.breadcrumb)
-        self.add_btn = self._button('Drop files here or  + Add files', self.add_files)
+        self.add_btn = self._button('Drop files or a folder here, or  + Add files', self.add_files)
         self.add_btn.setObjectName('dropZone'); self.add_btn.setMinimumHeight(56)
-        self.add_btn.setToolTip('CSV, TSV, Excel and supported instrument formats. Original files are kept unchanged.')
+        self.add_btn.setToolTip('Add files – Drop data files or a whole folder here, or click to choose files: CSV, TSV, Excel and supported instrument formats. Original files are kept unchanged')
         lay.addWidget(self.add_btn)
         # This compact list exposes session inputs as well as the project tree.
         self.files = QListWidget(); self.files.setMaximumHeight(82)
@@ -211,6 +211,16 @@ class StartHerePage(QWidget):
         checked = {tuple(i.data(0, Qt.UserRole)) for i in self._walk() if i.checkState(0) == Qt.Checked}
         expanded = {tuple(i.data(0, Qt.UserRole)) for i in self._walk() if i.isExpanded()}
         self._building = True; self.projects.clear(); current_item = None
+        loose = self.loose_files()                             # files of the session that are in no project: listed here like the rest, so a file you add is where you look for it
+        if loose:
+            root = QTreeWidgetItem([f"Files not in a project\n{len(loose)} file{'s' if len(loose) != 1 else ''} · this session"])
+            root.setToolTip(0, "Files you added without a project. They work like any other; 'New project' (or dragging them onto a project) keeps them, their edits and their graphs together")
+            self.projects.addTopLevelItem(root); self._setup_node(root, ('session', '', ''), checked)
+            root.setFlags(root.flags() & ~Qt.ItemIsDragEnabled)
+            for f in loose:
+                item = QTreeWidgetItem(root, [os.path.basename(f) + ('  · missing' if not os.path.isfile(f) else '')])
+                item.setToolTip(0, f + '\nNot in a project'); self._setup_node(item, ('file', '', f), checked)
+            root.setExpanded(not expanded or ('session', '', '') in expanded)
         for slug, p in WP.list_projects():
             modified = datetime.fromtimestamp(p.get('modified', 0)).strftime('%d %b %Y, %H:%M')
             count = len(p['files']); missing = len(WP.missing_files(slug))
@@ -252,6 +262,18 @@ class StartHerePage(QWidget):
         self.project_hint.setVisible(self.projects.topLevelItemCount() == 0)     # the explanation is for the empty list; with projects it only takes their room on a small screen
         self._building = False; self._sync_project_buttons(); self.filter_projects(self.project_search.text())
 
+    def loose_files(self):
+        """The files of the session (Workspace / Analysis) that belong to no open project."""
+        tp = getattr(self.ws, 'templates_page', None); ctrl = getattr(self.ws, 'workbench', None)
+        if tp is None or not hasattr(tp, 'files'): return []
+        paths = [tp.files.item(i).data(Qt.UserRole) for i in range(tp.files.count())]
+        owned = {getattr(i, 'path', '') for i in getattr(self.ws, 'singles', []) if getattr(i, 'project_id', None)}
+        in_open = set()
+        if ctrl:
+            for slug in ctrl.open_projects | ({ctrl.active_project} if ctrl.active_project else set()):
+                in_open |= set((WP.get(slug) or {}).get('files', []))
+        return [p for p in paths if p not in owned and p not in in_open]
+
     def _setup_node(self, item, value, checked):
         item.setData(0, Qt.UserRole, value)
         flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable | Qt.ItemIsDragEnabled
@@ -268,12 +290,12 @@ class StartHerePage(QWidget):
     def _tree_current(self, item, previous):
         if self._building or item is None: return
         kind, slug, value = item.data(0, Qt.UserRole)
-        self._current_project = slug
+        self._current_project = slug or None
         ctrl = getattr(self.ws, 'workbench', None)
-        if ctrl: ctrl.active_project = slug
+        if ctrl: ctrl.active_project = slug or None
         if kind == 'file': self._current_path = value
         else:
-            paths = WP.folder_files(slug, value) if kind == 'folder' else (WP.get(slug) or {}).get('files', [])
+            paths = self.loose_files() if kind == 'session' else WP.folder_files(slug, value) if kind == 'folder' else (WP.get(slug) or {}).get('files', [])
             self._current_path = next((p for p in paths if os.path.isfile(p)), None)
         self._sync_project_buttons(); self._inspect_timer.start()
 
@@ -289,21 +311,21 @@ class StartHerePage(QWidget):
         result = []
         for kind, slug, value in self.selected_entries():
             p = WP.get(slug) or {}
-            paths = [value] if kind == 'file' else WP.folder_files(slug, value) if kind == 'folder' else p.get('files', [])
+            paths = [value] if kind == 'file' else self.loose_files() if kind == 'session' else WP.folder_files(slug, value) if kind == 'folder' else p.get('files', [])
             for path in paths:
-                pair = (slug, path)
+                pair = (slug or None, path)                      # a file in no project: no project id, as its graphs have none
                 if pair not in result: result.append(pair)
         return result
 
     def _ticked_projects(self):
-        return list(dict.fromkeys(v[1] for v in self.selected_entries()))
+        return list(dict.fromkeys(v[1] for v in self.selected_entries() if v[1]))
 
     def _sync_project_buttons(self):
         if not hasattr(self, 'p_open'): return
         inputs = self.selected_inputs(); n = len(inputs); projects = self._ticked_projects()
         self.p_open.setEnabled(n > 0); self.p_open.setToolTip('Open selected files and folders' if n else 'Select a project, folder or file first')
         self.p_add.setEnabled(True)
-        self.p_add.setToolTip('Add files to the current project, or create one first')
+        self.p_add.setToolTip('Add files – Add data files to the selected project (or folder). With no project selected they are simply added to the session')
         self.selection_label.setText(f"{len(projects)} project(s) · {n} file(s) selected" if n else 'Select projects, folders or files')
         if hasattr(self, 'summary'):
             self.summary.setText(f'{len(projects)} project(s) · {n} selected input(s)' if n else 'Create a project or select files to begin.')
@@ -352,6 +374,7 @@ class StartHerePage(QWidget):
         if not slug:
             self._current_project = None; self._current_path = paths[0]
             self.ws.templates_page.add_files(paths, on_done=lambda items: self._import_done(None, paths, items))
+            self._show_loose(paths)                                # they are listed at once, under 'Files not in a project'
             self.ws.set_status(f'Importing {len(paths)} file(s)… (not in a project: New project keeps files, edits and graphs together)'); return
         WP.add_files(slug, paths, folder); self._current_project = slug; self._current_path = paths[0]
         ctrl = getattr(self.ws, 'workbench', None)
@@ -366,6 +389,60 @@ class StartHerePage(QWidget):
 
     def add_to_project(self): self.add_files()
 
+    def _show_loose(self, paths):
+        """Files just added without a project: listed, ticked, and the first of them highlighted (it is the one on show)."""
+        self.refresh_projects()
+        for p in paths:
+            node = self._select_node(('file', '', p))
+            if node: node.setCheckState(0, Qt.Checked)
+        first = self._select_node(('file', '', paths[0]))
+        if first is not None:
+            self.projects.clearSelection(); first.setSelected(True)
+
+    def add_disk_folder(self, directory=None):
+        """'Add folder…' (or a folder dropped on the page): every data file in a folder of the disk, its sub-folders
+        included, comes in under a folder of the same name, with its sub-folders as folders inside it. Into the
+        project (or folder) selected on the left; with no project selected, a project named after the folder is made
+        for it. The files stay where they are on the disk and are only read."""
+        if directory is None: directory = QFileDialog.getExistingDirectory(self, 'Add a folder of data files', '')
+        if not directory or not os.path.isdir(directory): return None
+        root = Path(os.path.abspath(directory))
+        def wanted(f):
+            rel = f.relative_to(root).parts
+            return f.is_file() and f.suffix.lower() in DATA_EXTS and not f.name.startswith(('~$', '.')) and not any(part.startswith('.') for part in rel[:-1])
+        try: files = sorted((f for f in root.rglob('*') if wanted(f)), key=lambda f: (len(f.relative_to(root).parts), str(f).lower()))
+        except OSError as e: self.ws.set_status(f'This folder could not be read: {e}'); return None
+        if not files:
+            self.ws.set_status(f"No data files in '{root.name}' (Excel, CSV, text and instrument files are read; sub-folders are looked in too)."); return None
+        if len(files) > 150 and QMessageBox.question(self, 'Add folder', f"'{root.name}' holds {len(files)} data files. Add all of them? They are read in the background.") != QMessageBox.Yes: return None
+        item = self.projects.currentItem(); value = item.data(0, Qt.UserRole) if item else None
+        slug = value[1] if value else self._current_project
+        if slug and not WP.get(slug): slug = None
+        parent = value[2] if slug and value and value[0] == 'folder' and value[1] == slug else ''
+        made_project = not slug
+        if made_project: slug = WP.create(root.name)
+        def folder_id(name, parent_id):                             # the folder of this name here: the one there is, or a new one
+            existing = next((f['id'] for f in WP.get(slug)['folders'] if f['name'].casefold() == name.casefold() and f.get('parent', '') == parent_id), None)
+            return existing or WP.add_folder(slug, name, parent_id)
+        ids = {(): parent if made_project else folder_id(root.name, parent)}      # a project made for the folder already carries its name: its files go straight into it
+        by_folder = {}
+        for f in files:
+            parts = f.relative_to(root).parts[:-1]
+            for depth in range(1, len(parts) + 1):
+                if parts[:depth] not in ids: ids[parts[:depth]] = folder_id(parts[depth - 1], ids[parts[:depth - 1]])
+            by_folder.setdefault(parts, []).append(str(f))
+        paths = []
+        for parts, group in by_folder.items(): WP.add_files(slug, group, ids[parts]); paths += group
+        self._current_project = slug; self._current_path = paths[0]
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl: ctrl.active_project = slug
+        self.refresh_projects()
+        node = self._select_node(('project', slug, '') if made_project else ('folder', slug, ids[()]))
+        if node: node.setCheckState(0, Qt.Checked); node.setExpanded(True)
+        self.ws.templates_page.add_files(paths, project=(WP.get(slug) or {})['name'], on_done=lambda items: self._import_done(slug, paths, items))
+        self.ws.set_status(f"Importing {len(paths)} file(s) from '{root.name}'" + (f" into a new project '{WP.get(slug)['name']}'" if made_project else '') + '…')
+        return slug
+
     def _import_done(self, slug, paths, items):
         if slug and hasattr(self.ws, "workbench"):
             self.ws.workbench.open_projects.add(slug)
@@ -377,6 +454,7 @@ class StartHerePage(QWidget):
         self.ws.set_status(f"Imported {len(paths)-len(bad)} of {len(paths)} file(s)." +
                            (' Could not plot: ' + ', '.join(os.path.basename(p) for p in bad) + '. Inspect the file or see Details.' if bad else ''))
         self.refresh(); self.inspect_current()
+        if not slug: self._show_loose([p for p in paths if p in self.loose_files()] or paths)
         if items and items[0] in self.ws.items:
             self.ws._tick_only(items); self.ws.list.setCurrentRow(self.ws.items.index(items[0]))
 
@@ -411,6 +489,7 @@ class StartHerePage(QWidget):
         if item is None: return
         kind, slug, value = item.data(0, Qt.UserRole)
         if kind == 'file': self.ws.set_status('Source filenames are preserved. Rename folders or the project to organise work.'); return
+        if kind == 'session': self.ws.set_status("These files are in no project. 'New project' gives them one you can name."); return
         old = WP.get(slug)['name'] if kind == 'project' else next(f['name'] for f in WP.get(slug)['folders'] if f['id'] == value)
         name, ok = QInputDialog.getText(self, 'Rename', 'New name:', text=old)
         if not ok or not name.strip(): return
@@ -435,7 +514,14 @@ class StartHerePage(QWidget):
         items = [tuple(i.data(0, Qt.UserRole)) for i in self.projects.selectedItems()]
         if not items: return False
         try:
+            if kind == 'session': raise ValueError('Drop files onto a project or one of its folders')
             for k, s, v in items:
+                if k == 'file' and not s:                         # a file that is in no project, dragged onto a project: it joins it, with the graphs it already has
+                    WP.add_files(slug, [v], parent); ctrl = getattr(self.ws, 'workbench', None); name = (WP.get(slug) or {}).get('name')
+                    for it in self.ws.singles:
+                        if getattr(it, 'path', '') == v and not getattr(it, 'project_id', None): it.project_id = slug; it.project = name
+                    if ctrl: ctrl.open_projects.add(slug); ctrl._changed.add(slug)
+                    self.ws.refresh_list(); continue
                 if s != slug: raise ValueError('Move within one project; add a file to another project using Add files')
                 if k == 'file': WP.add_files(s, [v], parent)
                 elif k == 'folder': WP.move_folder(s, v, parent)
@@ -455,6 +541,7 @@ class StartHerePage(QWidget):
         item = self.projects.currentItem()
         if not item: return
         kind, slug, value = item.data(0, Qt.UserRole); p = WP.get(slug)
+        if not p: return                                          # files in no project keep the order they were added in
         keys = list(p['files']) if kind == 'file' else [f['id'] for f in p['folders']] if kind == 'folder' else []
         if value not in keys: return
         idx = keys.index(value); new = idx + delta
@@ -475,9 +562,10 @@ class StartHerePage(QWidget):
                 WP.delete(slug); deleted.add(slug)
             elif kind == 'folder': WP.remove_folder(slug, value)
             else:
-                WP.remove_file(slug, value)
                 ctrl = getattr(self.ws, 'workbench', None)
-                if ctrl: ctrl.remove_input(slug, value)
+                for path in (self.loose_files() if kind == 'session' else [value]):
+                    if slug: WP.remove_file(slug, path)
+                    if ctrl: ctrl.remove_input(slug or None, path)
         self.refresh()
 
     def _delete_project(self, slug, name):
@@ -523,7 +611,7 @@ class StartHerePage(QWidget):
         item = self.projects.itemAt(pos)
         if not item: return
         self.projects.setCurrentItem(item); menu = QMenu(self)
-        for name, fn in [('Open selected', self.open_projects), ('Add files…', self.add_files), ('New folder…', self.new_folder),
+        for name, fn in [('Open selected', self.open_projects), ('Add files…', self.add_files), ('Add folder…', self.add_disk_folder), ('New empty folder…', self.new_folder),
                          ('Rename…', self.rename_selected), ('Move to folder…', self.move_dialog), ('Move up', lambda: self.reorder_selected(-1)),
                          ('Move down', lambda: self.reorder_selected(1)), ('Save project', self.save_project), ('Export project…', self.export_project),
                          ('Close project', self.close_project), ('Remove selected…', self.delete_selected)]: menu.addAction(name, fn)
@@ -566,7 +654,7 @@ class StartHerePage(QWidget):
             item = QListWidgetItem(os.path.basename(p)); item.setData(Qt.UserRole, p); item.setToolTip(p)
             self.files.addItem(item); item.setSelected(p in selected)
         self._building = False
-        self.files.setVisible(not bool(self._current_project))
+        self.files.setVisible(False)                           # the files of the session are in the tree on the left ('Files not in a project'); this list is kept for what reads it
         if not self._current_path or not os.path.isfile(self._current_path): self._current_path = next(iter(paths), None)
         self._inspect_timer.start()
 
@@ -577,13 +665,13 @@ class StartHerePage(QWidget):
             self.detect.setText('Add a file to inspect its data.'); self.evidence.clear(); self.recs.clear(); self.data_preview.clear()
             self.data_preview.setRowCount(0); self.fig.clear(); self.preview.draw_idle(); self.confirm_btn.hide(); self.sheet.hide(); self._sync_create(); return
         if ctrl and self._current_project: ctrl.active_project = self._current_project
-        if getattr(self.ws, 'thread', None) is not None and path not in getattr(tp, 'tables', {}):
-            # Files are being read in the background and this one is not read yet: reading it here as well would stop
-            # the window for as long as that takes (a large workbook: many seconds). It is shown as soon as it is read.
+        if ctrl is not None and os.path.isfile(path) and not ctrl.ready(path):
+            # A large file that is not read yet: reading it here would stop the window for as long as that takes (a big
+            # workbook: many seconds). It is read in the background and shown as soon as it is there.
             self.breadcrumb.setText(os.path.basename(path)); self.detect.setText('Reading this file…')
             self.evidence.setText('Its data, its type and the graphs that fit appear here when it has been read.')
             self.recs.clear(); self.confirm_btn.hide(); self._sync_create()
-            QTimer.singleShot(500, self._inspect_timer.start); return
+            QTimer.singleShot(300, self._inspect_timer.start); return
         try:
             table, sheet, sheets, cols, mapping = tp.table_of(path)
             from opstudio.detection import detect
@@ -606,7 +694,7 @@ class StartHerePage(QWidget):
             box.blockSignals(False)
         df = table.df.head(5); self.data_preview.setColumnCount(len(df.columns)); self.data_preview.setRowCount(len(df))
         self.data_preview.setHorizontalHeaderLabels([str(c) for c in df.columns])
-        self.files.setVisible(not bool(self._current_project))
+        self.files.setVisible(False)                           # the files of the session are in the tree on the left ('Files not in a project'); this list is kept for what reads it
         for r in range(len(df)):
             for c in range(len(df.columns)):
                 v = df.iloc[r, c]
@@ -694,7 +782,7 @@ class StartHerePage(QWidget):
         for url in event.mimeData().urls():
             p = Path(url.toLocalFile())
             if p.suffix.lower() == '.opsproject': self.import_project(str(p)); continue
-            if p.is_dir(): paths.extend(str(f) for f in p.rglob('*') if f.is_file() and f.suffix.lower() in DATA_EXTS)
+            if p.is_dir(): self.add_disk_folder(str(p))             # a folder: comes in as a folder, its sub-folders inside it
             elif p.is_file(): paths.append(str(p))
         if paths: self.add_files(paths)
         event.acceptProposedAction()

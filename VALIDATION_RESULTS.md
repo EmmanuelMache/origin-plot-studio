@@ -1,4 +1,4 @@
-# Validation results — Origin Plot Studio 5.57.0
+# Validation results — Origin Plot Studio 5.57.1
 
 Date: 25 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
 
@@ -13,25 +13,25 @@ delivered update (228 checks, seven suites, on a Qt 5 stand-in) is prior evidenc
 
 | Suite | Passed | Failed |
 |---|---:|---:|
-| Workbench core (detection, fit columns, merges, project archives) — `tests/test_workbench_core.py` | 44 | 0 |
+| Workbench core (detection, fit columns, merges, project archives) — `tests/test_workbench_core.py` | 46 | 0 |
 | Desktop workflow (real widgets) — `tests/test_workbench_ui.py` | 15 | 0 |
-| Template engine and Origin driver (dry run) — `tests/test_opstudio.py` | 63 | 0 |
-| Composed figures (workbooks of figures) — `tests/test_figures_general.py` | 37 | 0 |
+| Template engine and Origin driver (dry run) — `tests/test_opstudio.py` | 66 | 0 |
+| Composed figures (workbooks of figures) — `tests/test_figures_general.py` | 40 | 0 |
 | Analysis tools (all 44) — `tests/test_analysis_tools.py` | 17 | 0 |
 | HighScore / XRD workflows — `tests/test_highscore.py` | 27 | 0 |
 | Workbook graph types (26) — `tests/test_gallery_graphs.py` | 34 | 0 |
-| **Total** | **237** | **0** |
+| **Total** | **245** | **0** |
 
-The workbench core suite has 9 checks more than the delivered one (fit columns by name, peak lists, the wider list of
-data types, a file with no table, the template example cache).
+The workbench core suite has 11 checks more than the delivered one (fit columns by name, peak lists, the wider list of
+data types, a file with no table, the template example cache, the one-parse workbook cache, the look of every fit graph).
 
 ## Every test file
 
-35 files, **1067 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
+35 files, **1086 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
 fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
 `TEST_REPORT.md`, section 2.
 
-New in this integration: `tests/test_starthere_parity.py` (43 checks) — everything the Start here page did at 5.56.0
+New in this integration: `tests/test_starthere_parity.py` (54 checks) — everything the Start here page did at 5.56.0
 (a file without a project, what kind it is, the graphs that fit, picking one, removing a file, projects: several at
 once, tags in Your graphs, search, missing files, rename, close, delete) checked on the new page, plus the header
 buttons and tooltips.
@@ -41,8 +41,8 @@ buttons and tooltips.
 * **Commands and menus.** The merged window was compared with the window of 5.56.0: no entry of the File (30), View (45),
   Tools (27) or Help (9) menus is missing, none of the 33 keyboard shortcuts, and no command of the command search
   other than five buttons of the old Start here page that have a renamed equivalent on the new one.
-* **The app's own update check** (`self_update.check`, merged program against 5.56.0): the same Origin commands for
-  **10 of 10** example files; every program file of 5.56.0 is present.
+* **The app's own update check** (`self_update.check`): the same Origin commands for **10 of 10** example files against
+  5.56.0 (the merge) and against 5.57.0 (this version); every program file of both is present.
 
 ## All graph types
 
@@ -61,6 +61,22 @@ nowhere in it). Thirteen files — diffraction scans, a fit export, a peak list,
 with its own observed, calculated and background columns over its real 2θ range; the peak list is no longer offered the
 scan templates. The longest stop of the window while they were read was 0.8 s (12–20 s before the changes described in
 `IMPLEMENTATION_AND_TESTS.md`).
+
+## 5.57.1: the hang and the empty Origin graphs
+
+* **Where the window stopped.** A scripted session on the owner's project (thirteen files, a 3 MB workbook of 50 sheets)
+  did each everyday action and recorded the longest time the window could not respond, with what it was doing then.
+  In 5.57.0 every stop of more than a second was in one place: `paper_figures.load_sheets`, the whole workbook read
+  again from the disk for each drawing of one of its figures. Same computer, before -> after: clicking a figure of the
+  workbook 5.3-6.3 s -> 0.3-0.5 s; switching one panel's zoom 10.2 s -> 0.9 s; Undo 10.0 s -> 1.0 s; opening
+  Calculations 10.5 s -> 0.06 s; adding the files 68 s -> 30 s (background). No other action stops the window for more
+  than 0.6 s in either version. (`tests/test_workbench_core.py` WorkbookCacheTests; `tests/test_figures_general.py`
+  "drawn once".)
+* **Empty graphs in Origin.** The owner's screenshot showed the layers of a workbook figure at Origin's default axes
+  with no curves. The commands the app sends were followed one by one, keeping track of which window is active: in
+  5.57.0, 224 plot, axis and legend commands of that figure were sent while a data workbook was the active window;
+  now none (`tests/test_opstudio.py`, two checks, and the shipped scripts). **This is a check of the commands, not a
+  run in Origin**: it has to be confirmed once in Origin on the owner's computer.
 
 ## Not verified
 

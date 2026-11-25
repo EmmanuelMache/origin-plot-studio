@@ -1,4 +1,4 @@
-# Origin Plot Studio 5.57.0 — the project workbench, merged into the app
+# Origin Plot Studio 5.57 — the project workbench, merged into the app
 
 5.57.0 is the app you had at 5.56.0 with the three-column **Start here** (Projects → Inspect data → Choose a graph), a
 **Workbook** section and a lighter header from the project-workbench update. The update was written against 5.55.7 and
@@ -19,8 +19,11 @@ was merged, not copied over: everything the app did before is still there, and w
 ## Start here
 
 * **A file without a project.** Add or drop a file and it is read, shown and offered its graphs. No project is asked
-  for. (The update had made a project compulsory.)
-* **Projects.** *New project* names one; add files to it, make folders, move files into them, rename and reorder from the
+  for. It is listed on the left under **Files not in a project**; drag it onto a project to make it part of one.
+* **A whole folder.** *Add folder…* (or drop a folder on the page) brings in every data file in it, its sub-folders too,
+  shown as folders the way they are on the disk. It goes into the selected project; with none selected, a project named
+  after the folder is made.
+* **Projects.** *New project* names one; add files to it, make folders (••• ▸ *New empty folder…*), move files into them, rename and reorder from the
   ••• menu or the right-click menu. Removing anything from a project never deletes a file on the disk.
 * **Tick, then open.** Click a project, folder or file to tick it; click again to untick (the small box works too). The line under the tree says what is ticked, and the highlighted file is the one shown in Inspect data. **Open selected**
   reads them and **shows them in Workspace** when they are read. **Open Workspace** does the same for what is ticked,

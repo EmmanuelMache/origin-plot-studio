@@ -554,7 +554,8 @@ class TemplatePage(QWidget):
         import pandas as pd
         D = self.ops.data; low = path.lower(); name = os.path.splitext(os.path.basename(path))[0]
         if low.endswith((".xlsx", ".xlsm", ".xls")):
-            book = pd.read_excel(path, sheet_name=None)
+            import workbook_cache
+            book = workbook_cache.sheets(path)
             out = {s: df for s, df in book.items() if df.shape[1] >= 1 and len(df)}
             if not out: raise ValueError("no sheet with data")
             return {"name": name, "sheets": out}

@@ -130,6 +130,10 @@ def install_header(w,controller):
     for action in w.file_btn.menu().actions():
         if action.text().split('\t')[0].strip().startswith('Add data files'):
             action.triggered.disconnect(); action.triggered.connect(sh.add_files)
+            actions = w.file_btn.menu().actions(); after = actions[actions.index(action) + 1] if actions.index(action) + 1 < len(actions) else None
+            folder_action = QAction('Add a folder of data files…', w); folder_action.triggered.connect(lambda _=False: (w.go(6), sh.add_disk_folder()))
+            folder_action.setToolTip('Every data file in a folder, its sub-folders too, as a folder of the project')
+            w.file_btn.menu().insertAction(after, folder_action)
         if action.text().split('\t')[0].strip() == 'Save': action.setText('Save project\tCtrl+S')
         if action.text().split('\t')[0].strip()=='New project':
             action.triggered.disconnect(); action.triggered.connect(sh.new_project)
@@ -140,7 +144,7 @@ def install_header(w,controller):
 PAGE_TIPS = {
     '+  New project': 'New project – Name a project, then add its data files. A project keeps files, folders, data edits and graphs together',
     'Open project…': 'Open project – Import a portable project file (.opsproject) with its data copies and saved state; it opens as a project of its own',
-    'New folder': 'New folder – Make a folder inside the selected project to group its files. Folders are the app\'s own: files on the disk are not moved',
+    'Add folder…': 'Add folder – Bring in every data file of a folder on the disk, its sub-folders too, under a folder of the same name. Into the selected project; with none selected, a project named after the folder is made. The files are only read, never moved',
     'Save': 'Save – Save the selected project: its files and folders, data edits, column mappings and graph settings',
     'Close': 'Close – Save the selected project and take its graphs out of Workspace. It stays in this list to open again',
     'Remove': 'Remove – Remove the selected projects, folders or files from the list. The files on the disk are never deleted',

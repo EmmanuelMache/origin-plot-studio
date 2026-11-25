@@ -154,9 +154,22 @@ f_off_a = sp.composed_panel_fmt(frF, {"panels": {"(a)": {"zoom": False}}}); g1 =
 a1_has_inset = bool(next(a for a in g1.axes if getattr(a, "_pf_panel_key", None) == "(a)" and any(l_.get_color() == "#CC0000" for l_ in a.get_lines())).child_axes)
 b1_has_inset = bool(main_ax(g1, "(b)").child_axes)
 check("one panel's zoomed part can be switched off without touching the other panel's", not a1_has_inset and b1_has_inset, (a1_has_inset, b1_has_inset))
-f_line_b = sp.composed_panel_fmt(frF, {"panels": {"(b)": {"obs_style": "line"}}}); g2 = pf.draw_figure(f_line_b, bkF, {})
+f_dots_b = sp.composed_panel_fmt(frF, {"panels": {"(b)": {"obs_style": "dots"}}}); g2 = pf.draw_figure(f_dots_b, bkF, {})
 a2_dots = any(l_.get_marker() == "o" for l_ in main_ax(g2, "(a)").get_lines()); b2_dots = any(l_.get_marker() == "o" for l_ in main_ax(g2, "(b)").get_lines())
-check("one panel's observed curve can be drawn as a line instead of dots, the other panel keeps its dots", a2_dots and not b2_dots, (a2_dots, b2_dots))
+check("a fit is drawn with the observed curve as a line (no dots); one panel can be given dots, the other keeps its line", not a2_dots and b2_dots, (a2_dots, b2_dots))
+calc = lambda ax: next(l_ for l_ in ax.get_lines() if l_.get_color() == "#CC0000")
+check("over an observed line the calculated curve is dashed (two lines of different kinds); over dots it is solid", calc(main_ax(g2, "(a)")).get_linestyle() == "--" and calc(main_ax(g2, "(b)")).get_linestyle() == "-", (calc(main_ax(g2, "(a)")).get_linestyle(), calc(main_ax(g2, "(b)")).get_linestyle()))
+import paper_figures as _pfc
+_n = [0]; _real_draw = _pfc.draw_figure
+def _counting(*a, **k): _n[0] += 1; return _real_draw(*a, **k)
+_pfc.draw_figure = _counting
+try:
+    _spec = dict(composed=("", {}, frF), _working_sheets={"P": profF}); _built = sp.composed_draw(_spec); sp._composed_slot(_spec)[1] = _built      # as building the item does
+    _a = sp.preview_figure(_spec); _b = sp.preview_figure(_spec); _shown = _n[0]
+    _other = dict(_spec); sp.preview_figure(_other)
+finally: _pfc.draw_figure = _real_draw
+check("a figure of a workbook is drawn once when it is built - showing it, and showing it again, draws nothing more (it used to be drawn again each time)", _shown == 1 and len(_a.axes) == 1 and len(_b.axes) == 1, _shown)
+check("... and a changed figure (a new build) is drawn afresh, never taken from what was kept", _n[0] == 2, _n[0])
 f_nodiff_a = sp.composed_panel_fmt(frF, {"panels": {"(a)": {"show_diff": False}}}); g3 = pf.draw_figure(f_nodiff_a, bkF, {})
 a3_rows = len([a for a in g3.axes if getattr(a, "_pf_panel_key", None) == "(a)"]); b3_rows = len([a for a in g3.axes if getattr(a, "_pf_panel_key", None) == "(b)"])
 check("one panel's difference row can be left out, the other panel still has its own", a3_rows < b3_rows, (a3_rows, b3_rows))

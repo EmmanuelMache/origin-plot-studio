@@ -1,4 +1,4 @@
-# Implementation and validation — 5.57.0
+# Implementation and validation — 5.57 (5.57.0 the merge, 5.57.1 the fixes after it)
 
 ## Scope
 
@@ -154,7 +154,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 | Items | What | How it was checked | Result |
 |---|---|---|---|
 | 1–7 | Identification from the contents; mixed formats; each input on its own | `tests/test_workbench_core.py` (DetectionTests, FitMappingTests: 2θ / 2Theta / 2-theta / Two theta / 2ϑ, headerless, decimal comma, metadata lines, fit and peak-list forms, other kinds). **Also run on the owner's own instrument files** (diffraction scans, a fit export, a peak list, thermal runs, an infrared spectrum, a 50-sheet workbook; kept outside the repository): each is identified as what it is | pass |
-| 8–35 | Projects, folders, selection, opening, saving, closing, import / export, missing files, order, source identity | `tests/test_workbench_core.py` (ProjectTests), `tests/test_workbench_ui.py` (tests 01, 04–10), `tests/test_starthere_parity.py` (43 checks: everything Start here did at 5.56.0, on the new page) | pass |
+| 8–35 | Projects, folders, selection, opening, saving, closing, import / export, missing files, order, source identity | `tests/test_workbench_core.py` (ProjectTests), `tests/test_workbench_ui.py` (tests 01, 04–10), `tests/test_starthere_parity.py` (54 checks: everything Start here did at 5.56.0, on the new page) | pass |
 | 36–45 | Workbook: working copies, columns, order, merges, export; Origin output | `tests/test_workbench_core.py` (MergeTests), `tests/test_workbench_ui.py` (04, 14), `tests/test_opstudio.py` (Origin dry run of all 122 templates) | pass; Origin only as dry run |
 | 46–64 | Per-graph and per-panel controls | `tests/test_workbench_ui.py` (03, 09), `tests/test_highscore.py` and `tests/test_edit_graph.py` (composed figures, Sample pages), `tools/audit_graph_operations.py` → `docs/GRAPH_OPERATIONS_AUDIT.md` (every control tried on every one of the 148 graph types) | pass; see the audit for what applies where |
 | 65–94, 104–110 | Header, navigation, feedback, empty states, tooltips, layout at 1366×768 … 1920×1080 | `tests/test_session_basics.py` (order of the header, nothing clipped at two sizes, a tooltip on every visible button of every section), `tests/test_shell_layout.py`, `tests/test_workbench_ui.py` (12), screenshots at 1366×768, 1500×900, 1600×960 and 1920×1080 looked at by eye | pass. Items 78–81 (short instructions, hierarchy, spacing, colours) are judgements: by eye only |
@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 35 test files: 1 067 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
+* All 35 test files: 1 086 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -185,6 +185,14 @@ Found by running it with real PySide6 and the whole existing test suite (the upd
 
 1. A pattern-and-fit table was read by column position: with a leading `No.` column the row number was drawn as 2θ, the position as "observed" and the observed curve as "calculated"; a background column after the calculated one was drawn as the difference. The columns are now taken by their names; unnamed columns keep their order (`FitMappingTests`). This was found with the owner's own fit export.
 2. The window stopped while files were added: every file ticked re-ranked all 122 templates, each ranking rebuilt every template's example data and read every ticked file. Now one ranking, from the first ticked file, with the examples made once in the background; files are read on the reader's thread. Ten files: 3.6 s of stopped window before, 0.5 s now. The owner's thirteen files with the 50-sheet workbook: longest stop 0.8 s (12–20 s before these changes).
+
+### Found after 5.57.0 was installed, fixed in 5.57.1
+
+1. **Figures of a workbook, and "Draw in Origin like this", were empty in Origin.** `opstudio.origin.send` imported the data of each curve and plotted it at once; the import leaves the workbook as Origin's active window, so the plot and every later layer command were refused. It now writes the commands down and sends them in `Driver.draw_spec`'s order (workbooks, graph, layers, the rest) and calls `Driver.check`. Not verified in Origin itself.
+2. **The window stopped for 5-10 s at every click on, or change of, a figure of a workbook**: each drawing re-read the whole workbook. `workbook_cache.sheets` parses it once per version of the file; a changed figure is drawn once and its picture kept (`smart_plots._composed_slot`).
+3. A large file clicked in the project list was read on the window's thread (`Workbench.ready` reads it in the background); closing the app while files were being read waited up to 30 s and could abort ("QThread: Destroyed while thread is still running").
+4. A file added without a project was shown only in a two-row list in the middle column; it is now a row of the project tree ("Files not in a project").
+5. By request: every graph of a fit draws the observed curve as a solid line and the calculated one dashed over it (dots on request); "Add folder…" brings in a folder of the disk with its sub-folders.
 
 ## Interpretation details
 

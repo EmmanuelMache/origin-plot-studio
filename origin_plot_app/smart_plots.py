@@ -6,7 +6,7 @@ in Origin (see origin_plot_app.py).
 
 Only numpy and pandas are needed for the analysis; matplotlib only for the preview.
 """
-import os, sys, re, io, csv, math, json, hashlib, datetime
+import os, sys, re, io, csv, math, json, hashlib, datetime, collections
 import numpy as np
 import pandas as pd
 import xrd_smart as xs
@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.57.0"
+VERSION = "5.57.1"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -749,8 +749,13 @@ def place_labels(labels, x, y, x0, x1, y0, y1, vertical, blocked=(), hscale=1.0,
     return sorted(out), top
 
 # ============================================================================= spec helpers
-def curve(label, x, y, colour, kind="line", width=None):
-    return dict(label=label, x=np.asarray(x, float), y=np.asarray(y, float), colour=colour, kind=kind, width=width)
+CALC_DASH = (0, (4.0, 1.6))      # a calculated (fitted) curve is a dashed line over the solid observed one: two lines of different kinds, both seen where they lie on each other
+
+def curve(label, x, y, colour, kind="line", width=None, dash=False):
+    """dash: draw the line dashed (the calculated curve of a fit). The key is only there when it is set."""
+    c = dict(label=label, x=np.asarray(x, float), y=np.asarray(y, float), colour=colour, kind=kind, width=width)
+    if dash: c["dash"] = True
+    return c
 
 def panel(yname, curves, weight=1.0, labels=(), vlines=(), ylim=None, vertical=True, legend=True):
     return dict(yname=yname, curves=curves, weight=weight, labels=list(labels), vlines=list(vlines), ylim=ylim, vertical=vertical, legend=legend)
@@ -1258,10 +1263,10 @@ def build_fit(d, opt, given):
     disp = d.get("_display") or d["name"]
     brb = not str(opt.get("fit_colours") or FIT_COLOURS[0]).startswith("HighScore")           # observed black, calculated red, difference blue
     if hs:
-        cs = [curve("Observed", x, yo, OBS_COL if brb else (255, 0, 0)), curve("Calculated", x, yc, CALC_COL if brb else (0, 0, 255))]      # calculated on top
+        cs = [curve("Observed", x, yo, OBS_COL if brb else (255, 0, 0)), curve("Calculated", x, yc, CALC_COL if brb else (0, 0, 255), dash=True)]      # calculated on top, dashed
         yname = "Counts per second" if cps else "Counts"; xn = f"Position [°2θ] ({tube_name(lam)})"
     else:
-        cs = [curve("Ycalc", x, yc, (200, 0, 0)), curve("Yobs", x, yo, (0, 0, 0))]                 # paper: calculated first, measured black on top so red never hides it
+        cs = [curve("Yobs", x, yo, (0, 0, 0)), curve("Ycalc", x, yc, (200, 0, 0), dash=True)]      # paper: measured as a solid black line, calculated dashed red over it - the black shows through the gaps, so neither hides the other
         yname = "Intensity (cps)" if cps else "Intensity (counts)"; xn = "2θ (°)" + (f", λ = {lam:.4f} Å" if abs(lam - 1.5406) > 0.002 else "")
     if hasb and str(opt.get("xrd_background") or "").startswith("Draw"): cs.append(curve("Background", x, yb, (0, 128, 0)))
     named = str(opt.get("label_text") or LABEL_TEXT[0]).startswith("Phase names"); lab0 = lab
@@ -2424,7 +2429,7 @@ class Item:
         if getattr(self, "_working_sheets", None): sp_["_working_sheets"] = self._working_sheets
         self.spec = sp_; self.results = None; self.extra = {}; self.warnings = []
         try:
-            fig = composed_draw(sp_); self.warnings = list(getattr(fig, "_pf_notes", []))
+            fig = composed_draw(sp_); self.warnings = list(getattr(fig, "_pf_notes", [])); _composed_slot(sp_)[1] = fig      # the window shows this very drawing (preview_figure)
         except Exception as e:
             self.warnings = [f"the figure could not be drawn: {type(e).__name__}: {str(e)[:160]}"]
         used = sorted({str(v) for pn in f.get("panels") or [] for k, v in pn.items() if k in ("sheet", "profile", "ticks", "zoom")} |
@@ -2620,6 +2625,22 @@ def composed_panel_value(it, key, field, default):
     pn = next((p for p in f.get("panels") or [] if composed_panel_key(p) == key), {})
     ov = ((getattr(it, "fmt", None) or {}).get("panels") or {}).get(key) or {}
     return ov[field] if field in ov else pn.get(field, default)
+
+
+_COMPOSED_KEEP = collections.OrderedDict()      # id(spec) -> [spec, figure drawn when it was built, its picture for the window]
+
+
+def _composed_slot(spec):
+    """What is kept for one built figure of a workbook. Building it draws it (for its notes) and showing it draws it
+    again and turns it into a picture: about a second each for a figure of several fits. The figure of the build is
+    handed to the first showing, and the picture is kept - so a change draws the figure once, and clicking a figure
+    that has not changed shows it at once. A change always builds a new spec, so nothing stale is ever shown."""
+    k = id(spec); e = _COMPOSED_KEEP.get(k)
+    if e is None or e[0] is not spec:
+        e = [spec, None, None]; _COMPOSED_KEEP[k] = e
+        while len(_COMPOSED_KEEP) > 8: _COMPOSED_KEEP.popitem(last=False)
+    else: _COMPOSED_KEEP.move_to_end(k)
+    return e
 
 
 def composed_draw(spec):
@@ -3030,7 +3051,7 @@ class Combined:
                 ob = next((c for c in cv if c["label"] in ("Observed", "Yobs")), cv[0]); ca = next((c for c in cv if c["label"] in ("Calculated", "Ycalc")), cv[-1])
                 top = float(np.nanmax(ob["y"])) or 1.0; x = ob["x"]; yo = ob["y"] / top; yc = np.interp(x, ca["x"], ca["y"]) / top; dif = yo - yc
                 dm = float(np.nanmax(np.abs(dif))) or 0.01; dbase = -0.22 - dm
-                cs = [curve("Observed", x, yo, (0, 0, 0)), curve("Calculated", x, yc, (224, 0, 0)), curve("Difference", x, dif + dbase, (0, 0, 224))]
+                cs = [curve("Observed", x, yo, (0, 0, 0)), curve("Calculated", x, yc, (224, 0, 0), dash=True), curve("Difference", x, dif + dbase, (0, 0, 224))]
                 allab = _codelabs(m.spec["panels"][0]) or []; gp = m.det.get("_given_pos")
                 if gp: allab = [l_ for l_ in allab if any(abs(l_[0] - g_) < 1e-9 for g_ in gp)]          # your own (checked) labels; the extra ones stay in the single graph
                 lab_ = [(a_, t_, float(np.interp(a_, x, np.maximum(yo, yc)))) for a_, t_, _ in allab]
@@ -3068,7 +3089,7 @@ class Combined:
                 cv = m.spec["panels"][0]["curves"]
                 ob = next((c for c in cv if c["label"] in ("Observed", "Yobs")), cv[0]); ca = next((c for c in cv if c["label"] in ("Calculated", "Ycalc")), cv[-1])
                 top = float(np.nanmax(ob["y"])) or 1.0; x = ob["x"]; yo = ob["y"] / top; yc = np.interp(x, ca["x"], ca["y"]) / top; dif = yo - yc
-                cs = [curve("Observed", x, yo, HS_OBS), curve("Calculated", x, yc, HS_CALC)]
+                cs = [curve("Observed", x, yo, HS_OBS), curve("Calculated", x, yc, HS_CALC, dash=True)]
                 pl_ = m.det.get("_peaklist"); codes = list(dict.fromkeys(pl_["Code"])) if pl_ is not None else []
                 t0 = min(0.0, float(np.nanmin(yo))) - 0.06; pitch = 0.075
                 for r_, c_ in enumerate(codes):
@@ -3170,7 +3191,7 @@ class SamplePage(Combined):
         if rng: pa["inset"] = dict(xlim=rng, labels=ilabs or labs, max_lift=0.5, max_side=0.2)
         A = finish(dict(common, title=nm, panels=[pa]))
         dbase = -(0.10 * top + dm)
-        pb = panel(ylab, [curve("Observed", x, yo, (0, 0, 0)), curve("Calculated", x, yc, (224, 0, 0)), curve("Difference", x, dif + dbase, (0, 0, 224))], legend=False)
+        pb = panel(ylab, [curve("Observed", x, yo, (0, 0, 0)), curve("Calculated", x, yc, (224, 0, 0), dash=True), curve("Difference", x, dif + dbase, (0, 0, 224))], legend=False)
         pb["ylim"] = None; pb["lab_pt"] = lp; pb["corner"] = [nm] + ([rw.replace("Rwp", "R_wp")] if rw else [])
         if rng: pb["inset"] = dict(xlim=rng, labels=[])
         B = finish(dict(common, title=nm, panels=[pb], legend_row=[((0, 0, 0), "Observed"), ((224, 0, 0), "Calculated"), ((0, 0, 224), "Difference")]))
@@ -3573,7 +3594,7 @@ def _draw(spec, fig, cell, curve_w=1.5, axis_w=1.5, fs=10.0, title=True, letter=
             elif c["kind"] == "bar": ax.bar(c["x"], c["y"], width=c.get("barw", 0.8), color=f(c["colour"]), edgecolor="black", linewidth=0.5 * axis_w, label=c["label"])
             elif c["kind"] == "scatter": ax.plot(c["x"], c["y"], "o", ms=3, mfc="none", mew=0.7, color=f(c["colour"]), label=c["label"])
             elif c["kind"] == "linesymbol": ax.plot(c["x"], c["y"], "o-", ms=5, lw=lw, color=f(c["colour"]), label=c["label"])
-            else: ax.plot(c["x"], c["y"], "-", lw=lw, color=f(c["colour"]), label=c["label"])
+            else: ax.plot(c["x"], c["y"], linestyle=CALC_DASH if c.get("dash") else "-", lw=lw, color=f(c["colour"]), label=c["label"])
         for sx, sy, col in p.get("segs", []): ax.plot(sx, sy, "-", lw=max(0.8, curve_w / 2), color=f(col))
         if p.get("contour"):                                       # the value z as colours between the measured points
             cn = p["contour"]
@@ -3590,7 +3611,7 @@ def _draw(spec, fig, cell, curve_w=1.5, axis_w=1.5, fs=10.0, title=True, letter=
         ins = p.get("inset")
         if ins and ins.get("curves"):                              # zoomed inset: the same curves in a narrow range, on their own scale
             iax = ax.inset_axes(ins["rect"]); isp = ins["ylim"][1] - ins["ylim"][0]
-            for c in ins["curves"]: iax.plot(c["x"], c["y"], "-", lw=curve_w * (4 / 3 if c["width"] == "obs" else 1), color=f(c["colour"]), label=c["label"])
+            for c in ins["curves"]: iax.plot(c["x"], c["y"], linestyle=CALC_DASH if c.get("dash") else "-", lw=curve_w * (4 / 3 if c["width"] == "obs" else 1), color=f(c["colour"]), label=c["label"])
             for pos, py, txt, lx, ly in ins["placed"]:
                 iax.text(lx, ly, _lb(txt), rotation=90 if ins["vertical"] else 0, ha="center", va="bottom", fontsize=max(5.5, small * ins["lab_pt"] / 15.0), fontweight="bold", color=f(NAVY))
                 lead(iax, pos, py, lx, ly, isp, getattr(txt, "beside", False))
@@ -3705,9 +3726,13 @@ def preview_figure(spec, fig=None, curve_w=1.5, axis_w=1.5, keep_aspect=False):
     if spec.get("composed"):                                   # a whole figure of a workbook of figures: shown exactly as it is saved
         fig = fig or Figure(figsize=(7.2, 5.2), dpi=100); fig.clear(); _engine(fig, "none")
         try:
-            src = composed_draw(spec); buf = io.BytesIO(); src.savefig(buf, format="png", dpi=150, facecolor="white"); buf.seek(0)
-            import matplotlib.image as mpimg
-            img = mpimg.imread(buf, format="png"); W, H = fig.get_size_inches(); r = (img.shape[1] / img.shape[0]) / (W / H)
+            slot = _composed_slot(spec)
+            if slot[2] is None:
+                src = slot[1] if slot[1] is not None else composed_draw(spec); slot[1] = None
+                buf = io.BytesIO(); src.savefig(buf, format="png", dpi=150, facecolor="white"); buf.seek(0)
+                import matplotlib.image as mpimg
+                slot[2] = (mpimg.imread(buf, format="png") * 255).round().astype(np.uint8)
+            img = slot[2]; W, H = fig.get_size_inches(); r = (img.shape[1] / img.shape[0]) / (W / H)
             w_, h_ = (1.0, 1.0 / r) if r >= 1 else (r, 1.0)
             ax = fig.add_axes([(1 - w_) / 2, (1 - h_) / 2, w_, h_]); ax.imshow(img, interpolation="antialiased"); ax.axis("off")
         except Exception as e:

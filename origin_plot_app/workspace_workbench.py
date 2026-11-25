@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import threading
 from pathlib import Path
 import uuid
 import pandas as pd
@@ -72,9 +73,8 @@ class Workbench:
                     try: OD._example(self.tp.api.resolve(row['id'])[0])
                     except Exception: pass
             except Exception: pass
-        import threading
         QTimer.singleShot(1200, lambda: threading.Thread(target=warm_examples, daemon=True, name='ops-template-examples').start())
-        self.ws._warm_tables = self.tp.raw_tables              # read by the file reader's own thread, so the window does not stop to read each file a second time
+        self._reading = set(); self._read_lock = threading.Lock()
         original_combos = self.tp.combos
         def combos():
             out = original_combos()
@@ -142,6 +142,33 @@ class Workbench:
         if key not in self.preferences:
             self.preferences[key] = copy.deepcopy(((WP.get(slug) or {}).get('file_settings') or {}).get(path) or {})
         return self.preferences[key]
+
+    # A file's tables are read once (tp.tables). For a large file that takes seconds, so it is done on a thread of its
+    # own and the pages show 'Reading this file…' until it is there; a small file is simply read.
+    BIG_FILE = 1_500_000; BIG_EXCEL = 250_000
+
+    def ready(self, path):
+        """True when the tables of this file can be used without stopping the window; otherwise its reading is started
+        in the background (if it is not running yet) and False is returned - ask again shortly."""
+        if path in self.tp.tables: return True
+        try: size = os.path.getsize(path)
+        except OSError: return True                                  # not there: reading it gives the message for that at once
+        if size < (self.BIG_EXCEL if path.lower().endswith(('.xlsx', '.xlsm', '.xls')) else self.BIG_FILE): return True
+        self.read_in_background([path]); return False
+
+    def read_in_background(self, paths):
+        todo = []
+        with self._read_lock:
+            for p in paths:
+                if p not in self.tp.tables and p not in self._reading: self._reading.add(p); todo.append(p)
+        if not todo: return
+        def work():
+            for p in todo:
+                try: self.tp.raw_tables(p)                           # keeps the tables, or the reason they could not be read
+                except Exception: pass
+                finally:
+                    with self._read_lock: self._reading.discard(p)
+        threading.Thread(target=work, daemon=True, name='ops-read-tables').start()
 
     def has_working_state(self, path, slug=None):
         """Does this input have anything of its own saved over the source file - edited cells, a chosen sheet, a column

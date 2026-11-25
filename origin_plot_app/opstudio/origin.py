@@ -167,7 +167,27 @@ def read_figure(fig):
 
 
 def send(driver, fig, name, picture_dir=None):
-    """Build the figure in Origin through the app's driver (real Origin or the dry-run mock). Returns (graph window, differences)."""
+    """Build the figure in Origin through the app's driver (real Origin or the dry-run mock). Returns (graph window, differences).
+
+    The commands are first written down and then sent in the driver's proven order - every workbook, then the graph
+    window, then all its layers, then curves, axes and texts layer by layer - the order the app's ordinary graphs have
+    always used (Driver.draw_spec). Importing a workbook makes it Origin's active window: when the curves were plotted
+    straight after each import, the plot command and every axis command after it went to the workbook, Origin refused
+    them, and the graph came out with empty layers at their default 0-10 axes."""
+    d = driver; ordered = hasattr(d, "rec") and getattr(d, "rec", None) is None and hasattr(d, "make_book")
+    if not ordered: return _build(d, fig, name)
+    d.rec = {"books": [], "graph": [], "layers": [], "rest": []}; d.plan = {}; d.axplan = {}
+    try: g, diff = _build(d, fig, name)
+    finally: rec = d.rec; d.rec = None
+    for bucket in ("books", "graph", "layers", "rest"):
+        for cmd, soft in rec[bucket]:
+            if isinstance(cmd, tuple): d.make_book(cmd[1])
+            else: (d.soft if soft else d.ex)(cmd)
+    if hasattr(d, "check"): d.check(g, name)          # Origin is asked how many curves each layer holds; an empty one is filled a second way
+    return g, diff
+
+
+def _build(driver, fig, name):
     R = read_figure(fig); d = driver; W, H = R["page"]; diff = list(R["differences"])
     g = d.graph(name, round(W, 3), round(H, 3))
     ex, soft = d.ex, d.soft
@@ -246,7 +266,7 @@ def send(driver, fig, name, picture_dir=None):
             yl = y0 + lg["y"] * (y1 - y0) if not L["ylog"] else 10 ** (np.log10(y0) + lg["y"] * (np.log10(y1) - np.log10(y0)))
             ex("legend -r;"); ex('legend.text$="%s";' % "\\n".join(lines)); ex(f"legend.fsize={int(round(lg['pt']))};"); soft(f"legend.background={1 if lg['frame'] else 0};")
             ex(f"legend.x={xl:.6g}+legend.dx/2;"); ex(f"legend.y={yl:.6g}-legend.dy/2;")
-        d.checks.append((name, i, n, d.count_plots(g, i), "")) if hasattr(d, "checks") else None
+        if hasattr(d, "checks") and getattr(d, "rec", None) is None: d.checks.append((name, i, n, d.count_plots(g, i), ""))   # written down first (send): counted after it is sent, by Driver.check
     for t in R["fig_texts"]:                                                   # texts of the page (panel letters of a combined figure): attached to the nearest layer
         k = min(range(len(R["layers"])), key=lambda j: abs(R["layers"][j]["left"] / 100 - t["x"]) + abs((1 - R["layers"][j]["top"] / 100) - t["y"]))
         L = R["layers"][k]; fx = (t["x"] * 100 - L["left"]) / L["width"]; fy = ((1 - t["y"]) * 100 - L["top"]) / L["height"]

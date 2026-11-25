@@ -174,6 +174,19 @@ ncur = sum(len(L["curves"]) for L in R["layers"]); check("Origin: every curve go
 check("Origin: shaded zone sent, drawn before the curves", any(L["zones"] for L in R["layers"]) and J.index("layer -i204") < J.index("layer -i200"))
 check("Origin: texts (sample names) and panel labels are sent with the point size of the style", 'text$="Sample A"' in J and "\\b(" in J and f".fsize={int(round(fz.axes[0].title.get_fontsize()))};" in J)
 check("Origin: export at the preset size and dpi is asked for", "tr.Width:=18.300" in J and "tr1.Resolution:=600" in J)
+def wrong_window(cmds, graph):
+    """Commands that act on a graph (plot, layer, axis, legend, text position) sent while another window is Origin's active one."""
+    import re as _re
+    active = None; bad = []
+    for c_ in cmds:
+        for part in [x.strip() for x in c_.split(";") if x.strip()]:
+            m_ = _re.match(r"win -a (\S+)", part) or _re.match(r"win -t \w+ \w+ (\S+)", part)
+            if m_: active = m_.group(1); continue
+            if part.startswith(("layer", "page.active", "legend", "label -r", "xb.", "yl.")) and active != graph: bad.append((active, part[:40]))
+    return bad
+imports = [i for i, c in enumerate(C) if "impASC" in c]; made = next(i for i, c in enumerate(C) if c.startswith("win -t plot"))
+check("Origin: every workbook is made before the graph window (importing one makes it the active window)", imports and max(imports) < made, (max(imports), made))
+check("Origin: no plot, axis or legend command is sent while a workbook is the active window (the graph came out empty in Origin)", wrong_window(C, r["graph"]) == [], wrong_window(C, r["graph"])[:3])
 check("Origin: the complete script is written beside the project (.ogs)", os.path.isfile(os.path.splitext(r["project"])[0] + ".ogs"))
 fr, _ = api.draw("xrd_stacked_offset", sets["xy"], switches={"revx": True, "logy": True}); rr = O.draw_in_origin(mk, fr, "fileA", "rev", od); Jr = "\n".join(rr["commands"])
 a0, a1 = fr.axes[0].get_xlim(); check("Origin: reversed and log axes are sent as drawn", a0 > a1 and f"layer.x.from={a0:.8g}; layer.x.to={a1:.8g};" in Jr and "layer.y.type=2;" in Jr)
@@ -187,5 +200,7 @@ for tid in opstudio.REGISTRY:
     try: O.send(mk(os.path.join(od, "all")), api.demo_figure(tid), tid); n_ok += 1
     except Exception as e: bad.append((tid, repr(e)[:60]))
 check("Origin: all installed templates go through the driver without an error", n_ok == 122, bad[:3])
+ogs = open(os.path.join(LIB, "origin", "rietveld_fit_diff_ticks.ogs"), encoding="utf-8").read().splitlines()
+check("the shipped Origin scripts make their workbooks first too", max(i for i, l in enumerate(ogs) if "impASC" in l) < next(i for i, l in enumerate(ogs) if l.startswith("win -t plot")))
 check("every template has its Origin script and names it in its JSON (origin_template)", all(os.path.isfile(os.path.join(LIB, "origin", t + ".ogs")) for t in opstudio.REGISTRY) and json.load(open(os.path.join(LIB, "templates", "tga_dtg_single.json"), encoding="utf-8"))["origin_template"]["script"] == "origin/tga_dtg_single.ogs")
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)

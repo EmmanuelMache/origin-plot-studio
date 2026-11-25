@@ -32,7 +32,8 @@ ERR = re.compile(r"(^|[^a-z])(sd|std|stdev|err|error|se|sem|±|\+/-|unc|uncertai
 # ============================================================================================ reading
 def load(path):
     if isinstance(path, dict): return {str(k): v for k, v in path.items()}
-    return {str(k): v for k, v in pd.read_excel(path, sheet_name=None).items()}
+    import workbook_cache
+    return {str(k): v for k, v in workbook_cache.sheets(path).items()}
 
 
 def _num(df, c):

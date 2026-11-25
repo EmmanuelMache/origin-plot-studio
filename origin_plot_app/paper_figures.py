@@ -32,7 +32,9 @@ def norm(s):
 def load_sheets(path):
     import pandas as pd
     ext = os.path.splitext(path)[1].lower()
-    if ext in (".xlsx", ".xlsm", ".xls"): return {str(k): v for k, v in pd.read_excel(path, sheet_name=None).items()}
+    if ext in (".xlsx", ".xlsm", ".xls"):
+        import workbook_cache                                    # parsed once per version of the file, not once per figure drawn from it
+        return {str(k): v for k, v in workbook_cache.sheets(path).items()}
     if os.path.isdir(path): return {os.path.splitext(f)[0]: pd.read_csv(os.path.join(path, f)) for f in sorted(os.listdir(path)) if f.lower().endswith(".csv")}
     raise Missing(f"'{os.path.basename(path)}' is not an Excel workbook (.xlsx) or a folder of .csv sheets")
 
@@ -455,8 +457,13 @@ def _ticks(ax, book, sheet, recipe, st, size=None):
     ax.tick_params(axis="y", length=0)
     return n
 
+OBS_STYLE = "line"        # how the observed curve of a fit is drawn unless the recipe or you say otherwise: "line" or "dots"
+CALC_DASH = (0, (4.0, 1.6))  # the calculated curve over an observed LINE is dashed: two lines of different kinds, both seen where they lie on each other
+
+
 def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
-    """One sample: fit (observed as dots, or a plain line with obs_style='line'), difference (off with show_diff=False),
+    """One sample: fit (observed as a plain line with the calculated curve dashed over it, or as dots with obs_style='dots'),
+    difference (off with show_diff=False),
     Bragg tick rows, and the zoomed inset in the fit row. Every setting here can be given per panel (the recipe), or
     changed for one panel only from the graph itself (right click on that panel)."""
     import numpy as np
@@ -476,18 +483,19 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     _r, _c = p.get("cell", [0, 0]); pkey = p.get("letter") or f"{_r},{_c}"           # which panel this is (right click anywhere in it)
     for a in {a1, a2, a3} - {None}: _apply_axes(a, st); a._pf_panel_key = pkey
     curves = []
-    dots = p.get("obs_style", "dots") != "line"
+    dots = p.get("obs_style", OBS_STYLE) != "line"
+    calc_ls = p.get("calc_style") or ("-" if dots else CALC_DASH)
     try:
         x, yo, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("obs", "Yobs_counts"))
         if dots: a1.plot(x, yo, linestyle="none", marker="o", ms=p.get("obs_ms", 1.6), mfc="none", mec="#000000", mew=0.35, zorder=3)
-        else: a1.plot(x, yo, linestyle="-", lw=p.get("obs_lw", 0.5), color="#000000", zorder=3)
+        else: a1.plot(x, yo, linestyle="-", lw=p.get("obs_lw", 0.6), color="#000000", zorder=3)
         curves.append((x, yo))
-        xc, yc, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("calc", "Ycalc_counts")); a1.plot(xc, yc, color="#CC0000", lw=0.7, zorder=4)
+        xc, yc, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("calc", "Ycalc_counts")); a1.plot(xc, yc, color="#CC0000", lw=0.7 if dots else 0.8, linestyle=calc_ls, zorder=4)
         xl = p.get("xlim") or [float(np.nanmin(x)), float(np.nanmax(x))]
         m = (x >= xl[0]) & (x <= xl[1]); a1.set_ylim(0, p.get("ymax_factor", 1.8) * float(np.nanmax(yo[m] if m.any() else yo)))
         if not any(d["label"] == "Observed" for d in drawn):
             drawn.append({"label": "Observed", "color": "#000000", "kind": "markers" if dots else "line", "marker": "o", "filled": False, "ms": 3, "lw": 0.9, "ls": "-"})
-            drawn.append({"label": "Calculated", "color": "#CC0000", "kind": "line", "lw": 0.9, "ls": "-"})
+            drawn.append({"label": "Calculated", "color": "#CC0000", "kind": "line", "lw": 0.9, "ls": "-" if dots else "--"})
     except Missing as e: book.note(f"{tag}: fit not drawn, {e}")
     if show_diff:
         try:
@@ -519,8 +527,8 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     if p.get("zoom"):
         r = p.get("inset", [0.60, 0.50, 0.38, 0.46]); ins = a1.inset_axes(r); _apply_axes(ins, st); ins.tick_params(labelsize=st["tick_label"] - 1.5, length=2); zs = p["zoom"]; zr = p.get("zoom_xlim", [31, 35])
         try:
-            zx, zo, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "observed"}); ins.plot(zx, zo, linestyle="none" if dots else "-", marker="o" if dots else None, lw=p.get("obs_lw", 0.5), ms=1.8, mfc="none", mec="#000000", mew=0.35, color="#000000", zorder=3)
-            zx2, zc, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "calculated"}); ins.plot(zx2, zc, color="#CC0000", lw=0.7, zorder=4)
+            zx, zo, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "observed"}); ins.plot(zx, zo, linestyle="none" if dots else "-", marker="o" if dots else None, lw=p.get("obs_lw", 0.6), ms=1.8, mfc="none", mec="#000000", mew=0.35, color="#000000", zorder=3)
+            zx2, zc, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "calculated"}); ins.plot(zx2, zc, color="#CC0000", lw=0.7 if dots else 0.8, linestyle=calc_ls, zorder=4)
             try: zx3, zd, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "difference"}); ins.plot(zx3, zd, color="#555555", lw=0.5, zorder=2)
             except Missing as e: book.note(f"{tag}: inset without difference, {e}")
         except Missing as e: book.note(f"{tag}: inset not drawn, {e}")
