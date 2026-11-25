@@ -242,7 +242,8 @@ class TemplatePage(QWidget):
                               ("Save as my template…", "Keep the graph on show (template + style + variants + parameters) as a template of your own, with a preview, in your private folder", self.save_my_template),
                               ("Export a template as one file (.opst)…", "One file with the JSON, the preview and the Origin script of one of your templates", self.export_opst),
                               ("Import a template file (.opst)…", "Add a template someone gave you to your private folder", self.import_opst),
-                              ("Build Origin templates (.otpu) for the ticked templates…", "Needs Origin: draws each ticked template in Origin and stores it as an Origin graph template beside the template", self.build_otpu)):
+                              ("Build Origin templates (.otpu) for the ticked templates…", "Needs Origin: draws each ticked template in Origin and stores it as an Origin graph template beside the template", self.build_otpu),
+                              ("Change the Origin output folder…", "Draw in Origin like this / Draw all in Origin like this use this folder from now on without asking again; pick a different one here", self._pick_origin_folder)):
             a = QAction(text, m); a.setToolTip(tip); a.setStatusTip(tip); a.triggered.connect(fn); m.addAction(a)
         m.setToolTipsVisible(True); more.setMenu(m)
         for b in (self.b_open, self.b_origin, self.b_export, self.b_combine, more): h.addWidget(b)
@@ -957,15 +958,25 @@ class TemplatePage(QWidget):
         except Exception as e:
             self.no_origin = str(e); return opa.Driver(folder, log, dry=True)
 
-    def draw_all_in_origin(self, tiles=None):
+    def _pick_origin_folder(self, folder=None):
+        """Ask where {sample}_{template}.opju goes, and remember it: Draw in Origin then goes straight to Origin
+        without asking again, until you come back here (More ▾ > Change the Origin output folder…) to change it."""
+        folder = folder or self._cfg().get("origin_dir") or self.out_folder("Origin")
+        folder = QFileDialog.getExistingDirectory(self, "Folder for the Origin projects ({sample}_{template}.opju)", folder if os.path.isdir(folder) else os.path.dirname(folder))
+        if folder: self._save_cfg({"origin_dir": folder})
+        return folder
+
+    def draw_all_in_origin(self, tiles=None, ask_folder=False):
         from opstudio import origin as O
         tiles = tiles or self.kept()
         if not tiles: self.ws.set_status("Tick the previews to draw in Origin first (or right-click one)."); return []
-        folder = self._cfg().get("origin_dir") or self.out_folder("Origin")
-        if not getattr(self, "silent", False):
-            folder = QFileDialog.getExistingDirectory(self, "Folder for the Origin projects ({sample}_{template}.opju)", folder if os.path.isdir(folder) else os.path.dirname(folder))
+        remembered = self._cfg().get("origin_dir")
+        folder = remembered or self.out_folder("Origin")
+        if not getattr(self, "silent", False) and (ask_folder or not remembered or not os.path.isdir(remembered)):
+            # asked once, the first time (or when you choose "Change the Origin output folder…"): after that, Draw in
+            # Origin goes straight to Origin with the folder you already picked, instead of asking again every time
+            folder = self._pick_origin_folder(folder)
             if not folder: return []
-            self._save_cfg({"origin_dir": folder})
         self.no_origin = ""; out = []; dlg = self._progress(f"Drawing {len(tiles)} graph(s) in Origin …", len(tiles)) if not getattr(self, "silent", False) else None
         for i, t in enumerate(tiles):
             if dlg and dlg.wasCanceled(): break

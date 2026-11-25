@@ -28,7 +28,10 @@ HERE = Path(__file__).resolve().parent
 
 
 # ---------------------------------------------------------------------------------------------- what the sections hold
-XRD_DRAW = [        # drawing comes first; correcting and generating scans is its own group after it
+XRD_DRAW = [        # drawing comes first; correcting and generating scans is its own group after it. Plain re-drawing
+    # (a fit as panels, patterns/fits stacked or overlaid, the zoomed part on/off) moved out of here: it duplicated a
+    # picture already in Analysis > Graphs and templates (and the ribbon, for the zoomed part). What stays here is what
+    # that gallery cannot do on its own: deciding for you across several fits, and the HighScore file-pairing tools.
     ("Decide for me (fits and patterns)", "The ticked XRD graphs, drawn the way the app thinks best: up to 4 Rietveld / HighScore fits as one panel "
      "each (observed, calculated, difference below, and the zoomed part); more than 4 stacked; patterns stacked.", "Group: Decide for me",
      {"do": "xrd_auto"}),
@@ -36,19 +39,6 @@ XRD_DRAW = [        # drawing comes first; correcting and generating scans is it
      "(Assignment, h k l, Height) of that sample are loaded: (a) the pattern with its peaks labelled from the peak list, (b) the fit with the "
      "difference below and the zoomed region of the main peaks. Made by the app as soon as both files are in.", "Your graphs: ★ Sample page",
      {"do": "hs_page"}),
-    ("Zoomed part (inset): on or off", "Include the zoomed part or not, for the ticked XRD graphs (or the one on show): on - the app chooses the "
-     "crowded region of the main peaks, or the 2θ range you type - or off. For every graph at once: Settings > XRD > Zoomed part.",
-     "Ribbon: Graph > Zoomed part", {"do": "zoom"}),
-    ("Fits: observed, calculated, difference (one panel each)", "The ticked fits, one panel each, sharing the 2θ axis: observed, calculated, "
-     "the difference below, the main peaks labelled from the peak list and, up to 4 panels, the zoomed part of each.", "Group: Panels",
-     {"do": "group", "how": "panels", "kind": "Fit"}),
-    ("Fits without the fitted curve, stacked", "Only the observed pattern of each ticked fit, one above the other with an offset (peaks "
-     "labelled from the peak list).", "Group: Stack them", {"do": "group", "how": "stack", "kind": "Fit"}),
-    ("Fits without the fitted curve, overlaid", "Only the observed pattern of each ticked fit, on common axes.", "Group: Overlay them",
-     {"do": "group", "how": "overlay", "kind": "Fit"}),
-    ("XRD patterns stacked", "The ticked XRD patterns one above the other with an offset, peaks labelled.", "Group: Stack them",
-     {"do": "group", "how": "stack", "kind": "XRD"}),
-    ("XRD patterns overlaid", "The ticked XRD patterns on common axes.", "Group: Overlay them", {"do": "group", "how": "overlay", "kind": "XRD"}),
     ("Which peak list goes with which pattern", "A table: every peak list, the pattern or fit it was put with, and why (the same sample "
      "name, or the listed peaks sitting on the pattern's peaks, with the agreement), and the phases that are listed but not drawn.",
      "Details", {"do": "hs_match"}),

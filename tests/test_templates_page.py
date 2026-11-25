@@ -9,7 +9,7 @@ import numpy as np, pandas as pd
 N = [0, 0]
 def check(name, cond, info=""):
     N[0 if cond else 1] += 1; print(("PASS  " if cond else "FAIL  ") + name + (f"   [{info}]" if info != "" else ""))
-from PySide6.QtWidgets import QApplication, QDockWidget
+from PySide6.QtWidgets import QApplication, QDockWidget, QFileDialog, QMessageBox
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtTest import QTest
 app = QApplication.instance() or QApplication(sys.argv)
@@ -147,6 +147,14 @@ od = TMP / "origin"; pg._save_cfg({"origin_dir": str(od)}); res = pg.draw_all_in
 projs = [os.path.basename(r["project"]) for r in res]
 check("check 14b: 'Draw all in Origin like this' makes 6 Origin graphs, each saved as {sample}_{template}.opju", len(res) == 6 and len(set(projs)) == 6 and all(p.endswith(".opju") and p.startswith("Sample_") for p in projs)
       and all(any(c.startswith("SAVE ") for c in r["commands"]) for r in res), projs[:3])
+# once a folder is remembered, Draw in Origin goes straight to Origin and does not ask again every time
+od.mkdir(exist_ok=True); calls = []; real_pick = QFileDialog.getExistingDirectory; real_info = QMessageBox.information
+QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: (calls.append(1), str(od))[1])
+QMessageBox.information = staticmethod(lambda *a, **k: None)          # 'not silent' also pops the finished-drawing summary: no one is there to click it in a test
+pg.silent = False
+try: res2 = pg.draw_all_in_origin(drawn[:1])
+finally: pg.silent = True; QFileDialog.getExistingDirectory = real_pick; QMessageBox.information = real_info
+check("a remembered, still-existing Origin folder is used without asking again", len(calls) == 0 and len(res2) == 1 and res2[0]["project"], calls)
 check("each Origin graph has its worksheets and its complete script beside it", all(os.path.isfile(os.path.splitext(r["project"])[0] + ".ogs") for r in res) and all(len(list((od / "data_for_origin" / os.path.splitext(os.path.basename(r["project"]))[0]).glob("*.csv"))) >= 1 for r in res))
 fig = pg.combine(layout=(2, 3, False))
 import matplotlib.text as mt

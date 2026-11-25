@@ -1104,6 +1104,9 @@ class Workspace(QMainWindow):
         self.list.setTextElideMode(Qt.ElideNone)
         self.list.currentRowChanged.connect(self.show_item)
         self.list.itemChanged.connect(lambda _i: self.update_count())
+        # Delete itself is the "Delete" QAction from workspace_actions (remove_current_or_selected): one shortcut, not two competing ones
+        self.list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list.customContextMenuRequested.connect(self._graphs_list_menu)
         lay.addWidget(self.list, 1)
         gr = QHBoxLayout()
         gr.addWidget(QLabel("Group", objectName="soft"))
@@ -1609,6 +1612,19 @@ class Workspace(QMainWindow):
 
     def ticked(self):
         return [self.items[i] for i in range(self.list.count()) if self.list.item(i).checkState() == Qt.Checked]
+
+    def selected(self):
+        """The highlighted (clicked / Ctrl+Shift-clicked) rows of Your graphs - not the ticked ones."""
+        return [self.items[self.list.row(li)] for li in self.list.selectedItems() if 0 <= self.list.row(li) < len(self.items)]
+
+    def _graphs_list_menu(self, pos):
+        from PySide6.QtWidgets import QMenu
+        if not self.list.itemAt(pos): return
+        n = len(self.selected())
+        m = QMenu(self.list)
+        a = m.addAction(f"Remove {n} selected graph(s) from the list" if n > 1 else "Remove this graph from the list", lambda: self.remove_selected())
+        a.setToolTip("The file stays on the disk; untouched. Undo: Ctrl+Z"); a.setEnabled(n > 0)
+        m.exec(self.list.mapToGlobal(pos))
 
     def filter_graphs(self, text):
         t = text.strip().lower()
