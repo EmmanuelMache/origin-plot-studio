@@ -116,5 +116,32 @@ for it_ in fits:
 r = w.group_ticked("stack"); app.processEvents()
 cur = w.current()
 check("XRD fits selected in the list (Ctrl / Shift + click), Stack: one stacked figure, shown at once in Workspace", r == "grouped" and getattr(cur, "mine", False) and cur.how == "stack" and len(cur.members) == 2 and w.pages.currentIndex() == 0)
+# ---------------------------------------------------------------- a figure of several panels (Fig_C, Fig_D ...): the Panel bar
+import pandas as pd
+xr = np.linspace(10, 40, 500); profC = pd.DataFrame({"2theta_deg": xr, "Yobs": 100 + np.sin(xr) * 5, "Ycalc": 100 + np.sin(xr) * 5, "Ydiff": np.zeros_like(xr)})
+frC = {"name": "G", "width_mm": 180, "height_mm": 90, "layout": {"rows": [1], "cols": [1, 1]}, "panels": [
+    {"cell": [0, 0], "type": "rietveld", "letter": "(a)", "profile": "P", "x": "2theta_deg", "obs": "Yobs", "calc": "Ycalc", "diff": "Ydiff", "zoom": "P", "zoom_x": "2theta_deg", "zoom_xlim": [14, 16], "xlim": [10, 40]},
+    {"cell": [0, 1], "type": "rietveld", "letter": "(b)", "profile": "P", "x": "2theta_deg", "obs": "Yobs", "calc": "Ycalc", "diff": "Ydiff", "zoom": "P", "zoom_x": "2theta_deg", "zoom_xlim": [14, 16], "xlim": [10, 40]}]}
+recC = {"figures": [frC], "phases": []}
+import paper_figures as pf
+real_recipe_for, real_load_sheets = pf.recipe_for, pf.load_sheets
+pf.recipe_for = lambda p: None; pf.load_sheets = lambda p: {"P": profC}
+pathC = str(D / "composed.xlsx")
+dC = dict(kind=sp.COMPOSED_KIND, name="G", nums=profC[["2theta_deg"]].rename(columns={"2theta_deg": "x"}), n={"x": "x"}, x="x", ys=[], units={}, t=lambda c: str(c), series=None, cat_only=False, _composed=(pathC, recC, frC))
+cit = sp.Item(pathC, dC, []); cit.auto = "G"; cit.nfile = 1; cit.paper_name = "G"; cit.build(w.opt)
+w.singles = w.singles + [cit]; w.regroup(); w.refresh_list(); w.list.setCurrentRow(w.items.index(cit)); app.processEvents()
+check("a figure of several panels shows the Panel bar, one entry per panel", w.panel_combo.isVisibleTo(w) and [w.panel_combo.itemText(i) for i in range(w.panel_combo.count())] == ["(a)", "(b)"])
+w.list.setCurrentRow(w.items.index(fit)); app.processEvents()
+check("... hidden again for a graph that is not a figure of several panels", not w.panel_combo.isVisibleTo(w))
+w.list.setCurrentRow(w.items.index(cit)); app.processEvents()
+w.panel_combo.setCurrentText("(b)"); app.processEvents()
+check("Panel bar reflects the selected panel's own settings (defaults: zoomed part, dots, difference row all on)", w.panel_zoom_cb.isChecked() and w.panel_dots.isChecked() and w.panel_diff.isChecked())
+w.panel_dots.setChecked(False); app.processEvents()
+check("switching one panel's observed curve to a line changes only that panel", cit.fmt == {"panels": {"(b)": {"obs_style": "line"}}}, cit.fmt)
+w.panel_combo.setCurrentText("(a)"); app.processEvents()
+check("... the other panel (selected again) still shows its own, unaffected default", w.panel_dots.isChecked())
+r2 = rb.undo(); app.processEvents()
+check("Undo (Ctrl+Z) takes the panel change off again", "Changed" in r2 and not cit.fmt, (r2, cit.fmt))
+pf.recipe_for, pf.load_sheets = real_recipe_for, real_load_sheets
 w.close()
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

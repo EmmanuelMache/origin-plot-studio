@@ -456,30 +456,44 @@ def _ticks(ax, book, sheet, recipe, st, size=None):
     return n
 
 def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
-    """One sample: fit (observed circles, calculated line), difference, Bragg tick rows, and the zoomed inset in the fit row."""
+    """One sample: fit (observed as dots, or a plain line with obs_style='line'), difference (off with show_diff=False),
+    Bragg tick rows, and the zoomed inset in the fit row. Every setting here can be given per panel (the recipe), or
+    changed for one panel only from the graph itself (right click on that panel)."""
     import numpy as np
     nt = 0
     try: nt = len(tick_rows(book.sheet(p["ticks"]))) if p.get("ticks") else 0
     except Exception: nt = 0
-    has_t = bool(p.get("ticks"))
-    hr = p.get("heights") or ([3.0, 0.85, max(0.6, 0.95 * max(nt, 7) / 7)] if has_t else [3.0, 0.85])     # the tick block grows with the number of phases
+    has_t = bool(p.get("ticks")); show_diff = p.get("show_diff", True)
+    if show_diff:
+        hr = p.get("heights") or ([3.0, 0.85, max(0.6, 0.95 * max(nt, 7) / 7)] if has_t else [3.0, 0.85])     # the tick block grows with the number of phases
+    else:
+        hr = [3.0, max(0.6, 0.95 * max(nt, 7) / 7)] if has_t else [1.0]
     gs = cell.subgridspec(len(hr), 1, height_ratios=hr, hspace=p.get("gap", 0.0))
-    a1 = fig.add_subplot(gs[0]); a2 = fig.add_subplot(gs[1], sharex=a1); a3 = fig.add_subplot(gs[2], sharex=a1) if has_t else a2
+    a1 = fig.add_subplot(gs[0])
+    a2 = fig.add_subplot(gs[1], sharex=a1) if show_diff else None
+    a3 = fig.add_subplot(gs[2 if show_diff else 1], sharex=a1) if has_t else (a2 or a1)
     tag = f"{p.get('_fig', '')} {p.get('letter', '')}"
-    for a in {a1, a2, a3}: _apply_axes(a, st)
+    _r, _c = p.get("cell", [0, 0]); pkey = p.get("letter") or f"{_r},{_c}"           # which panel this is (right click anywhere in it)
+    for a in {a1, a2, a3} - {None}: _apply_axes(a, st); a._pf_panel_key = pkey
     curves = []
+    dots = p.get("obs_style", "dots") != "line"
     try:
-        x, yo, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("obs", "Yobs_counts")); a1.plot(x, yo, linestyle="none", marker="o", ms=p.get("obs_ms", 1.6), mfc="none", mec="#000000", mew=0.35, zorder=3); curves.append((x, yo))
+        x, yo, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("obs", "Yobs_counts"))
+        if dots: a1.plot(x, yo, linestyle="none", marker="o", ms=p.get("obs_ms", 1.6), mfc="none", mec="#000000", mew=0.35, zorder=3)
+        else: a1.plot(x, yo, linestyle="-", lw=p.get("obs_lw", 0.5), color="#000000", zorder=3)
+        curves.append((x, yo))
         xc, yc, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("calc", "Ycalc_counts")); a1.plot(xc, yc, color="#CC0000", lw=0.7, zorder=4)
         xl = p.get("xlim") or [float(np.nanmin(x)), float(np.nanmax(x))]
         m = (x >= xl[0]) & (x <= xl[1]); a1.set_ylim(0, p.get("ymax_factor", 1.8) * float(np.nanmax(yo[m] if m.any() else yo)))
         if not any(d["label"] == "Observed" for d in drawn):
-            drawn.append({"label": "Observed", "color": "#000000", "kind": "markers", "marker": "o", "filled": False, "ms": 3}); drawn.append({"label": "Calculated", "color": "#CC0000", "kind": "line", "lw": 0.9, "ls": "-"})
+            drawn.append({"label": "Observed", "color": "#000000", "kind": "markers" if dots else "line", "marker": "o", "filled": False, "ms": 3, "lw": 0.9, "ls": "-"})
+            drawn.append({"label": "Calculated", "color": "#CC0000", "kind": "line", "lw": 0.9, "ls": "-"})
     except Missing as e: book.note(f"{tag}: fit not drawn, {e}")
-    try:
-        xd, yd, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("diff", "Ydiff_counts")); a2.axhline(0, color="#9A9A9A", lw=0.4, zorder=1); a2.plot(xd, yd, color="#555555", lw=0.5, zorder=3)
-        if not any(d["label"] == "Difference" for d in drawn): drawn.append({"label": "Difference", "color": "#555555", "kind": "line", "lw": 0.8, "ls": "-"})
-    except Missing as e: book.note(f"{tag}: difference not drawn, {e}")
+    if show_diff:
+        try:
+            xd, yd, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("diff", "Ydiff_counts")); a2.axhline(0, color="#9A9A9A", lw=0.4, zorder=1); a2.plot(xd, yd, color="#555555", lw=0.5, zorder=3)
+            if not any(d["label"] == "Difference" for d in drawn): drawn.append({"label": "Difference", "color": "#555555", "kind": "line", "lw": 0.8, "ls": "-"})
+        except Missing as e: book.note(f"{tag}: difference not drawn, {e}")
     if has_t:
         try: _ticks(a3, book, p["ticks"], recipe, st, p.get("tick_letter_size"))
         except Missing as e: book.note(f"{tag}: tick rows not drawn, {e}")
@@ -487,11 +501,14 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     a1.set_xlim(*xl)
     if p.get("shade"): a1.axvspan(p["shade"][0], p["shade"][1], color="#000000", alpha=0.13, lw=0, zorder=0)
     from matplotlib.ticker import MaxNLocator
-    a1.tick_params(labelbottom=False); a2.tick_params(axis="y", labelsize=st["tick_label"] - 1.5)
-    if has_t: a2.tick_params(labelbottom=False)
-    a1.yaxis.set_major_locator(MaxNLocator(nbins=6, prune="lower" if p.get("gap", 0.0) < 0.03 else None)); a2.yaxis.set_major_locator(MaxNLocator(nbins=2, prune="both", symmetric=True))       # the numbers of two rows never run into each other
+    a1.tick_params(labelbottom=False)
+    if a2 is not None:
+        a2.tick_params(axis="y", labelsize=st["tick_label"] - 1.5)
+        if has_t: a2.tick_params(labelbottom=False)
+        a2.yaxis.set_major_locator(MaxNLocator(nbins=2, prune="both", symmetric=True))       # the numbers of two rows never run into each other
+    a1.yaxis.set_major_locator(MaxNLocator(nbins=6, prune="lower" if p.get("gap", 0.0) < 0.03 else None))
     if p.get("ytitle") is not None: a1.set_ylabel(p["ytitle"], fontsize=st["axis_title"])
-    if p.get("diff_title", "Diff.") and p.get("ytitle") is not None: a2.set_ylabel(p.get("diff_title", "Diff."), fontsize=st["tick_label"])
+    if a2 is not None and p.get("diff_title", "Diff.") and p.get("ytitle") is not None: a2.set_ylabel(p.get("diff_title", "Diff."), fontsize=st["tick_label"])
     if p.get("xtitle") is not None: a3.set_xlabel(p["xtitle"], fontsize=st["axis_title"])
     else: a3.tick_params(labelbottom=bool(p.get("xnumbers", True)))
     ttl = str(p.get("title") or "")
@@ -579,11 +596,14 @@ def draw_figure(f, book, recipe):
         drawn = []; first = None; legend_cell = None
         for p in f.get("panels") or []:
             p = dict(p); p["_fig"] = f.get("name", ""); r, c = p.get("cell", [0, 0]); kind = p.get("type", "xy")
+            key = p.get("letter") or f"{r},{c}"                 # identifies this panel for a change made to it alone (right click on the panel)
             try:
                 if kind == "legend": legend_cell = (gs[r, c], p); continue
-                if kind == "rietveld": _block_rietveld(fig, gs[r, c], book, p, recipe, st, drawn); continue
+                if kind == "rietveld":
+                    _block_rietveld(fig, gs[r, c], book, p, recipe, st, drawn); continue       # tags its own axes (a1/a2/a3) with the panel key
                 ax = fig.add_subplot(gs[r, c], sharex=first if (lay.get("sharex") and first is not None) else None); first = first or ax
                 (_panel_bars if kind == "bars" else _panel_xy)(fig, ax, book, p, recipe, st, drawn)
+                ax._pf_panel_key = key
                 if not hasattr(fig, "_pf_cells"): fig._pf_cells = []
                 fig._pf_cells.append((ax, (r, c)))
                 if lay.get("sharex") and r < len(rows) - 1: ax.tick_params(labelbottom=False); ax.set_xlabel("")

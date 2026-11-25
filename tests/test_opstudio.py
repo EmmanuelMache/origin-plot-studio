@@ -67,6 +67,9 @@ wn = api.min_size_warnings(f5, core.load_style("springer_rilem"))
 check("the export warns when text is below the minimum of the chosen preset", any("below" in x for x in wn), wn)
 r = api.recommend(sets["xy"], top=3); r2 = api.recommend(sets["tg"], top=3); r3 = api.recommend(sets["flow"], top=1)
 check("recommender: 2θ -> diffraction, temperature + mass -> TGA, source/target/value -> Sankey", all("xrd" in t[0] for t in r) and all("tg" in t[0] for t in r2) and r3[0][0] == "sankey_mass_energy", (r, r2, r3))
+peaks = pd.DataFrame({"Pos. [2Th.]": [10.1, 20.2, 30.3], "Height [cts]": [100, 200, 300], "Matched by": ["a", "b", "c"], "Source": ["Rietveld", "Rietveld", "Rietveld"]})
+r5 = api.recommend([D.Table("peaklist", peaks)], top=3)
+check("recommender: a lone 'Source' column (a peak-list export, no 'Target') is not mistaken for a Sankey diagram", all("xrd" in t[0] for t in r5) and not any(t[0] == "sankey_mass_energy" for t in r5), r5)
 many = [D.Table(f"file{i}", xy[["2theta (deg)", c]]) for i, c in enumerate(["Sample A", "Sample B", "Sample C"])]
 f6, mp6 = api.draw("xrd_stacked_offset", many); check("several files in one template: one series per file, named after the file", len([t for t in f6.axes[0].texts if t.get_text().startswith("file")]) == 3 or len(f6.axes[0].get_lines()) >= 3)
 # the user's own templates

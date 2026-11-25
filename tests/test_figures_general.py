@@ -140,4 +140,27 @@ txt = open(os.path.join(TMP, "out_o", "origin", og[0]), encoding="utf-8").read()
 check("recipe figures in Origin: one project per figure, the peak labels and the panels go in", len(ro["origin"]) == 1 and ro["origin"][0]["project"].endswith(".opju") and txt.count("label -a") >= 9 and txt.count("layer -n") >= 2,
       (len(ro["origin"]), txt.count("label -a"), txt.count("layer -n")))
 
+
+# ------------------------------------------------------------------------------------------- 7. a Rietveld panel's own look: dots or a line, the difference row, per panel
+import smart_plots as sp
+xx = np.linspace(10, 40, 500); profF = pd.DataFrame({"2theta_deg": xx, "Yobs": 100 + np.sin(xx) * 5, "Ycalc": 100 + np.sin(xx) * 5, "Ydiff": np.zeros_like(xx)})
+frF = {"name": "G", "width_mm": 180, "height_mm": 90, "layout": {"rows": [1], "cols": [1, 1]}, "panels": [
+    {"cell": [0, 0], "type": "rietveld", "letter": "(a)", "profile": "P", "x": "2theta_deg", "obs": "Yobs", "calc": "Ycalc", "diff": "Ydiff", "zoom": "P", "zoom_x": "2theta_deg", "zoom_xlim": [14, 16], "xlim": [10, 40]},
+    {"cell": [0, 1], "type": "rietveld", "letter": "(b)", "profile": "P", "x": "2theta_deg", "obs": "Yobs", "calc": "Ycalc", "diff": "Ydiff", "zoom": "P", "zoom_x": "2theta_deg", "zoom_xlim": [14, 16], "xlim": [10, 40]}]}
+bkF = pf.Book({"P": profF})
+def main_ax(fig, key): return next(a for a in fig.axes if getattr(a, "_pf_panel_key", None) == key and any(l_.get_color() == "#CC0000" for l_ in a.get_lines()))
+check("composed_panel_fmt leaves the figure untouched with no overrides", sp.composed_panel_fmt(frF, {}) == frF)
+f_off_a = sp.composed_panel_fmt(frF, {"panels": {"(a)": {"zoom": False}}}); g1 = pf.draw_figure(f_off_a, bkF, {})
+a1_has_inset = bool(next(a for a in g1.axes if getattr(a, "_pf_panel_key", None) == "(a)" and any(l_.get_color() == "#CC0000" for l_ in a.get_lines())).child_axes)
+b1_has_inset = bool(main_ax(g1, "(b)").child_axes)
+check("one panel's zoomed part can be switched off without touching the other panel's", not a1_has_inset and b1_has_inset, (a1_has_inset, b1_has_inset))
+f_line_b = sp.composed_panel_fmt(frF, {"panels": {"(b)": {"obs_style": "line"}}}); g2 = pf.draw_figure(f_line_b, bkF, {})
+a2_dots = any(l_.get_marker() == "o" for l_ in main_ax(g2, "(a)").get_lines()); b2_dots = any(l_.get_marker() == "o" for l_ in main_ax(g2, "(b)").get_lines())
+check("one panel's observed curve can be drawn as a line instead of dots, the other panel keeps its dots", a2_dots and not b2_dots, (a2_dots, b2_dots))
+f_nodiff_a = sp.composed_panel_fmt(frF, {"panels": {"(a)": {"show_diff": False}}}); g3 = pf.draw_figure(f_nodiff_a, bkF, {})
+a3_rows = len([a for a in g3.axes if getattr(a, "_pf_panel_key", None) == "(a)"]); b3_rows = len([a for a in g3.axes if getattr(a, "_pf_panel_key", None) == "(b)"])
+check("one panel's difference row can be left out, the other panel still has its own", a3_rows < b3_rows, (a3_rows, b3_rows))
+f_star = sp.composed_panel_fmt(frF, {"panels": {"*": {"show_diff": False}, "(a)": {"show_diff": True}}})
+check("'*' changes every panel; a specific panel's own setting still wins over it", f_star["panels"][0]["show_diff"] is True and f_star["panels"][1]["show_diff"] is False)
+
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)

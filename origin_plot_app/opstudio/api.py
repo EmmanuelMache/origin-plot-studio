@@ -221,7 +221,7 @@ RULES = [  # (pattern on the headers, data kinds / template ids / categories tha
     (r"event|censor|survival", ("kaplan",), "time and event: survival"),
     (r"conc|standard|signal|absorbance|peak area", ("calibration",), "concentration and signal: calibration"),
     (r"frequency|\bhz\b|\btime\b.*\b(s|ms)\b", ("fft", "time_series"), "a signal over time or frequency"),
-    (r"source|target|from\b|to\b", ("sankey",), "source / target / value: flows"),
+    (r"\bsource\b.*\btarget\b|\btarget\b.*\bsource\b|\bfrom\b.*\bto\b|\bto\b.*\bfrom\b", ("sankey",), "source / target / value: flows"),
     (r"strength|mpa", ("strength", "abrams", "stress"), "strength values"),
     (r"depth", ("depth_profile", "chloride", "carbonation"), "a depth column")]
 

@@ -2,6 +2,11 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.4
+
+* **Fixed: "Start here" could misname your data.** A Rietveld peak-list export with a column literally called "Source" (common in HighScore and similar software) was scored as a Sankey diagram (mass / energy flows), outranking the correct diffraction templates, because the recommender treated the single words "source", "target", "from" and "to" as enough on their own. It now needs "source" and "target" together (or "from" and "to" together) before it suggests a Sankey diagram.
+* **New: a "Panel" bar for a figure of several panels** (Fig_C, Fig_D and similar composed figures with more than one Rietveld fit in one picture), beside Zoom / Pan / Select range. Pick a panel from it and change, for that panel alone: its zoomed part (on or off), its observed curve (dots, or a plain line - useful for a dense scan where dots look noisy), and its difference row (shown or left out). The other panels of the figure are not touched. Undo (Ctrl+Z) takes the change off again.
+
 ## 5.55.3
 
 * **Fixed: selecting a graph in "Your graphs" and pressing Delete (or right-click › Remove) did nothing** when the row was a ★ combined figure (several files grouped on shared axes) instead of a plain single graph - the Delete key and "Remove ticked graphs" only recognised single graphs and panel figures, silently skipping combined ones. Delete (and the new right-click menu) now removes a highlighted single graph, ungroups a highlighted ◆ group of yours, or - for a ★ figure the app made on its own - says clearly that the Group list (or the graphs it is made of) is what to change instead, rather than doing nothing.

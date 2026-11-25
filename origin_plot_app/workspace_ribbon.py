@@ -657,6 +657,15 @@ class Ribbon(QWidget):
                         return ("curve", lab, ln)
                 except Exception:
                     pass
+        for ax in fig.axes:                                           # one panel of a composed figure (Fig_C, Fig_D ...): anywhere inside it, not just its border
+            if not hasattr(ax, "_pf_panel_key"):
+                continue
+            try:
+                bb = ax.get_window_extent()
+                if bb.x0 <= e.x <= bb.x1 and bb.y0 <= e.y <= bb.y1:
+                    return ("panel", ax)
+            except Exception:
+                pass
         for ax in fig.axes:
             try:
                 bb = ax.get_window_extent()
@@ -847,6 +856,8 @@ class Ribbon(QWidget):
         if str(getattr(it, "kind", "")).startswith(("XRD", "Fit")):
             on = self.has_zoom(it)
             m.addAction("Zoomed part: switch off" if on else "Zoomed part: switch on", lambda: self.w.xrd_zoom.setChecked(not on))
+        if h and h[0] == "panel":
+            self.panel_items(m, it, h[1]._pf_panel_key)
         m.addSeparator()
         m.addAction("Undo (Ctrl+Z)", self.undo); m.addAction("Redo (Ctrl+Y)", self.redo); m.addAction("Back to the app's look", self.reset)
         m.addSeparator()
@@ -868,6 +879,46 @@ class Ribbon(QWidget):
 
     def has_zoom(self, it):
         return any(p.get("inset") for p in (it.spec.get("panels") or []) + [q for c in (it.spec.get("cols") or []) for q in c.get("panels", [])])
+
+    def panel_items(self, m, it, key):
+        """Right click inside one panel of a figure with several (Fig_C, Fig_D ...): change that panel alone, the others stay."""
+        has_zoom = sp.composed_panel_value(it, key, "zoom", None)
+        if has_zoom is not None:                                      # only offered when this panel has a zoomed part to switch
+            on = bool(has_zoom)
+            m.addAction("Zoomed part: switch off (this panel only)" if on else "Zoomed part: switch on (this panel only)",
+                        lambda: self.set_panel_fmt(key, zoom=False if on else None))
+        dots = sp.composed_panel_value(it, key, "obs_style", "dots") != "line"
+        m.addAction("Observed: draw as a line, not dots (this panel only)" if dots else "Observed: draw as dots again (this panel only)",
+                    lambda: self.set_panel_fmt(key, obs_style="line" if dots else None))
+        show_diff = sp.composed_panel_value(it, key, "show_diff", True)
+        m.addAction("Difference row: switch off (this panel only)" if show_diff else "Difference row: switch on (this panel only)",
+                    lambda: self.set_panel_fmt(key, show_diff=False if show_diff else None))
+
+    def set_panel_fmt(self, key, **changes):
+        """One panel's own change (right click on it), kept beside the whole-graph fmt; set a field to None to go back to
+        what the recipe itself says for that panel."""
+        it = self.item()
+        if it is None:
+            return self._say("Show a graph first.")
+        old = copy.deepcopy(getattr(it, "fmt", None) or {}); new = copy.deepcopy(old)
+        panels = dict(new.get("panels") or {}); cur = dict(panels.get(key) or {})
+        for k, v in changes.items():
+            if v is None:
+                cur.pop(k, None)
+            else:
+                cur[k] = v
+        if cur:
+            panels[key] = cur
+        else:
+            panels.pop(key, None)
+        if panels:
+            new["panels"] = panels
+        else:
+            new.pop("panels", None)
+        if new == old:
+            return "same"
+        self.undo_st.setdefault(id(it), []).append(old); self.redo_st[id(it)] = []; self.last_change = __import__('time').time()
+        return self._apply(it, new)
 
     def xrd_bar(self):
         """Beside Zoom / Pan / Select range, for XRD graphs only: the zoomed part on or off, and the middle part of a fit."""
@@ -892,6 +943,36 @@ class Ribbon(QWidget):
         r = self.set_zoom(1 if on else 2, self.w.xrd_zoom_rng.text())
         self.xrd_bar()
         return r
+
+    def composed_panel_keys(self):
+        """The rietveld panels of the figure on show (Fig_C, Fig_D ...), in order - empty when it has none or just one."""
+        it = self.item()
+        if it is None or getattr(it, "kind", "") != sp.COMPOSED_KIND:
+            return []
+        _p, _r, f = it.det.get("_composed", (None, None, {}))
+        return [sp.composed_panel_key(pn) for pn in f.get("panels") or [] if pn.get("type") == "rietveld"]
+
+    def composed_bar(self):
+        """A figure with several panels (Fig_C, Fig_D ...): pick one and change it alone - the zoomed part, the observed
+        curve as dots or a line, the difference row - without touching the others."""
+        it = self.item(); w = self.w; keys = self.composed_panel_keys()
+        show = len(keys) > 1
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff):
+            wd.setVisible(show)
+        if not show:
+            return
+        cur = w.panel_combo.currentText()
+        w.panel_combo.blockSignals(True); w.panel_combo.clear(); w.panel_combo.addItems(keys)
+        if cur in keys:
+            w.panel_combo.setCurrentText(cur)
+        w.panel_combo.blockSignals(False)
+        key = w.panel_combo.currentText() or keys[0]
+        has_zoom = sp.composed_panel_value(it, key, "zoom", None)
+        w.panel_zoom_cb.setEnabled(has_zoom is not None)
+        w.panel_zoom_cb.setToolTip("This panel's zoomed part (inset) - on or off" if has_zoom is not None else "This panel has no zoomed part to switch")
+        w.panel_zoom_cb.blockSignals(True); w.panel_zoom_cb.setChecked(bool(has_zoom)); w.panel_zoom_cb.blockSignals(False)
+        w.panel_dots.blockSignals(True); w.panel_dots.setChecked(sp.composed_panel_value(it, key, "obs_style", "dots") != "line"); w.panel_dots.blockSignals(False)
+        w.panel_diff.blockSignals(True); w.panel_diff.setChecked(bool(sp.composed_panel_value(it, key, "show_diff", True))); w.panel_diff.blockSignals(False)
 
     def sketch(self):
         import sketch_pad
@@ -1118,6 +1199,26 @@ def install(w):
             k = next((i for i in range(host.count()) if host.itemAt(i).layout() is gt), 0)
             host.insertLayout(k + 1, xr)
         w.xrd_row = xr
-    w.list.currentRowChanged.connect(lambda *_: (rb.show_state(), rb.xrd_bar()))
-    rb.show_state(); rb.xrd_bar()
+    # a figure of several panels (Fig_C, Fig_D ...): pick one panel, change it alone
+    w.panel_lab = QLabel("Panel:")
+    w.panel_combo = QComboBox(); w.panel_combo.setToolTip("Which panel of this figure the three settings beside it change")
+    w.panel_combo.currentIndexChanged.connect(lambda *_: rb.composed_bar())
+    w.panel_zoom_cb = QCheckBox("Zoomed part")
+    w.panel_zoom_cb.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), zoom=None if on else False))
+    w.panel_dots = QCheckBox("Observed as dots"); w.panel_dots.setToolTip("Off: the observed curve is drawn as a plain line instead of dots, for this panel only")
+    w.panel_dots.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), obs_style=None if on else "line"))
+    w.panel_diff = QCheckBox("Difference row"); w.panel_diff.setToolTip("Off: the difference (observed - calculated) row is left out, for this panel only")
+    w.panel_diff.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), show_diff=None if on else False))
+    if gt is not None and host is not None:
+        pr = _HB(); pr.setSpacing(6)
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff):
+            pr.addWidget(wd)
+        pr.addStretch(1)
+        k2 = next((i for i in range(host.count()) if host.itemAt(i).layout() is xr), k + 1)
+        host.insertLayout(k2 + 1, pr)
+        w.panel_row = pr
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff):
+            wd.setVisible(False)
+    w.list.currentRowChanged.connect(lambda *_: (rb.show_state(), rb.xrd_bar(), rb.composed_bar()))
+    rb.show_state(); rb.xrd_bar(); rb.composed_bar()
     return rb

@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.55.3"
+VERSION = "5.55.4"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -2409,10 +2409,13 @@ class Item:
         return self
 
     def build_composed(self, opt):
-        """A figure of a workbook of figures: drawn whole by the recipe engine (the same drawing for the window, the files and Origin)."""
+        """A figure of a workbook of figures: drawn whole by the recipe engine (the same drawing for the window, the files and Origin).
+        Your own per-panel changes (right click a panel of it: zoomed part, observed as dots or a line, the difference row) are
+        kept in self.fmt['panels'] and applied here, on top of the saved recipe - the recipe itself is never changed."""
         path, rec, f = self.det["_composed"]; self.kind = COMPOSED_KIND; self.det["_display"] = display_names([self])[0]
         xs_ = np.arange(2, dtype=float)
         sp_ = finish(dict(title=str(f.get("name", "")), xname="", panels=[panel("", [curve("_", xs_, xs_ * 0, (255, 255, 255))], legend=False)]))
+        f = composed_panel_fmt(f, getattr(self, "fmt", None) or {})
         sp_.update(composed=(path, rec, f), title=str(f.get("name", "")))
         self.spec = sp_; self.results = None; self.extra = {}; self.warnings = []
         try:
@@ -2578,6 +2581,33 @@ def recipe_sheets(rec):
             for l_ in labs:
                 if isinstance(l_, dict) and l_.get("sheet"): out.add(str(l_["sheet"]))
     return out
+
+
+def composed_panel_key(pn):
+    """How a panel of a composed figure is addressed from the graph itself (right click on it): its letter ('(a)'), or its
+    row,col in the layout when it has none."""
+    r, c = pn.get("cell", [0, 0]); return pn.get("letter") or f"{r},{c}"
+
+
+def composed_panel_fmt(f, fmt):
+    """A composed figure ('f', from the recipe) with your own per-panel changes on top (fmt['panels']: {key: {...}} for one
+    panel, '*' for every panel). The recipe on disk is never changed; Undo (Ctrl+Z) takes a change off again."""
+    po = (fmt or {}).get("panels")
+    if not po: return f
+    panels = []
+    for pn in f.get("panels") or []:
+        ov = {**(po.get("*") or {}), **(po.get(composed_panel_key(pn)) or {})}
+        panels.append({**pn, **ov} if ov else pn)
+    return {**f, "panels": panels}
+
+
+def composed_panel_value(it, key, field, default):
+    """What a panel of a composed figure effectively uses for 'field' right now: your own change to it (right click on the
+    panel), else what the recipe itself says, else 'default'."""
+    _p, _r, f = it.det.get("_composed", (None, None, {})) if getattr(it, "det", None) else (None, None, {})
+    pn = next((p for p in f.get("panels") or [] if composed_panel_key(p) == key), {})
+    ov = ((getattr(it, "fmt", None) or {}).get("panels") or {}).get(key) or {}
+    return ov[field] if field in ov else pn.get(field, default)
 
 
 def composed_draw(spec):
