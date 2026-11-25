@@ -121,7 +121,9 @@ def _post(fig, sw, st):
             if sw.get("legend_off") and ax.get_legend(): ax.get_legend().remove()
             if "markers" in sw:
                 for i, ln in enumerate(ax.get_lines()):
-                    if len(ln.get_xdata()) > 2 and ln.get_linestyle() not in ("None", "none", ""):
+                    if len(ln.get_xdata()) > 2 and not str(ln.get_label()).startswith("_bragg"):
+                        if not sw["markers"] and ln.get_linestyle() in ("None", "none", ""):
+                            ln.set_linestyle("-")
                         ln.set_marker("osD^vP*X"[i % 8] if sw["markers"] else "None"); ln.set_markersize(st["lines"]["marker_size_pt"]); ln.set_markerfacecolor("white")
                         if sw["markers"]: ln.set_markevery(max(1, len(ln.get_xdata()) // 25))
             if sw.get("hatch"):
@@ -147,7 +149,7 @@ def _post(fig, sw, st):
 def draw(tid, tables, style=None, params=None, switches=None, overrides=None, illustrative=False, width=None, target=None):
     """The figure of template `tid` from the user's tables, in a style. Returns (figure, mapping). Raises Unfit."""
     t, p0, s0, st0, o0 = resolve(tid)
-    p = dict(p0); p.update(params or {}); sw = dict(s0); sw.update(switches or {}); ov = dict(o0); ov.update(overrides or {})
+    p = dict(t.params); p.update(p0); p.update(params or {}); sw = dict(s0); sw.update(switches or {}); ov = dict(o0); ov.update(overrides or {})
     style = style or st0 or DEFAULT_STYLE
     try: b, mp = data.bundle(t, tables, ov)
     except NeedData as e: raise Unfit(str(e))
@@ -157,14 +159,28 @@ def draw(tid, tables, style=None, params=None, switches=None, overrides=None, il
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            fig = core.render(t.id, _pre(b, sw), st, p, illustrative_mark=illustrative, width=width, target=target)
+            if t.id in ('rietveld_fit_diff_ticks', 'rietveld_grid_2x3'):
+                from .graph_components import render_rietveld
+                old_target = core.CURRENT.get('target'); old_width = core.CURRENT.get('width')
+                core.CURRENT.update(target=target, width=width)
+                try:
+                    with matplotlib.rc_context():
+                        core.apply_style(st)
+                        fig = render_rietveld(t.id, _pre(b, sw), st, p, sw, target)
+                        if target is None: fig.canvas.draw()
+                finally: core.CURRENT.update(target=old_target, width=old_width)
+            else:
+                fig = core.render(t.id, _pre(b, sw), st, p, illustrative_mark=illustrative, width=width, target=target)
             if sw:
                 with matplotlib.rc_context():
-                    core.apply_style(st); _post(fig, sw, st)
+                    core.apply_style(st); _post(fig, {k:v for k,v in sw.items() if k != "markers"} if sw.get("panel_options") else sw, st)
+                    from .graph_components import apply as apply_components
+                    apply_components(fig, sw)
                     if target is None: fig.canvas.draw()
     except Exception as e:
         raise Unfit(f"this data does not fit the template ({type(e).__name__}: {str(e)[:120]}). It needs: " + "; ".join(f"{k} = {v}" for k, v in t.roles.items()))
     if target is not None: return fig, mp
+    fig._ops_style = st
     fig._ops = {"template": tid, "style": style, "params": p, "switches": sw, "mapping": mp}
     fig._redraw = lambda width_: draw(tid, tables, style, params, switches, overrides, illustrative, width_)[0]
     return fig, mp
@@ -227,25 +243,30 @@ RULES = [  # (pattern on the headers, data kinds / template ids / categories tha
 
 
 def recommend(tables, top=None):
-    """Templates ranked for these tables: [(id, score, why)]. A template scores when the file can fill it; headers and
-    units add to it. Nothing is labelled or drawn here."""
+    """Rank installed Analysis templates using shared detection and input validation."""
+    from .detection import detect, compatibility
     if not tables: return []
-    t = tables[0]; head = " | ".join(t.cols).lower(); out = []
-    hits = [(set(keys), why) for pat, keys, why in RULES if re.search(pat, head)]
-    tern = len(t.numeric) >= 3 and np.allclose(np.nansum(np.column_stack([t.arr(c) for c in t.numeric[:3]]), axis=1), 100, atol=1.5)
-    for tid, tp in REGISTRY.items():
-        try: data.bundle(tp, tables)
-        except NeedData: continue
-        except Exception: continue
-        score, why = 1.0, []
-        for keys, w in hits:
-            if any(k in tid for k in keys): score += 3; why.append(w)
-        if tern and "ternary" in tid: score += 4; why.append("three columns that sum to 100: ternary")
-        if tp.data_kind == "category_table" and t.cat: score += 1.5; why.append("a column of names and value columns")
-        if tp.data_kind == "xy_series" and t.cat is None and len(t.numeric) >= 2: score += 0.5
-        if tp.data_kind in ("table", "matrix") and len(t.numeric) >= 5 and tid in ("pca_biplot", "correlation_heatmap"): score += 2; why.append("many numeric columns: statistics")
-        if len(tables) > 1 and ("panel" in tid or "grid" in tid or "stack" in tid): score += 1; why.append("several files")
-        out.append((tid, score, "; ".join(dict.fromkeys(why)) or "the columns fit"))
+    detected = detect(tables[0], getattr(tables[0], 'measurement_type', None))
+    if detected.needs_confirmation: return []
+    out = []
+    for row in all_templates():
+        tid = row['id']
+        try:
+            template, _p, _s, _st, overrides = resolve(tid)
+            ok, reason = compatibility(template, tables, detected, overrides)
+        except Exception:
+            continue
+        if not ok: continue
+        score = 5.0 if detected.kind not in ('Unknown', 'General XY') else 1.0
+        if tid == 'scientific_line': score += 5 if detected.kind == 'General XY' else .5
+        if tid == 'tga_dtg_single' and detected.kind == 'TGA': score += 4
+        if tid == 'dsc_heatflow' and detected.kind == 'DSC': score += 4
+        if tid == 'xrd_single_labeled': score += 5 if len(tables) == 1 and len(tables[0].ys) == 1 else 1
+        if tid == 'xrd_stacked_offset' and sum(len(t.ys) for t in tables) > 1: score += 5
+        if tid == 'rietveld_fit_diff_ticks' and len(tables[0].numeric) >= 3: score += 2
+        if any(k in tid for k in ('secondary', 'top_axis', 'zoom', 'inset')): score -= 1
+        if row.get('source') == 'mine': score += .2
+        out.append((tid, score, f'{detected.kind}: {reason}'))
     out.sort(key=lambda x: (-x[1], x[0]))
     return out[:top] if top else out
 

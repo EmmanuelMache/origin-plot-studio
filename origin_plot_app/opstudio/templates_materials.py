@@ -276,47 +276,63 @@ def _riet_title(d):
 
 
 def _riet_block(fig, cell, d, st, p, k, small=False, show_labels=True, legend=True, xlabel=True, ylabel=True):
-    has_ticks = bool(d.get("ticks"))
-    nt = len(d.get("ticks") or {})
-    hr = [4, 1, max(0.8, 1.1 * max(nt, 6) / 6)] if has_ticks else [4, 1]
-    g = cell.subgridspec(3 if has_ticks else 2, 1, height_ratios=hr, hspace=p.get("gap", 0.08))
-    a = fig.add_subplot(g[0]); b = fig.add_subplot(g[1], sharex=a); c = fig.add_subplot(g[2], sharex=a) if has_ticks else b
-    x = np.asarray(d["x"], float)
-    a.plot(x, d["obs"], ls="none", marker=p.get("obs_marker", "o"), ms=1.2 if small else 1.6, mfc="none", mec="k", mew=0.35, label="Observed")
-    a.plot(x, d["calc"], color="#C0141E", lw=0.5 if small else 0.8, label="Calculated")
-    z0, z1 = sorted(p["zoom"]) if p.get("zoom") else (0, 0)
-    zoom_on = bool(p.get("inset")) and z1 > z0 and np.any((x >= z0) & (x <= z1))
-    if zoom_on: a.axvspan(z0, z1, color="#DDDDDD", alpha=0.6, lw=0)
-    a.set_xlim(x.min(), x.max()); m_ = np.isfinite(np.asarray(d["obs"], float)); a.set_ylim(0, np.nanmax(np.asarray(d["obs"], float)[m_]) * (1.75 if zoom_on else 1.15))
+    options = p.get('_component_options') or {}
+    has_ticks = bool(d.get('ticks')) and options.get('show_bragg', True)
+    has_diff = options.get('show_difference', True)
+    nt = len(d.get('ticks') or {})
+    roles = ['main'] + (['difference'] if has_diff else []) + (['bragg'] if has_ticks else [])
+    heights = [4] + ([1] if has_diff else []) + ([max(.8, 1.1*max(nt, 6)/6)] if has_ticks else [])
+    grid = cell.subgridspec(len(roles), 1, height_ratios=heights, hspace=p.get('gap', .08))
+    axes = {}
+    for idx, role in enumerate(roles):
+        ax = fig.add_subplot(grid[idx], sharex=axes.get('main'))
+        ax._ops_panel = k; ax._ops_role = role; ax._ops_auxiliary = role != 'main'
+        axes[role] = ax
+    a = axes['main']; bottom = axes[roles[-1]]
+    x = np.asarray(d['x'], float); observed = np.asarray(d['obs'], float); calculated = np.asarray(d['calc'], float)
+    difference = np.asarray(d['diff'], float)
+    dots = options.get('observed_markers', options.get('markers', p.get('obs_marker', 'o') not in ('', None, 'None')))
+    observed_marker = 'o' if dots else None
+    a.plot(x, observed, ls='none' if dots else '-', marker=observed_marker,
+           ms=1.2 if small else 1.6, mfc='none', mec='k', mew=.35, lw=.65, color='#424b57', label='Observed')
+    a.plot(x, calculated, color='#C0141E', lw=.5 if small else .8, marker='o' if options.get('fitted_markers', False) else None, ms=1.5, label='Calculated')
+    z0, z1 = sorted(p['zoom']) if p.get('zoom') else (0, 0)
+    zoom_on = bool(p.get('inset')) and z1 > z0 and np.any((x >= z0) & (x <= z1))
+    if zoom_on: a.axvspan(z0, z1, color='#DDDDDD', alpha=.6, lw=0)
+    a.set_xlim(x.min(), x.max())
+    finite = observed[np.isfinite(observed)]
+    if len(finite): a.set_ylim(min(0, float(finite.min())), max(1, float(finite.max())) * (1.6 if zoom_on else 1.15))
     panel_title(a, k, _riet_title(d))
-    if ylabel: a.set_ylabel(d.get("y_label") or "Intensity (counts)")
-    if legend: a.legend(loc="upper left", bbox_to_anchor=(0, 0.92), frameon=False)
+    if ylabel: a.set_ylabel(d.get('y_label') or 'Intensity (counts)')
+    if legend: a.legend(loc='upper left', bbox_to_anchor=(0, .92), frameon=False)
     if zoom_on:
-        ins = a.inset_axes([0.6, 0.5, 0.38, 0.45]); m = (x >= z0) & (x <= z1)
-        o, cc, df_ = np.asarray(d["obs"], float)[m], np.asarray(d["calc"], float)[m], np.asarray(d["diff"], float)[m]
-        lift = np.nanmin(np.r_[o, cc]) - np.nanmax(np.abs(df_)) * 1.2
-        ins.plot(x[m], o, "o", ms=1.4, mfc="none", mec="k", mew=0.35); ins.plot(x[m], cc, color="#C0141E", lw=0.7)
-        ins.plot(x[m], df_ + lift, color="#444444", lw=0.5)
-        lo, hi = np.nanmin(df_ + lift), np.nanmax(np.r_[o, cc]); ins.set_ylim(lo - 0.05 * (hi - lo), hi + 0.22 * (hi - lo)); ins.set_xlim(z0, z1)
-        ins.set_yticks([]); ins.tick_params(labelsize=5.5 if small else 6)
-        ins.text(0.5, 0.97, "Zoom of shaded region", transform=ins.transAxes, ha="center", va="top", fontsize=5.5 if small else 6)
-    b.plot(x, d["diff"], color="#444444", lw=0.4 if small else 0.5); b.axhline(0, color="#999999", lw=0.4)
-    if ylabel: b.set_ylabel("Diff.")
-    cols = _code_colors(d.get("labels"))
-    for i, (ph, pos) in enumerate((d.get("ticks") or {}).items()):
-        col = cols.get(ph) or series_color(st, PHASE_WORDS.get(ph, ph), i)
-        c.plot(pos, [-i] * len(pos), "|", ms=max(3.0, min(6.0, 34.0 / max(nt, 1))), color=col)
+        ins = a.inset_axes([.6, .5, .38, .45]); ins._ops_panel = k; ins._ops_role = 'inset'
+        m = (x >= z0) & (x <= z1)
+        ins.plot(x[m], observed[m], ls='none' if dots else '-', marker=observed_marker,
+                 ms=1.4, mfc='none', mec='k', mew=.35, color='#424b57', lw=.6)
+        ins.plot(x[m], calculated[m], color='#C0141E', lw=.7, marker='o' if options.get('fitted_markers', False) else None, ms=1.2)
+        if has_diff:
+            lift = np.nanmin(np.r_[observed[m], calculated[m]]) - np.nanmax(np.abs(difference[m]))*1.2
+            ins.plot(x[m], difference[m] + lift, color='#444444', lw=.5)
+        ins.set_xlim(z0, z1); ins.set_yticks([]); ins.tick_params(labelsize=5.5 if small else 6)
+        ins.set_title('Zoom of selected region', fontsize=5.5 if small else 6, loc='left', fontweight='normal')
+    if has_diff:
+        b = axes['difference']; b.plot(x, difference, color='#444444', lw=.5, label='Difference')
+        b.axhline(0, color='#999999', lw=.4)
+        if ylabel: b.set_ylabel('Diff.')
     if has_ticks:
-        c.set_yticks(range(0, -nt, -1)); c.set_yticklabels(list(d["ticks"].keys()), fontsize=max(4.5, min(6.0, 40.0 / nt)), fontweight="bold")
-        for t_, ph in zip(c.get_yticklabels(), d["ticks"]): t_.set_color(cols.get(ph) or series_color(st, PHASE_WORDS.get(ph, ph), list(d["ticks"]).index(ph)))
-        c.set_ylim(-nt + 0.3, 0.7); c.tick_params(axis="y", length=0)
-    if xlabel: c.set_xlabel(d.get("x_label") or "2θ (°)")
-    for ax in ((a, b) if has_ticks else (a,)):
-        plt.setp(ax.get_xticklabels(), visible=False)
-    for ax in {a, b, c}:
+        c = axes['bragg']; cols = _code_colors(d.get('labels'))
+        for j, (phase, pos) in enumerate(d['ticks'].items()):
+            colour = cols.get(phase) or series_color(st, PHASE_WORDS.get(phase, phase), j)
+            c.plot(pos, [-j]*len(pos), '|', ms=max(3, min(6, 34/max(nt,1))), color=colour, label='_bragg_' + phase)
+        c.set_yticks(range(0, -nt, -1)); c.set_yticklabels(list(d['ticks']), fontsize=6)
+        c.set_ylim(-nt+.3, .7); c.tick_params(axis='y', length=0)
+    if xlabel: bottom.set_xlabel(d.get('x_label') or '2θ (°)')
+    for role, ax in axes.items():
+        if ax is not bottom: ax.tick_params(labelbottom=False)
         finish(ax, st)
-    if show_labels and d.get("labels"):
-        SD.draw_labels(a, d["labels"], [(x, np.asarray(d["obs"], float))], [d.get("name", "")], size=5.5 if small else 6.5)
+    if show_labels and d.get('labels'):
+        SD.draw_labels(a, d['labels'], [(x, observed)], [d.get('name','')], size=5.5 if small else 6.5)
     return a
 
 

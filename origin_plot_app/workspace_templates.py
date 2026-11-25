@@ -584,7 +584,7 @@ class TemplatePage(QWidget):
             self.col_head.setText(str(e)); self.cols.blockSignals(False); self.sheet.blockSignals(False); return
         self.sheet.addItems([x or "(the file)" for x in sheets]); self.sheet.setCurrentIndex(sheets.index(s)); self.sheet.setVisible(len(sheets) > 1)
         order = [c for c in mp.get("order", []) if c in cols] + [c for c in cols if c not in mp.get("order", [])]; off = set(mp.get("off", []))
-        full = self.ops.data.Table("x", self.raw_tables(path)["sheets"][s].copy())
+        full = self.ops.data.Table("x", (self.ws.workbench.raw_sheets(path) if hasattr(self.ws, "workbench") else self.raw_tables(path)["sheets"])[s].copy())
         first_num = next((c for c in order if c in full.numeric and c not in off), None)
         for c in order:
             role = "x" if c == first_num else "error" if self.ops.data.ERR_RE.search(c) and c in full.numeric else "series" if c in full.numeric else "names"
@@ -594,6 +594,13 @@ class TemplatePage(QWidget):
 
     def _columns_changed(self):
         if not self._col_path: return
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl is not None:
+            prefs = ctrl.mapping_for(self._col_path)
+            prefs['order'] = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count())]
+            prefs['off'] = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count()) if self.cols.item(i).checkState() != Qt.Checked]
+            ctrl.changed(self._col_path); self._sheet_pick_cache.clear()
+            ctrl.refresh_source_graphs(self._col_path); self.show_columns(self._col_path); self.filter_templates(); self.schedule(); return
         order = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count())]; off = [self.cols.item(i).data(Qt.UserRole) for i in range(self.cols.count()) if self.cols.item(i).checkState() != Qt.Checked]
         raw = self.raw_tables(self._col_path); _t, s, _sh, cols, _mp = self.table_of(self._col_path)
         m = dict(self._cfg().get("mappings") or {}); m[self._pattern([str(c) for c in raw["sheets"][s].columns])] = {"order": order, "off": off}; self._save_cfg({"mappings": m})
@@ -606,6 +613,12 @@ class TemplatePage(QWidget):
 
     def _sheet_changed(self, i):
         if not self._col_path or i < 0: return
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl is not None:
+            sheets = list(ctrl.raw_sheets(self._col_path))
+            if i >= len(sheets): return
+            ctrl.settings_for(self._col_path)['sheet'] = sheets[i]
+            ctrl.changed(self._col_path); self._sheet_pick_cache.clear(); self.show_columns(self._col_path); self.filter_templates(); self.schedule(); return
         raw = self.raw_tables(self._col_path); sheets = list(raw["sheets"]); s = dict(self._cfg().get("sheets") or {}); s[os.path.basename(self._col_path)] = sheets[i]
         self._save_cfg({"sheets": s}); getattr(self, "_sheet_pick_cache", {}).clear(); self.show_columns(self._col_path); self.schedule()
 
@@ -776,6 +789,8 @@ class TemplatePage(QWidget):
 
     def _table_for_template(self, path, template):
         """Among the sheets of `path`, the Table that this template can actually draw - cached per (file, template)."""
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl is not None: return self.table_of(path)[0]
         key = (path, template); cache = getattr(self, "_sheet_pick_cache", None)
         if cache is None: cache = self._sheet_pick_cache = {}
         if key in cache: return cache[key]
@@ -828,7 +843,7 @@ class TemplatePage(QWidget):
             return self.draw_workbook_type(combo)
         if combo.get("demo"):
             fig = self.api.demo_figure(combo["template"], combo["style"]); return fig, [("data", "illustrative example - tick a file to draw your own data")]
-        return self.api.draw(combo["template"], self.tables_for(combo["files"], combo["template"]), style=combo["style"], params=self.params.get(combo["template"]) or None,
+        return self.api.draw(combo["template"], self.tables_for(combo["files"], combo["template"]), style=combo["style"], params=combo.get("params", self.params.get(combo["template"]) or None),
                              switches=combo.get("switches", self.current_switches()), overrides=combo.get("overrides"), width=width, target=target)
 
     def _draw_next(self):
@@ -1260,7 +1275,20 @@ class Editor(QDialog):
             bb = QPushButton(text); bb.setToolTip(tip); bb.clicked.connect(fn); right.addWidget(bb)
         c = QPushButton("Close"); c.clicked.connect(self.accept); right.addWidget(c)
         QShortcut(QKeySequence(Qt.Key_PageDown), self).activated.connect(lambda: self.go(1)); QShortcut(QKeySequence(Qt.Key_PageUp), self).activated.connect(lambda: self.go(-1))
+        components = QPushButton('Edit components / panel zoom…')
+        components.clicked.connect(self.edit_components); right.insertWidget(1, components)
         self.show_tile()
+
+    def edit_components(self):
+        ctrl = getattr(self.page.ws, 'workbench', None)
+        if ctrl is None or self.t.combo.get('demo'): return
+        from workspace_workbench import TemplateGraph
+        from workspace_graph_editor import GraphEditor
+        combo = dict(self.t.combo)
+        if not combo.get('project_id') and combo.get('files'): combo['project_id'] = ctrl.project_for(combo['files'][0])
+        graph = TemplateGraph(ctrl, combo)
+        GraphEditor(ctrl, graph, self).exec()
+        self.t.combo = graph.combo; self.page.redraw_tile(self.t); self.show_tile()
 
     @property
     def t(self): return self.tiles[self.i]
@@ -1292,7 +1320,7 @@ class Editor(QDialog):
             except ValueError: self.page.ws.set_status(f"This note line could not be read: {line}")
         if notes: ov["notes"] = notes
         for t in (self.tiles if self.all.isChecked() else [self.t]):
-            t.combo["overrides"] = dict(ov); t.combo["renames"] = dict(ren); t.combo["style"] = self.style.currentData(); t.combo["switches"] = self.page.current_switches()
+            t.combo["overrides"] = dict(ov); t.combo["renames"] = dict(ren); t.combo["style"] = self.style.currentData(); t.combo.setdefault("switches", dict(self.page.current_switches()))
             t.combo["caption"] = re.sub(r"·\s*\S+$", "· " + t.combo["style"], t.combo["caption"]); t.cap.setText(t.combo["caption"])
             if ren: t.combo["overrides"]["_renames"] = ren
             self.page.redraw_tile(t)

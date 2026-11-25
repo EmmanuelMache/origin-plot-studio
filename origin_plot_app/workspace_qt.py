@@ -53,6 +53,7 @@ SECTIONS = [("workspace", "Workspace", None),
                                        "then draw them in Origin, export them or combine them into one figure."),
             ("start", "Start here", "Add your data; the app says what it looks like and which templates fit, then draw the best one at once or pick one yourself. "
                                     "From there: review it in Workspace, then draw it in Origin.")]
+SECTIONS.append(("workbook", "Workbook", "Prepare, edit, merge and arrange project datasets."))
 NAV_ORDER = [6, 0, 1, 3, 4]             # the sections shown in the top bar: Start here, Workspace, Analysis, Assistant, Settings. The graph gallery is inside Analysis
 GALLERY_PAGES = (5, 1)                  # Analysis = the graphs and templates (page 5, first) and the calculations (page 1); a switch at the top of both. Page 2 (the old list) is not shown
 from workspace_tools import GALLERY_GROUPS, analysis_tree, figtype_tree  # noqa: E402,F401
@@ -185,6 +186,9 @@ QProgressBar#busy::chunk {{ background: {BLUE}; border-radius: 5px; }}
 """
 
 
+from workspace_design import STYLE as WORKBENCH_STYLE
+STYLE += WORKBENCH_STYLE
+
 def _light_placeholder(edit, colour="#B9C9DE"):
     """A search field on the dark header: its placeholder text defaults to a faint grey derived from the field's own text
     colour, which is nearly unreadable on navy. Qt only takes a placeholder colour from the palette, not the style sheet."""
@@ -253,11 +257,13 @@ def save_cfg(changes):
         cfg = {}
     cfg.update(changes)
     try:
+        cfg_path().parent.mkdir(parents=True, exist_ok=True)
         tmp = cfg_path().with_name(cfg_path().name + ".modern.tmp")
         tmp.write_text(json.dumps(cfg, indent=1, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, cfg_path())
+        return True
     except Exception:
-        pass
+        return False
 
 
 class Job(QObject):
@@ -312,6 +318,7 @@ class DataFrameModel(QAbstractTableModel):
 class Loader(QObject):
     """Reads the files and builds their graphs with the same engine as the current window (off the window's thread)."""
     done = Signal(object, object)          # [items], [messages]
+    progress = Signal(str)
 
     def __init__(self, paths, opt, existing=()):
         super().__init__()
@@ -322,7 +329,8 @@ class Loader(QObject):
         the files, then each pattern or fit is matched with its peak list - by sample name, or because the listed peaks sit on its
         peaks - so it gets phase labels and tick rows; then the patterns are built."""
         fresh, msgs = [], []
-        for p in self.paths:
+        for index, p in enumerate(self.paths):
+            self.progress.emit(f"Reading {index+1} of {len(self.paths)}: {Path(p).name}")
             try:
                 its, lines = sp.load_file(p)
                 fresh += its
@@ -340,6 +348,12 @@ class Loader(QObject):
         except Exception as e:
             msgs.append(f"not all graphs were built ({e})")
         self.done.emit(pool[len(self.existing):], msgs)
+
+
+class ActivePageStack(QStackedWidget):
+    def minimumSizeHint(self):
+        from PySide6.QtCore import QSize
+        return QSize(760, 400)
 
 
 class Workspace(QMainWindow):
@@ -373,7 +387,7 @@ class Workspace(QMainWindow):
         body.addWidget(self.navw)
         from workspace_tools import Tools, ToolPage
         self.tools = Tools(self)
-        self.pages = QStackedWidget()
+        self.pages = ActivePageStack()
         self.pages.addWidget(self._workspace())
         self.pages.addWidget(ToolPage(self, "Analysis", SECTIONS[1][2], analysis_tree()))
         self.pages.addWidget(ToolPage(self, "Graph gallery", SECTIONS[2][2], figtype_tree()))
@@ -419,6 +433,12 @@ class Workspace(QMainWindow):
             workspace_session.install(self)                   # File far left, one Undo / Redo, clear / start afresh with undo, recent sessions, autosave, command search
         except Exception:
             self.log("!! the session commands could not be set up; the app works without them:\n" + traceback.format_exc(limit=4))
+        if hasattr(self.templates_page, 'table_of'):
+            try:
+                import workspace_workbench
+                workspace_workbench.install(self)
+            except Exception:
+                self.log("!! Project workbench could not initialise:\n" + traceback.format_exc())
         QShortcut(QKeySequence("Ctrl+O"), self, activated=self.add_files)
         QShortcut(QKeySequence("Escape"), self, activated=self.clear_selection)
         if paths:
@@ -1473,9 +1493,12 @@ class Workspace(QMainWindow):
         self.busy_on(f"Reading {len(paths)} file(s)")
         self.set_status(f"Reading {len(paths)} file(s) …")
         self.thread = QThread(self)
-        self.loader = Loader(paths, self.opt, self.singles)
+        existing = [i for i in self.singles if not getattr(i, 'combo', None)]
+        if project: existing = [i for i in existing if getattr(i, 'project', None) == project]
+        self.loader = Loader(paths, self.opt, existing)
         self.loader.moveToThread(self.thread)
         self.thread.started.connect(self.loader.run)
+        self.loader.progress.connect(self.set_status)
         self.loader.done.connect(self.loaded)
         self.loader.done.connect(self.thread.quit)
         self.thread.finished.connect(self._thread_done)
@@ -1774,7 +1797,7 @@ class Workspace(QMainWindow):
         import analysis_tools as at
         if not getattr(it, "spec", None):
             return []
-        p0 = (it.spec or {}).get("panels", [{}])[0]
+        p0 = ((it.spec or {}).get("panels") or [{}])[0]
         out = []
         for c in p0.get("curves", []):
             if not str(c.get("label", "")).startswith("_") and len(c.get("x", [])) > 2:

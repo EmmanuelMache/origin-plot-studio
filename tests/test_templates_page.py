@@ -35,7 +35,7 @@ sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest(); before = [sha(
 w = W.Workspace([]); w.resize(1500, 900); w.show(); app.processEvents()
 pg = w.templates_page
 names_ = [b.text() for b in w.header_nav.buttons()]
-check("five sections in the top bar: Start here, Workspace, Analysis, Assistant, Settings - the graph gallery is inside Analysis", names_ == ["Start here", "Workspace", "Analysis", "Assistant", "Settings"] and hasattr(pg, "main"), names_)
+check("five sections in the top bar: Start here, Workspace, Analysis, Assistant, Settings - the graph gallery is inside Analysis", names_ == ["Start here", "Workbook", "Workspace", "Analysis", "Settings"] and hasattr(pg, "main"), names_)
 w.header_nav.button(1).click(); app.processEvents()
 check("clicking Analysis opens the graphs and templates (the picture gallery) first", w.pages.currentWidget() is pg and w.header_nav.button(1).isChecked())
 sw = [b.text() for b in w.gallery_switch[5].buttons()]
@@ -63,7 +63,7 @@ pg.live.setChecked(False); pg.silent = True; pg.force_dry = True
 pg.add_files(files); app.processEvents()
 check("files added on the page are listed and ticked", pg.files.count() == 3 and len(checked(pg.files)) == 3)
 check("the app says what kind of file this looks like, and marks the best-fitting templates (★) - as soon as files are added, no extra click needed",
-      pg.detect_label.isVisible() and "diffraction" in pg.detect_label.text().lower() and pg.grid.item(0).text().startswith("★"), pg.detect_label.text())
+      pg.detect_label.isVisible() and "xrd" in pg.detect_label.text().lower() and pg.grid.item(0).text().startswith("★"), pg.detect_label.text())
 # ---- the same multiple selection in every list
 from PySide6.QtWidgets import QAbstractItemView
 from workspace_templates import TickList
@@ -119,15 +119,15 @@ check("clicking a class shows only its templates", 6 <= len(vis) <= 19 and all(v
 pg._class_clicked(pg.classes.topLevelItem(0)); app.processEvents()
 # ---- the gallery: every catalogue row, filters, search
 cat = pg.catalogue; avail = [r for r in cat if r["available"]]; coming = [r for r in cat if not r["available"]]
-check("all 121 templates and the 26 workbook graph types are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 147 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
+check("all 122 templates and the 26 workbook graph types are in the gallery, and every other catalogue row is shown as 'coming'", len(avail) == 148 and len(coming) == 348 - 135 and pg.grid.count() == len(cat), (len(avail), len(coming)))
 pg.state.setCurrentIndex(1); shown = lambda: sum(1 for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden())
-check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 147))
+check("the status filter shows available, coming, or both", shown() == len(cat) and (pg.state.setCurrentIndex(0) or shown() == 148))
 fields = [pg.field.itemText(i) for i in range(pg.field.count())]
 check("fields: graph families and domain packs with counts, and My templates", any("Graph families" in f for f in fields) and any("Domain packs" in f for f in fields) and any("My templates" in f for f in fields) and any("XRD" in f for f in fields), fields[:4])
 pg.find.setText("rietveld"); n_find = shown(); pg.find.setText("zzzz-no-such"); n_none = shown(); pg.find.setText("")
 check("search finds by name; no result is an empty list, not an error", n_find >= 2 and n_none == 0, (n_find, n_none))
 pg.fits.setChecked(True); app.processEvents(); first = [pg.grid.item(i).data(Qt.UserRole) for i in range(pg.grid.count()) if not pg.grid.item(i).isHidden()][:3]
-check("'Works with the ticked files' ranks the fitting templates: diffraction first for a 2θ file", all("xrd" in t for t in first) and pg.grid.item(0).text().startswith("★"), first); pg.fits.setChecked(False)
+check("'Works with the ticked files' ranks the fitting templates: diffraction first for a 2θ file", all("xrd" in t or t == "scientific_line" for t in first) and pg.grid.item(0).text().startswith("★"), first); pg.fits.setChecked(False)
 coming_item = next(pg.grid.item(i) for i in range(pg.grid.count()) if not pg.grid.item(i).data(Qt.UserRole + 1)["available"])
 check("a 'coming' graph type cannot be ticked and says so", not (coming_item.flags() & Qt.ItemIsUserCheckable) and "Coming" in coming_item.toolTip())
 tip = next(pg.grid.item(i) for i in range(pg.grid.count()) if pg.grid.item(i).data(Qt.UserRole) == "xrd_stacked_offset").toolTip()

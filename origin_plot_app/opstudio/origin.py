@@ -58,6 +58,7 @@ def read_figure(fig):
         if s not in diff: diff.append(s)
     twins = {}; axes = []; inv = fig.transFigure.inverted()
     def walk(a):
+        if not a.get_visible(): return
         axes.append(a)
         for ch in getattr(a, "child_axes", []):
             if type(ch).__name__ == "SecondaryAxis": note("a second axis with its own scale (for example d-spacing on top) is not sent: add it in Origin (Axis dialog > Show the top axis, with a formula)")

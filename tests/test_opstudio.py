@@ -12,8 +12,8 @@ def check(name, ok, extra=""):
     N[0 if ok else 1] += 1; print(("PASS  " if ok else "FAIL  ") + name + (f"   [{extra}]" if extra != "" else ""))
 
 LIB = os.path.join(ROOT, "origin_plot_app", "opstudio")
-check("121 templates registered (104 of the pack + 14 of Tier 1 + 3 composed figures), each with a JSON (opstudio.template/1) and a preview",
-      len(opstudio.REGISTRY) == 121 and all(os.path.isfile(os.path.join(LIB, "templates", t + ".json")) and os.path.isfile(os.path.join(LIB, "previews", t + ".png")) for t in opstudio.REGISTRY))
+check("122 templates registered (the original 121 plus the plain Line plot), each with a JSON (opstudio.template/1) and a preview",
+      len(opstudio.REGISTRY) == 122 and all(os.path.isfile(os.path.join(LIB, "templates", t + ".json")) and os.path.isfile(os.path.join(LIB, "previews", t + ".png")) for t in opstudio.REGISTRY))
 j = json.load(open(os.path.join(LIB, "templates", "xrd_stacked_offset.json"), encoding="utf-8"))
 check("template JSON carries the contract keys and origin_template", j["schema"] == "opstudio.template/1" and all(k in j for k in ("data_roles", "default_params", "origin_hint", "origin_template", "label_policy")))
 st = api.styles(); ids = [s[0] for s in st]
@@ -65,11 +65,12 @@ check("TIFF is LZW compressed", Image.open(os.path.join(d, "g_single.tiff")).inf
 f5, _ = api.draw("scatter_linear_fit", sets["small"], style="nature")
 wn = api.min_size_warnings(f5, core.load_style("springer_rilem"))
 check("the export warns when text is below the minimum of the chosen preset", any("below" in x for x in wn), wn)
+sets["xy"][0].measurement_type = "XRD"  # user confirmation for unlabelled sample-intensity columns
 r = api.recommend(sets["xy"], top=3); r2 = api.recommend(sets["tg"], top=3); r3 = api.recommend(sets["flow"], top=1)
-check("recommender: 2θ -> diffraction, temperature + mass -> TGA, source/target/value -> Sankey", all("xrd" in t[0] for t in r) and all("tg" in t[0] for t in r2) and r3[0][0] == "sankey_mass_energy", (r, r2, r3))
+check("recommender: 2θ -> diffraction, temperature + mass -> TGA, source/target/value -> Sankey", all("xrd" in t[0] or t[0] == "scientific_line" for t in r) and all("tg" in t[0] or t[0] == "scientific_line" for t in r2) and r3[0][0] == "sankey_mass_energy", (r, r2, r3))
 peaks = pd.DataFrame({"Pos. [2Th.]": [10.1, 20.2, 30.3], "Height [cts]": [100, 200, 300], "Matched by": ["a", "b", "c"], "Source": ["Rietveld", "Rietveld", "Rietveld"]})
 r5 = api.recommend([D.Table("peaklist", peaks)], top=3)
-check("recommender: a lone 'Source' column (a peak-list export, no 'Target') is not mistaken for a Sankey diagram", all("xrd" in t[0] for t in r5) and not any(t[0] == "sankey_mass_energy" for t in r5), r5)
+check("recommender: a lone 'Source' column (a peak-list export, no 'Target') is not mistaken for a Sankey diagram", all("xrd" in t[0] or t[0] == "scientific_line" for t in r5) and not any(t[0] == "sankey_mass_energy" for t in r5), r5)
 many = [D.Table(f"file{i}", xy[["2theta (deg)", c]]) for i, c in enumerate(["Sample A", "Sample B", "Sample C"])]
 f6, mp6 = api.draw("xrd_stacked_offset", many); check("several files in one template: one series per file, named after the file", len([t for t in f6.axes[0].texts if t.get_text().startswith("file")]) == 3 or len(f6.axes[0].get_lines()) >= 3)
 # the user's own templates
@@ -185,6 +186,6 @@ n_ok = 0; bad = []
 for tid in opstudio.REGISTRY:
     try: O.send(mk(os.path.join(od, "all")), api.demo_figure(tid), tid); n_ok += 1
     except Exception as e: bad.append((tid, repr(e)[:60]))
-check("Origin: all 121 templates go through the driver without an error", n_ok == 121, bad[:3])
+check("Origin: all installed templates go through the driver without an error", n_ok == 122, bad[:3])
 check("every template has its Origin script and names it in its JSON (origin_template)", all(os.path.isfile(os.path.join(LIB, "origin", t + ".ogs")) for t in opstudio.REGISTRY) and json.load(open(os.path.join(LIB, "templates", "tga_dtg_single.json"), encoding="utf-8"))["origin_template"]["script"] == "origin/tga_dtg_single.ogs")
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)

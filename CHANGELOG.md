@@ -2,6 +2,17 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.56.0
+
+* Replaced Start Here with the project browser, data inspection and live Analysis-template recommendation layout.
+* Added project folders, ordering, working state, portable project archives, independent selection and saved graph restoration.
+* Fixed Unicode 2θ recognition; added conservative shared detection, confirmation and template input validation.
+* Added Workbook editing, per-sheet mappings, validated row/column merges, and data export without overwriting source files.
+* Added plain Line plot to Analysis while retaining the existing template library and workbook graph types.
+* Added independent template-panel zoom, measured/fitted markers, residual/Bragg/background controls, and controls for existing multi-graph previews.
+* Preserved data edits in structured figures, source ownership across projects, ordinary session round trips and Origin/export paths.
+* Simplified the adaptive header and added contextual empty states, import progress, file details and project status.
+
 ## 5.55.7
 
 * **New: "Arrange this workbook's figures…"** - right-click a graph read from a file that gives several (a workbook of composed figures, or several sheets each drawn as a picture), under Your graphs. Drag to reorder the figures of that file (or use Move up / Move down), and untick one to leave it out of "Draw ticked" and the paper set. The new order is kept in Your graphs, and "Draw all in Origin" / "Draw ticked" / the paper set all follow it, the same way dragging a row in Your graphs already did - this just gives a focused view of one workbook's own figures instead of the whole list.

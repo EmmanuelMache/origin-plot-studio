@@ -275,7 +275,9 @@ def save_session(self, path=None):
         path, _ = QFileDialog.getSaveFileName(self, "Save the session as", str(Path(self.outdir.text().strip() or Path.home()) / "session.json"), "Session (*.json)")
         if not path:
             return None
-    d = sp.session_dump(self.singles, self.boards, self.settings_now())
+    regular = [i for i in self.singles if not getattr(i.det, 'get', lambda *a: False)('_template_graph')]
+    d = sp.session_dump(regular, self.boards, self.settings_now())
+    if hasattr(self, 'workbench'): d.update(self.workbench.session_extras())
     d["modern_groups"] = [[how, list(keys)] for how, keys in self.user_groups]
     d["modern_ticked"] = [sp.key_of(i) for i in self.ticked() if isinstance(i, sp.Item)]
     with open(path, "w", encoding="utf-8") as fh:
@@ -298,6 +300,7 @@ def open_session(self, path=None):
         self.set_status(f"The session could not be opened: {e}")
         return None
     self.singles, self.boards = singles, boards
+    if hasattr(self, 'workbench'): self.workbench.restore_session_extras(data)
     self.user_groups = [(g[0], [tuple(k) if isinstance(k, list) else k for k in g[1]]) for g in data.get("modern_groups", [])]
     self.regroup()
     self.refresh_list()
@@ -309,8 +312,8 @@ def open_session(self, path=None):
         self.list.setCurrentRow(0)
     for l_ in lines:
         self.log(l_)
-    self.set_status(f"Session opened: {len(singles)} graph(s)" + (f"; {len(lines)} note(s) in Details" if lines else ""))
-    return len(singles)
+    self.set_status(f"Session opened: {len(self.singles)} graph(s)" + (f"; {len(lines)} note(s) in Details" if lines else ""))
+    return len(self.singles)
 
 
 def save_chat(self, path=None):

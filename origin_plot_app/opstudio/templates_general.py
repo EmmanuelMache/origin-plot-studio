@@ -674,3 +674,21 @@ def draw_tornado(d, st, p):
     ax.barh(y, d["low"][o], color="#1F77B4", label="Low setting"); ax.barh(y, d["high"][o], color="#D62728", label="High setting"); ax.axvline(d["base"], color="k", lw=0.8)
     ax.set_yticks(y); ax.set_yticklabels(np.array(d["params"])[o]); ax.set_xlabel(d["x_label"]); ax.legend(loc="lower right"); finish(ax, st); ax.yaxis.set_minor_locator(plt.NullLocator())
     return fig
+
+
+def demo_scientific_line():
+    x=np.linspace(0,10,100)
+    return {'x_label':'X','y_label':'Signal','series':[{'name':'Example','x':x,'y':np.exp(-((x-5)/1.2)**2)}]}
+
+
+@template('scientific_line','Line plot',CAT_B2D,
+          'A plain line plot of mapped X and Y columns, with no point markers or assumed scientific analysis.',
+          'xy_series',{'x':'mapped numeric X column','y':'one or more mapped numeric Y columns'},
+          demo_scientific_line,{},'Origin: Line plot with source data in worksheets.','generic',['Any numeric curve'])
+def draw_scientific_line(d,st,p):
+    fig,ax=new_fig(st)
+    for i,series in enumerate(d['series']):
+        ax.plot(series['x'],series['y'],color=series_color(st,series['name'],i),label=series['name'])
+    _lab(ax,d)
+    if len(d['series'])>1:ax.legend()
+    finish(ax,st);return fig

@@ -381,22 +381,14 @@ def read_tables(path, sheet=None, max_rows=200000):
             df = book[s]
             if df.shape[1] >= 1 and len(df): out.append(Table(name if len(pick) == 1 else f"{name} [{s}]", df))
     else:
-        df = None; has_header = False
-        try:                                                 # HighScore and other instrument exports written with the comma both
-            import smart_plots as _sp                        # between columns and as the decimal sign ('1,6,0043,307,9961'): same
-            text = _sp._text(path)                            # reader as the rest of the app, so these files read the same way here
-            dc = _sp._read_decimal_commas(text)
-            if dc is not None:                                # dc[0]: the real header sits in its first row, as text (not a column name yet)
-                df = dc[0]; hdr_row = [str(v) for v in df.iloc[0]]; df = df.iloc[1:].reset_index(drop=True); df.columns = hdr_row; has_header = True
-        except Exception: df = None
-        if df is None:
-            for kw in (dict(sep=None, engine="python"), dict(sep=r"\s+", engine="python"), dict(sep=";", decimal=",")):
-                try:
-                    df = pd.read_csv(path, nrows=max_rows, comment="#", **kw)
-                    if df.shape[1] >= 2: break
-                except Exception: df = None
-        if df is None: raise NeedData("this file could not be read as a table")
-        if not has_header and all(re.fullmatch(r"-?[\d.,eE+-]+", str(c).strip()) for c in df.columns):       # no header row: the first row is data
-            df = pd.concat([pd.DataFrame([df.columns], columns=df.columns), df], ignore_index=True); df.columns = ["x"] + [f"y{i}" for i in range(1, df.shape[1])]
-        out.append(Table(name, df))
+        try:
+            import smart_plots as sp
+            raw = sp.read_tables(path)
+            for label, frame in raw:
+                parsed, _units = sp.parse_table(frame)
+                if parsed is not None and len(parsed) and len(parsed.columns):
+                    out.append(Table(name if len(raw) == 1 else str(label), parsed.iloc[:max_rows].copy()))
+        except Exception as e:
+            raise NeedData(f'This file could not be read: {e}') from e
+    if not out: raise NeedData('No readable data table was found')
     return out

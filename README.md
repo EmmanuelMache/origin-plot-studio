@@ -1,3 +1,7 @@
+# Origin Plot Studio 5.56.0
+
+See [the update and installation guide](UPDATE_GUIDE.md) for the redesigned project workbench and [implementation/testing notes](IMPLEMENTATION_AND_TESTS.md) for validation details.
+
 # Origin Plot Studio
 
 A Windows desktop app that reads measurement files (XRD patterns and fits, TGA, FTIR, calorimetry, particle
