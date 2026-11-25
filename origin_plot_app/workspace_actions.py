@@ -20,6 +20,7 @@ from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QFileDialog, QInputDialog, QMenu, QMessageBox, QPushButton
 
 import smart_plots as sp
+from workspace_workbook import arrange_workbook
 
 # (shortcut, what it does, method name on the window or a callable taking the window)
 SHORTCUTS = [
@@ -398,6 +399,8 @@ def menu_graphs(self, pos):
     if single and getattr(it, "path", ""):
         m.addAction("Open the file's folder", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(it.path).parent))))
         m.addAction("Copy the file path", lambda: QApplication.clipboard().setText(str(it.path)))
+        if sum(1 for s in self.singles if getattr(s, "path", "") == it.path) > 1:
+            m.addAction("Arrange this workbook's figures…", lambda: self.arrange_workbook(it))
     m.addAction("Remove from the list (Delete)", lambda: self.remove_current(it))
     return _show(self, m, self.list, pos)
 
@@ -472,4 +475,4 @@ def quick_tool(self, it, label):
 
 METHODS = {f.__name__: f for f in (tick_all, toggle_tick, remove_current, remove_current_or_selected, reorder_from_list, wheel_zoom, copy_view, save_view, save_table, copy_table,
                                    save_session, open_session, save_chat, show_shortcuts, menu_graphs, menu_canvas, menu_table, menu_chat, rename_sample,
-                                   quick_tool)}
+                                   quick_tool, arrange_workbook)}

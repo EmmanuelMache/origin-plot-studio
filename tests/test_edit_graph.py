@@ -14,8 +14,8 @@ def check(name, cond, info=""):
     print(("PASS  " if cond else "FAIL  ") + name + (f"   [{info}]" if info else ""))
 import numpy as np
 import smart_plots as sp, make_highscore as mh
-from PySide6.QtWidgets import QApplication, QInputDialog, QMenu
-from PySide6.QtCore import QPoint
+from PySide6.QtWidgets import QApplication, QDialog, QInputDialog, QMenu
+from PySide6.QtCore import QPoint, Qt
 app = QApplication.instance() or QApplication(sys.argv)
 import workspace_qt as W
 D = Path(tempfile.mkdtemp())
@@ -142,6 +142,23 @@ w.panel_combo.setCurrentText("(a)"); app.processEvents()
 check("... the other panel (selected again) still shows its own, unaffected default", w.panel_dots.isChecked())
 r2 = rb.undo(); app.processEvents()
 check("Undo (Ctrl+Z) takes the panel change off again", "Changed" in r2 and not cit.fmt, (r2, cit.fmt))
+# ---------------------------------------------------------------- arrange a workbook of several figures
+check("one graph from a file: nothing to arrange", w.arrange_workbook(it=fit) is None and "only one graph" in w.status.text())
+frC2 = dict(frC, name="H"); dC2 = dict(dC, name="H", _composed=(pathC, recC, frC2))
+cit2 = sp.Item(pathC, dC2, []); cit2.auto = "H"; cit2.nfile = 1; cit2.paper_name = "H"; cit2.build(w.opt)
+w.singles = w.singles + [cit2]; w.regroup(); w.refresh_list()
+check("the same file now gives two graphs: menu offers to arrange them", any("Arrange this workbook" in a.text() for a in w.menu_graphs(w.list.visualItemRect(w.list.item(w.items.index(cit))).center()).actions()))
+from workspace_workbook import WorkbookDialog
+real_exec = QDialog.exec
+def fake_exec(self):                                        # move the second figure (H) to the top
+    h = next(self.list.item(i) for i in range(self.list.count()) if self.list.item(i).data(Qt.UserRole).name == "H")
+    r_ = self.list.row(h); self.list.takeItem(r_); self.list.insertItem(0, h)
+    return QDialog.Accepted
+QDialog.exec = fake_exec
+r3 = w.arrange_workbook(it=cit)
+QDialog.exec = real_exec
+check("'Arrange this workbook's figures…' reorders them in Your graphs", r3 == "arranged" and [s.name for s in w.singles if s.path == pathC] == ["H", "G"], [s.name for s in w.singles if s.path == pathC])
+check("... and 'Draw in Origin' / the paper set follow it (they draw from w.singles in this order)", w.singles.index(cit2) < w.singles.index(cit))
 pf.recipe_for, pf.load_sheets = real_recipe_for, real_load_sheets
 w.close()
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

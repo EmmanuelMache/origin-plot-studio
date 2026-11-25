@@ -2,6 +2,10 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.7
+
+* **New: "Arrange this workbook's figures…"** - right-click a graph read from a file that gives several (a workbook of composed figures, or several sheets each drawn as a picture), under Your graphs. Drag to reorder the figures of that file (or use Move up / Move down), and untick one to leave it out of "Draw ticked" and the paper set. The new order is kept in Your graphs, and "Draw all in Origin" / "Draw ticked" / the paper set all follow it, the same way dragging a row in Your graphs already did - this just gives a focused view of one workbook's own figures instead of the whole list.
+
 ## 5.55.6
 
 * **Fixed: the Zoomed-part switch also did nothing on a Sample page** (the measured pattern with its assigned peaks, next to its fit - made by "Sample pages" / "Which peak list goes with which pattern"). Same root cause as 5.55.5's fix to the "several fits, one panel each" figure, closed here too: the pattern's own, already-built inset was used regardless of the switch. A typed 2θ range now also wins over the pattern's own zoomed part, where before it was silently ignored for this figure type.

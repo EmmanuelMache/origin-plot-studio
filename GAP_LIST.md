@@ -1,4 +1,4 @@
-# GAP_LIST – brief v2.1 against the app (version 5.55.6)
+# GAP_LIST – brief v2.1 against the app (version 5.55.7)
 
 Status: **done** = works and is tested · **partly** = some of it exists · **missing** = not there.
 Evidence for every "done" is in `TEST_REPORT.md`. Wording is neutral on purpose (no names of anyone's work).
