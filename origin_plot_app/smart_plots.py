@@ -2808,6 +2808,9 @@ def prepare(singles, fresh, opt=None, progress=None):
         if progress: progress(k, tot, s.name)
         try: s.build(opt, getattr(s, "want_kind", None)); singles.append(s)
         except Exception as e: errs.append(f"  {s.file} / {s.name}: {e}")
+    if any(s.det.get("_composed") for s in fresh):     # a workbook of figures: the order the loader chose (its figures first); other files as before
+        new = singles[n0:]; pos = {id(s): i for i, s in enumerate(fresh)}
+        singles[n0:] = sorted(new, key=lambda s: pos.get(id(s), len(fresh)))
     return len(singles) - n0, errs
 
 def link_xrd(singles, opt=None, keep=False):
