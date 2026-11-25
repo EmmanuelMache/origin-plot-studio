@@ -19,7 +19,8 @@
    35
   ],
   "inset": true,
-  "obs_marker": "o"
+  "obs_marker": "o",
+  "gap": 0.08
  },
  "origin_hint": "Origin: 3 stacked layers (fit, difference, ticks) + inset layer; ticks as '|' scatter.",
  "recommended_for": [

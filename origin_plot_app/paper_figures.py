@@ -191,7 +191,7 @@ def _series(ax, book, s, phases, drawn, st):
         out.append((d.x.to_numpy(), d.y.to_numpy()))
     return out
 
-def _labels(ax, book, spec, curves, st, fig):
+def _labels(ax, book, spec, curves, st, fig, obstacles=()):
     """Peak labels from a label sheet: text at (2θ, label height), in its own colour, with a thin leader when it is staggered.
     Afterwards no label may sit on a curve or on another label: such a label goes up, step by step, and keeps its colour."""
     import numpy as np, pandas as pd
@@ -209,48 +209,80 @@ def _labels(ax, book, spec, curves, st, fig):
     for _, r in rows.iterrows():
         try: x, y = float(r[cxx]), float(r[cy])
         except Exception: continue
-        if not (x0 <= x <= x1) or str(r[cl]).strip() in ("", "nan"): continue
+        if not (x0 <= x <= x1) or str(r[cl]).strip() in ("", "nan") or not math.isfinite(y): continue
         col = str(r[cc]).strip() if cc is not None and str(r[cc]).strip().startswith("#") else "#000000"
         try: stag = float(r[cs]) if cs is not None else 0.0
         except Exception: stag = 0.0
+        stag = stag if math.isfinite(stag) else 0.0
         try: top = float(r[ct]) if ct is not None else None
         except Exception: top = None
         if top is not None and not math.isfinite(top): top = None
         t = ax.text(x, y, str(r[cl]).strip(), ha="center", va="bottom", fontsize=size, fontweight="bold", color=col, zorder=12, clip_on=True)
-        placed.append({"t": t, "x": x, "y": y, "top": top, "leader": stag > 0, "moved": False})
+        placed.append({"t": t, "x": x, "y": y, "top": top, "leader": stag > 0, "moved": False, "text": str(r[cl]).strip()})
     if not placed: return 0
-    fig.canvas.draw(); rend = fig.canvas.get_renderer(); inv = ax.transData.inverted(); ylo, yhi = sorted(ax.get_ylim()); step = 0.045 * (yhi - ylo); boxes = []
+    ylo, yhi = sorted(ax.get_ylim()); span = (yhi - ylo) or 1.0
+    def local_max(cx_, cy_, x, w):
+        m = (cx_ >= x - w) & (cx_ <= x + w)
+        return float(np.nanmax(cy_[m])) if m.any() else None
+    mode = spec.get("collide_with", "own" if len(curves) > 1 else "all")
+    w_ = 0.004 * (x1 - x0)
+    for pl in placed:                                      # the curve a label belongs to: its peak top (or the label height) is closest above that curve
+        ref = pl["top"] if pl["top"] is not None else pl["y"]; best = None
+        for k, (cxs, cys) in enumerate(curves):
+            lm = local_max(cxs, cys, pl["x"], w_)
+            if lm is None: continue
+            gap = ref - lm
+            score = abs(gap) if gap >= -0.02 * span else abs(gap) * 10          # a label never belongs to a curve that runs above it
+            if best is None or score < best[0]: best = (score, k)
+        pl["own"] = best[1] if best else None
+    fig.canvas.draw(); rend = fig.canvas.get_renderer(); inv = ax.transData.inverted(); step = 0.045 * span
     def box(t):
         b = t.get_window_extent(rend); (ax0, ay0), (ax1, ay1) = inv.transform((b.x0, b.y0)), inv.transform((b.x1, b.y1)); return [min(ax0, ax1), min(ay0, ay1), max(ax0, ax1), max(ay0, ay1)]
+    boxes = [box(o) for o in obstacles]                    # e.g. the sample names of a stack: a label never hides under them
     moved = 0
+    for pl in placed:                                      # a label at the edge of the panel is turned inwards, never cut
+        b = box(pl["t"])
+        if b[0] < x0: pl["t"].set_ha("left"); pl["t"].set_x(max(pl["x"] - 0.002 * (x1 - x0), x0 + 0.002 * (x1 - x0)))
+        elif b[2] > x1: pl["t"].set_ha("right"); pl["t"].set_x(min(pl["x"] + 0.002 * (x1 - x0), x1 - 0.002 * (x1 - x0)))
     for pl in sorted(placed, key=lambda q: (q["y"], q["x"])):
         b = box(pl["t"])
-        for (cxs, cys) in curves:                          # not on a curve: at least a little above the highest point under the text
+        test = [] if mode == "none" else ([curves[pl["own"]]] if mode == "own" and pl["own"] is not None else curves)
+        for (cxs, cys) in test:                            # not on its curve: at least a little above the highest point under the text
             m = (cxs >= b[0]) & (cxs <= b[2])
             if m.any():
                 hi_ = float(np.nanmax(cys[m]))
-                if b[1] < hi_ + 0.008 * (yhi - ylo): d = hi_ + 0.012 * (yhi - ylo) - b[1]; b[1] += d; b[3] += d; pl["moved"] = True
+                if b[1] < hi_ + 0.008 * span:
+                    d = hi_ + 0.012 * span - b[1]; b[1] += d; b[3] += d; pl["lift"] = True
+                    if d > 0.02 * span: pl["moved"] = True            # a nudge of a hair is not a move: no leader, no note
         for _ in range(12):                                # not on another label
             if not any(not (b[2] < o[0] or b[0] > o[2] or b[3] < o[1] or b[1] > o[3]) for o in boxes): break
             b[1] += step; b[3] += step; pl["moved"] = True
-        if pl["moved"]: pl["t"].set_y(b[1]); moved += 1
-        boxes.append(b); pl["yy"] = b[1]
+        if pl["moved"] or pl.get("lift"): pl["t"].set_y(b[1]); moved += bool(pl["moved"])
+        boxes.append(b); pl["yy"] = b[1]; pl["box"] = b
         if (pl["leader"] or pl["moved"]) and pl["top"] is not None and b[1] > pl["top"]:
             ax.plot([pl["x"], pl["x"]], [pl["top"], b[1]], color=st["leader"], lw=st["leader_lw"], zorder=11, solid_capstyle="butt")
     if moved: book.note(f"{moved} label(s) from '{sheet}' were moved up to keep them clear of a curve or of another label (same colour, with a leader line).")
+    top_needed = max(pl["box"][3] for pl in placed)
+    if top_needed > yhi:                                   # room for every label: the axis grows unless the recipe fixed the y range
+        if spec.get("_ylim_fixed"):
+            cut = [pl["text"] for pl in placed if pl["box"][3] > yhi]
+            book.note(f"{len(cut)} label(s) from '{sheet}' lie above the fixed y range and are cut: {', '.join(cut[:8])}. Raise 'ylim' in the recipe.")
+        else:
+            ax.set_ylim(ylo, top_needed + 0.02 * span)
     return len(placed)
 
 def _names_left(ax, curves, names, st, size=None):
     """The name of each pattern of a stack at the left of its baseline: names from the top pattern down."""
     import numpy as np
-    if not names or not curves: return
+    if not names or not curves: return []
     x0, x1 = sorted(ax.get_xlim()); base = []
     for cx, cy in curves:
         m = (cx >= x0) & (cx <= x0 + 0.12 * (x1 - x0)); seg = cy[m] if m.any() else cy
         base.append(float(np.nanpercentile(seg, 20)))
-    order = sorted(range(len(curves)), key=lambda i: -base[i]); ylo, yhi = sorted(ax.get_ylim())
+    order = sorted(range(len(curves)), key=lambda i: -base[i]); ylo, yhi = sorted(ax.get_ylim()); out = []
     for nm, i in zip(names, order):
-        ax.text(x0 + 0.012 * (x1 - x0), base[i] + 0.012 * (yhi - ylo), nm, ha="left", va="bottom", fontsize=size or st["tick_label"] - 1, zorder=13, bbox=dict(facecolor="white", edgecolor="none", pad=0.6, alpha=0.85))
+        out.append(ax.text(x0 + 0.012 * (x1 - x0), base[i] + 0.012 * (yhi - ylo), nm, ha="left", va="bottom", fontsize=size or st["tick_label"] - 1, zorder=10, bbox=dict(facecolor="white", edgecolor="none", pad=0.6, alpha=0.85)))
+    return out
 
 def _ylim(ax, p, curves):
     import numpy as np
@@ -271,14 +303,16 @@ def _panel_xy(fig, ax, book, p, recipe, st, drawn):
     if p.get("xreverse"): pass
     _ylim(ax, p, curves)
     if p.get("shade"): ax.axvspan(p["shade"][0], p["shade"][1], color="#000000", alpha=p.get("shade_alpha", 0.13), lw=0, zorder=0)
-    _names_left(ax, curves, p.get("names_left"), st)
-    try: _labels(ax, book, p.get("labels"), curves, st, fig)
-    except Missing as e: book.note(f"{p.get('_fig', '')} {p.get('letter', '')}: labels not drawn, {e}")
+    obst = _names_left(ax, curves, p.get("names_left"), st) or []
+    for spec in (p.get("labels") if isinstance(p.get("labels"), list) else [p.get("labels")]):
+        if not spec: continue
+        try: _labels(ax, book, dict(spec, _ylim_fixed=bool(p.get("ylim"))), curves, st, fig, obst)
+        except Missing as e: book.note(f"{p.get('_fig', '')} {p.get('letter', '')}: labels not drawn, {e}")
     _letter(ax, p, st)
 
 OKABE_ITO = ["#000000", "#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#7F7F7F"]          # safe for colour-blind readers
 
-def draw_stacked(ax, traces, offset_mode="auto_percent", offset_value=None, palette=None, guides=(), xlim=None, label_size=8.0, lw=0.8):
+def draw_stacked(ax, traces, offset_mode="auto_percent", offset_value=None, palette=None, guides=(), xlim=None, label_size=8.0, lw=0.8, reverse=False):
     """Traces one above the other on common axes (a waterfall). traces: [(label, x, y)], the first at the bottom.
     offset_mode "auto_percent": every trace is lifted by offset_value % (default 100) of the tallest trace;
     "fixed_value": by offset_value in the unit of y. The name of each trace stands at its right end, outside the axes; there is no legend box.
@@ -297,7 +331,8 @@ def draw_stacked(ax, traces, offset_mode="auto_percent", offset_value=None, pale
     for k, (label, x, y) in enumerate(traces):
         if not y.size: continue
         col = pal[k % len(pal)]; yy = y - float(np.nanmin(y)) + k * step; ax.plot(x, yy, color=col, lw=lw, zorder=3 + k); top = max(top, float(np.nanmax(yy)))
-        i = int(np.argmax(x)); n = max(1, x.size // 40); base = float(np.nanmedian(yy[np.argsort(x)[-n:]]))
+        i = int(np.argmin(x)) if reverse else int(np.argmax(x)); n = max(1, x.size // 40)        # the name stands at the right-hand end as drawn
+        base = float(np.nanmedian(yy[np.argsort(x)[:n]] if reverse else yy[np.argsort(x)[-n:]]))
         ax.annotate(label, xy=(float(x[i]), base), xytext=(5, 0), textcoords="offset points", ha="left", va="center", fontsize=label_size, color=col, annotation_clip=False)
     for g in guides or ():
         gx, gt = (g[0], g[1]) if isinstance(g, (list, tuple)) else (g, "")
@@ -306,6 +341,8 @@ def draw_stacked(ax, traces, offset_mode="auto_percent", offset_value=None, pale
     ax.set_ylim(-0.03 * max(top, 1e-9), top * 1.04 if top > 0 else 1); ax.set_yticks([])
     if xlim: ax.set_xlim(*xlim)
     else: ax.set_xlim(min(float(np.nanmin(x)) for _, x, _ in traces if x.size), max(float(np.nanmax(x)) for _, x, _ in traces if x.size))
+    if reverse:
+        lo, hi = sorted(ax.get_xlim()); ax.set_xlim(hi, lo)
     return step
 
 def _panel_stacked(fig, ax, book, p, recipe, st, drawn):
@@ -321,7 +358,7 @@ def _panel_stacked(fig, ax, book, p, recipe, st, drawn):
                 if not d.empty: traces.append((s.get("label") if (s.get("label") and len(cols) == 1) else str(c), d.x.to_numpy(), d.y.to_numpy()))
         except Missing as e: book.note(f"{p.get('_fig', '')} {p.get('letter', '')}: {e}")
     _apply_axes(ax, st, {k: p.get(k) for k in ("xtitle", "ytitle")})
-    draw_stacked(ax, traces, p.get("offset_mode", "auto_percent"), p.get("offset_value"), p.get("palette"), p.get("shared_peak_guides") or (), p.get("xlim"), st["tick_label"], p.get("lw", 0.8))
+    draw_stacked(ax, traces, p.get("offset_mode", "auto_percent"), p.get("offset_value"), p.get("palette"), p.get("shared_peak_guides") or (), p.get("xlim"), st["tick_label"], p.get("lw", 0.8), reverse=bool(p.get("xreverse")))
     ax.spines["right"].set_visible(False); ax.spines["top"].set_visible(False); ax.tick_params(top=False, right=False); _letter(ax, p, st)
 
 def _panel_bars(fig, ax, book, p, recipe, st, drawn):
@@ -329,7 +366,13 @@ def _panel_bars(fig, ax, book, p, recipe, st, drawn):
     df = book.sheet(p["sheet"]); n = len(df); bars = p.get("bars") or []; k = len(bars); w = 0.8 / max(1, k); xs = np.arange(n)
     for j, b in enumerate(bars):
         c = book.col(df, b["column"], p["sheet"]); v = pd.to_numeric(df[c], errors="coerce").fillna(0).to_numpy(); xo = xs - 0.4 + w * (j + 0.5)
-        ax.bar(xo, v, width=w * 0.94, color=b.get("color", "#595959"), edgecolor="black", linewidth=0.5, hatch=b.get("hatch") or None, zorder=3)
+        err = None
+        if b.get("error") is not None:                     # error bars from a column of the sheet (SD, error ...)
+            ce = book.col(df, b["error"], p["sheet"], optional=True)
+            if ce is not None: err = pd.to_numeric(df[ce], errors="coerce").to_numpy()
+            else: book.note(f"{p.get('_fig', '')} {p.get('letter', '')}: error column {b['error']} not found (bars drawn without)")
+        ax.bar(xo, v, width=w * 0.94, color=b.get("color", "#595959"), edgecolor="black", linewidth=0.5, hatch=b.get("hatch") or None, zorder=3,
+               yerr=err, error_kw={"elinewidth": 0.6, "capsize": 2, "capthick": 0.6, "zorder": 4} if err is not None else None)
         if p.get("zero_labels", True):
             for xi, vi in zip(xo, v):
                 if vi == 0: ax.text(xi, 0, "0", ha="center", va="bottom", fontsize=st["tick_label"] - 1.5, zorder=6)
@@ -345,39 +388,82 @@ def _panel_bars(fig, ax, book, p, recipe, st, drawn):
     if p.get("ylim"): ax.set_ylim(*p["ylim"])
     _letter(ax, p, st)
 
-def _ticks(ax, book, sheet, recipe, st, size=None):
-    """Bragg tick rows: the columns come in pairs "<phase> 2θ (°)" and "<phase> row"."""
-    import pandas as pd
-    df = book.sheet(sheet); rows = []
-    for c in df.columns:
-        m = re.match(r"^(.*?)[\s_]*row\s*$", str(c), re.I)
+X_TAIL = re.compile(r"[\s_]+(2\s*θ|2\s*theta|two\s*theta|tth\b|position|pos\b).*$|(2\s*θ|2\s*theta)\s*\(.*$", re.I)
+ROW_TAIL = re.compile(r"^(.*?)[\s_]*row\s*$", re.I)
+
+def tick_pairs(df):
+    """The pairs of a tick sheet: [(code, x column, row column)]. A row column "<code> row" is paired only with the
+    position column whose header, without its 2θ / unit tail, is exactly <code> (so "B" never takes "B' 2θ (°)", and
+    "C" never takes "Cal 2θ (°)"). Returns also the row columns that have no exact partner."""
+    cols = [str(c) for c in df.columns]; out, lonely = [], []
+    for c in cols:
+        m = ROW_TAIL.match(c)
         if not m: continue
-        name = m.group(1).strip(); xc = next((d for d in df.columns if d != c and norm(d).startswith(norm(name)) and "theta" in norm(d)), None)
-        if xc is None: book.note(f"sheet '{sheet}': column '{c}' has no partner '<phase> 2θ (°)'"); continue
-        d = pd.DataFrame({"x": pd.to_numeric(df[xc], errors="coerce"), "y": pd.to_numeric(df[c], errors="coerce")}).dropna()
-        if not d.empty: rows.append((name, d, phase_of(name, recipe.get("phases")) or {}))
-    if not rows: raise Missing(f"sheet '{sheet}' has no pairs of columns '<phase> 2θ (°)' and '<phase> row'")
-    pos, labs, cols = [], [], []
-    for name, d, ph in rows:
-        col = ph.get("color", "#000000"); ax.plot(d.x, d.y, linestyle="none", marker="|", ms=6, mew=0.7, color=col, zorder=3)
-        pos.append(float(d.y.iloc[0])); labs.append(ph.get("letter") or name); cols.append(col)
-    lo, hi = min(pos), max(pos); pad = 0.6 * ((hi - lo) / max(1, len(pos) - 1) if hi > lo else 1.0); ax.set_ylim(lo - pad, hi + pad)
-    top = next((y for (nm, d, ph), y in zip(rows, pos) if ph.get("name", "").lower().startswith("alite")), None)
-    if top is not None and top < (lo + hi) / 2: ax.invert_yaxis()            # alite is the top row
-    ax.set_yticks(pos); ax.set_yticklabels(labs, fontsize=size or st["tick_label"] - 1.5, fontweight="bold")
+        code = m.group(1).strip()
+        xc = next((d for d in cols if d != c and not ROW_TAIL.match(d) and X_TAIL.search(d) and X_TAIL.sub("", d).strip() == code), None)
+        (out.append((code, xc, c)) if xc else lonely.append(c))
+    return out, lonely
+
+def tick_rows(df):
+    """[(code, x array)] from a tick sheet in either layout: pairs ("<code> 2θ (°)", "<code> row"), or a long table with a
+    phase / code column and a position column (one reflection per row)."""
+    import pandas as pd
+    pairs, _ = tick_pairs(df)
+    if pairs:
+        return [(code, pd.to_numeric(df[xc], errors="coerce").dropna().to_numpy(), float(pd.to_numeric(df[rc], errors="coerce").dropna().iloc[0]) if pd.to_numeric(df[rc], errors="coerce").notna().any() else None) for code, xc, rc in pairs]
+    cols = [str(c) for c in df.columns]
+    cc = next((c for c in cols if norm(c) in ("phase", "labelcode", "code", "phasecode", "label") or "labelcode" in norm(c)), None)
+    xc = next((c for c in cols if "theta" in norm(c) or norm(c) in ("2th", "tth", "position")), None)
+    if cc and xc:
+        out = []
+        for k, g in df.groupby(cc, sort=False):
+            v = pd.to_numeric(g[xc], errors="coerce").dropna().to_numpy()
+            if len(v): out.append((str(k), v, None))
+        return out
+    return []
+
+def _ticks(ax, book, sheet, recipe, st, size=None):
+    """Bragg tick rows from a tick sheet (pairs "<phase> 2θ (°)" + "<phase> row", or a long reflection list)."""
+    df = book.sheet(sheet)
+    _, lonely = tick_pairs(df)
+    for c in lonely: book.note(f"sheet '{sheet}': column '{c}' has no partner '<phase> 2θ (°)' with exactly that phase name (row not drawn)")
+    found = tick_rows(df)
+    if not found: raise Missing(f"sheet '{sheet}' has no pairs of columns '<phase> 2θ (°)' and '<phase> row', and no phase + 2θ columns")
+    rows = []
+    for k, (name, x, y0) in enumerate(found):
+        rows.append((name, x, y0, phase_of(name, recipe.get("phases")) or {}))
+    order = recipe.get("tick_order")                     # optional: the codes from top to bottom
+    if order: rows.sort(key=lambda r: order.index(r[0]) if r[0] in order else len(order))
+    elif all(r[2] is not None for r in rows): rows.sort(key=lambda r: -r[2])         # the file's own row numbers: highest on top
+    n = len(rows); pos, labs, cols = [], [], []
+    for i, (name, x, _, ph) in enumerate(rows):                                      # evenly spaced rows, first one on top
+        y = n - 1 - i; col = ph.get("color") or recipe.get("_auto_colors", {}).get(name) or "#000000"
+        ax.plot(x, [y] * len(x), linestyle="none", marker="|", ms=max(3.0, min(6.0, 34.0 / max(n, 1))), mew=0.7, color=col, zorder=3)
+        pos.append(y); labs.append(ph.get("letter") or name); cols.append(col)
+    ax.set_ylim(-0.7, n - 0.3)
+    fs = size or max(4.5, min(st["tick_label"] - 1.5, 44.0 / max(n, 1)))                 # many phases: smaller letters, never overlapping
+    ax.set_yticks(pos); ax.set_yticklabels(labs, fontsize=fs, fontweight="bold")
     for t, col in zip(ax.get_yticklabels(), cols): t.set_color(col)
     ax.tick_params(axis="y", length=0)
+    return n
 
 def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
     """One sample: fit (observed circles, calculated line), difference, Bragg tick rows, and the zoomed inset in the fit row."""
     import numpy as np
-    hr = p.get("heights", [3.0, 0.85, 0.95]); gs = cell.subgridspec(3, 1, height_ratios=hr, hspace=0.0)
-    a1 = fig.add_subplot(gs[0]); a2 = fig.add_subplot(gs[1], sharex=a1); a3 = fig.add_subplot(gs[2], sharex=a1); xl = p.get("xlim", [10, 70]); tag = f"{p.get('_fig', '')} {p.get('letter', '')}"
-    for a in (a1, a2, a3): _apply_axes(a, st)
+    nt = 0
+    try: nt = len(tick_rows(book.sheet(p["ticks"]))) if p.get("ticks") else 0
+    except Exception: nt = 0
+    has_t = bool(p.get("ticks"))
+    hr = p.get("heights") or ([3.0, 0.85, max(0.6, 0.95 * max(nt, 7) / 7)] if has_t else [3.0, 0.85])     # the tick block grows with the number of phases
+    gs = cell.subgridspec(len(hr), 1, height_ratios=hr, hspace=p.get("gap", 0.10))
+    a1 = fig.add_subplot(gs[0]); a2 = fig.add_subplot(gs[1], sharex=a1); a3 = fig.add_subplot(gs[2], sharex=a1) if has_t else a2
+    tag = f"{p.get('_fig', '')} {p.get('letter', '')}"
+    for a in {a1, a2, a3}: _apply_axes(a, st)
     curves = []
     try:
         x, yo, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("obs", "Yobs_counts")); a1.plot(x, yo, linestyle="none", marker="o", ms=p.get("obs_ms", 1.6), mfc="none", mec="#000000", mew=0.35, zorder=3); curves.append((x, yo))
         xc, yc, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("calc", "Ycalc_counts")); a1.plot(xc, yc, color="#CC0000", lw=0.7, zorder=4)
+        xl = p.get("xlim") or [float(np.nanmin(x)), float(np.nanmax(x))]
         m = (x >= xl[0]) & (x <= xl[1]); a1.set_ylim(0, p.get("ymax_factor", 1.8) * float(np.nanmax(yo[m] if m.any() else yo)))
         if not any(d["label"] == "Observed" for d in drawn):
             drawn.append({"label": "Observed", "color": "#000000", "kind": "markers", "marker": "o", "filled": False, "ms": 3}); drawn.append({"label": "Calculated", "color": "#CC0000", "kind": "line", "lw": 0.9, "ls": "-"})
@@ -386,18 +472,25 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
         xd, yd, _ = book.xy(p["profile"], p.get("x", "2theta_deg"), p.get("diff", "Ydiff_counts")); a2.axhline(0, color="#9A9A9A", lw=0.4, zorder=1); a2.plot(xd, yd, color="#555555", lw=0.5, zorder=3)
         if not any(d["label"] == "Difference" for d in drawn): drawn.append({"label": "Difference", "color": "#555555", "kind": "line", "lw": 0.8, "ls": "-"})
     except Missing as e: book.note(f"{tag}: difference not drawn, {e}")
-    try: _ticks(a3, book, p["ticks"], recipe, st, p.get("tick_letter_size"))
-    except Missing as e: book.note(f"{tag}: tick rows not drawn, {e}")
+    if has_t:
+        try: _ticks(a3, book, p["ticks"], recipe, st, p.get("tick_letter_size"))
+        except Missing as e: book.note(f"{tag}: tick rows not drawn, {e}")
+    xl = p.get("xlim") or ([float(np.nanmin(x)), float(np.nanmax(x))] if curves else [10, 70])
     a1.set_xlim(*xl)
     if p.get("shade"): a1.axvspan(p["shade"][0], p["shade"][1], color="#000000", alpha=0.13, lw=0, zorder=0)
     from matplotlib.ticker import MaxNLocator
-    a1.tick_params(labelbottom=False); a2.tick_params(labelbottom=False); a2.tick_params(axis="y", labelsize=st["tick_label"] - 1.5)
-    a1.yaxis.set_major_locator(MaxNLocator(nbins=6, prune="lower")); a2.yaxis.set_major_locator(MaxNLocator(nbins=2, prune="both", symmetric=True))       # the numbers of two rows never run into each other
+    a1.tick_params(labelbottom=False); a2.tick_params(axis="y", labelsize=st["tick_label"] - 1.5)
+    if has_t: a2.tick_params(labelbottom=False)
+    a1.yaxis.set_major_locator(MaxNLocator(nbins=6, prune="lower" if p.get("gap", 0.10) < 0.03 else None)); a2.yaxis.set_major_locator(MaxNLocator(nbins=2, prune="both", symmetric=True))       # the numbers of two rows never run into each other
     if p.get("ytitle") is not None: a1.set_ylabel(p["ytitle"], fontsize=st["axis_title"])
     if p.get("diff_title", "Diff.") and p.get("ytitle") is not None: a2.set_ylabel(p.get("diff_title", "Diff."), fontsize=st["tick_label"])
     if p.get("xtitle") is not None: a3.set_xlabel(p["xtitle"], fontsize=st["axis_title"])
     else: a3.tick_params(labelbottom=bool(p.get("xnumbers", True)))
-    if p.get("title"): a1.set_title(((str(p.get("letter")) + " ") if p.get("letter") else "") + str(p["title"]), fontsize=st["axis_title"], loc="left", fontweight="bold", pad=3, linespacing=1.15)
+    ttl = str(p.get("title") or "")
+    if p.get("rwp") is not None:
+        try: ttl += ("\n" if p.get("rwp_newline") else (", " if ttl else "")) + r"$\mathregular{R_{wp}}$ = " + f"{float(p['rwp']):.2f} %"
+        except (TypeError, ValueError): book.note(f"{tag}: Rwp '{p['rwp']}' is not a number (left out)")
+    if ttl: a1.set_title(((str(p.get("letter")) + " ") if p.get("letter") else "") + ttl, fontsize=st["axis_title"], loc="left", fontweight="bold", pad=3, linespacing=1.15)
     if p.get("zoom"):
         r = p.get("inset", [0.60, 0.50, 0.38, 0.46]); ins = a1.inset_axes(r); _apply_axes(ins, st); ins.tick_params(labelsize=st["tick_label"] - 1.5, length=2); zs = p["zoom"]; zr = p.get("zoom_xlim", [31, 35])
         try:
@@ -406,10 +499,16 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
             try: zx3, zd, _ = book.xy(zs, p.get("zoom_x", 0), {"contains": "difference"}); ins.plot(zx3, zd, color="#555555", lw=0.5, zorder=2)
             except Missing as e: book.note(f"{tag}: inset without difference, {e}")
         except Missing as e: book.note(f"{tag}: inset not drawn, {e}")
-        ins.set_xlim(*zr); ins.set_yticklabels([]); ins.tick_params(axis="y", labelleft=False)
+        ins.set_xlim(*zr)
+        try:
+            vis = [l_.get_ydata()[(np.asarray(l_.get_xdata(), float) >= zr[0]) & (np.asarray(l_.get_xdata(), float) <= zr[1])] for l_ in ins.get_lines()]
+            vis = np.concatenate([np.asarray(v_, float) for v_ in vis if len(v_)]); lo_, hi_ = float(np.nanmin(vis)), float(np.nanmax(vis))
+            ins.set_ylim(lo_ - 0.05 * (hi_ - lo_), hi_ + 0.22 * (hi_ - lo_))          # room for the caption above the highest point
+        except Exception: pass
+        ins.set_yticklabels([]); ins.tick_params(axis="y", labelleft=False)
         ins.text(0.5, 0.97, p.get("zoom_text", "Zoom of shaded region"), transform=ins.transAxes, ha="center", va="top", fontsize=st["tick_label"] - 2)
     if p.get("labels"):
-        try: _labels(a1, book, p["labels"], curves, st, fig)
+        try: _labels(a1, book, dict(p["labels"], _ylim_fixed=bool(p.get("ylim"))), curves, st, fig)
         except Missing as e: book.note(f"{tag}: labels not drawn, {e}")
     if p.get("legend_in_panel"):
         h = _handles([d for d in drawn if d["label"] in ("Observed", "Calculated")]); a1.legend(handles=h, loc="upper left", fontsize=st["legend"], frameon=False, handlelength=1.6, borderaxespad=0.6)
@@ -477,12 +576,29 @@ def draw_figure(f, book, recipe):
                 if kind == "rietveld": _block_rietveld(fig, gs[r, c], book, p, recipe, st, drawn); continue
                 ax = fig.add_subplot(gs[r, c], sharex=first if (lay.get("sharex") and first is not None) else None); first = first or ax
                 (_panel_bars if kind == "bars" else _panel_xy)(fig, ax, book, p, recipe, st, drawn)
+                if not hasattr(fig, "_pf_cells"): fig._pf_cells = []
+                fig._pf_cells.append((ax, (r, c)))
                 if lay.get("sharex") and r < len(rows) - 1: ax.tick_params(labelbottom=False); ax.set_xlabel("")
             except Missing as e: book.note(f"{f.get('name', '')} {p.get('letter', '')}: not drawn, {e}")
+        if lay.get("sharey"):                              # panels of one row share one y range (e.g. a stack and its zoom)
+            by_row = {}
+            for ax_, rc_ in getattr(fig, "_pf_cells", []): by_row.setdefault(rc_[0] if lay["sharey"] != "all" else 0, []).append(ax_)
+            for axs_ in by_row.values():
+                if len(axs_) > 1:
+                    lo_ = min(min(a_.get_ylim()) for a_ in axs_); hi_ = max(max(a_.get_ylim()) for a_ in axs_)
+                    for a_ in axs_: a_.set_ylim(lo_, hi_)
         if legend_cell:
             cell, p = legend_cell; ax = fig.add_subplot(cell); ax.axis("off"); it = _legend_items(book, p.get("legend") or leg, recipe, drawn)
-            if it: ax.legend(handles=_handles(it), loc="upper left", fontsize=st["legend"], frameon=False, handlelength=2.6, borderaxespad=0.2, labelspacing=0.55)
-            if p.get("note"): ax.text(0.02, 0.02, p["note"], transform=ax.transAxes, ha="left", va="bottom", fontsize=st["legend"] - 0.5, color="#333333", linespacing=1.3)
+            fs = st["legend"]; lg = nt_ = None
+            for _ in range(8):                             # the legend and the note stay inside the figure: smaller text when needed
+                for a_ in (lg, nt_):
+                    if a_ is not None: a_.remove()
+                lg = ax.legend(handles=_handles(it), loc="upper left", fontsize=fs, frameon=False, handlelength=2.6, borderaxespad=0.2, labelspacing=0.55) if it else None
+                nt_ = ax.text(0.02, 0.02, p["note"], transform=ax.transAxes, ha="left", va="bottom", fontsize=fs - 0.5, color="#333333", linespacing=1.3) if p.get("note") else None
+                fig.canvas.draw(); r_ = fig.canvas.get_renderer(); fw = fig.bbox.width
+                if all(a_.get_window_extent(r_).x1 <= fw - 2 for a_ in (lg, nt_) if a_ is not None) or fs <= 5: break
+                fs -= 0.5
+            if fs < st["legend"]: book.note(f"{f.get('name', '')}: legend text set to {fs:g} pt to fit its cell")
         elif below:
             it = _legend_items(book, leg, recipe, drawn)
             if it:
@@ -491,9 +607,32 @@ def draw_figure(f, book, recipe):
         if f.get("note"): fig.text(0.5, 1.6 * MM / H, f["note"], ha="center", va="bottom", fontsize=st["legend"] - 0.5, color="#333333")
         if f.get("ytitle"): fig.text(2.2 * MM / W, (bottom + 1 - lay.get("top_mm", 6) * MM / H) / 2, f["ytitle"], rotation=90, ha="left", va="center", fontsize=st["axis_title"])
         if f.get("xtitle"): fig.text(0.5, bottom - 8.2 * MM / H, f["xtitle"], ha="center", va="top", fontsize=st["axis_title"])
+        _fit_inside(fig, gs, f, book)
         fig._pf_rc = {"font.family": "sans-serif", "font.sans-serif": [st["font"], "Arial", "Liberation Sans", "DejaVu Sans"], "pdf.fonttype": 42, "hatch.linewidth": 0.5}; fig._pf_dpi = st["dpi"]
         fig.canvas.draw()
     return fig
+
+def _fit_inside(fig, gs, f, book):
+    """Nothing may stick out of the page: titles over the top row, tick numbers at the right, long y titles at the left.
+    The panel grid is moved in until the drawn content fits (the figure size stays as the recipe says)."""
+    fig.canvas.draw(); r = fig.canvas.get_renderer(); W, H = fig.bbox.width, fig.bbox.height; pad = 3.0
+    changed = False
+    for _ in range(4):
+        bb = [a.get_tightbbox(r) for a in fig.axes if a.get_visible() and a.axison]
+        bb = [b for b in bb if b is not None]
+        if not bb: return
+        top = max(b.y1 for b in bb); right = max(b.x1 for b in bb); left = min(b.x0 for b in bb)
+        kw = {}
+        if top > H - pad: kw["top"] = gs.top - (top - H + pad) / H
+        if right > W - pad: kw["right"] = gs.right - (right - W + pad) / W
+        if left < pad: kw["left"] = gs.left + (pad - left) / W
+        if not kw: break
+        gs.update(**kw); changed = True
+        for a in fig.axes:                                 # axes of nested grids (Rietveld blocks) are not moved by update(): place them again
+            ss = a.get_subplotspec() if hasattr(a, "get_subplotspec") else None
+            if ss is not None: a.set_position(ss.get_position(fig))
+        fig.canvas.draw()
+    if changed: book.note(f"{f.get('name', '')}: the panels were moved in a little so that titles and numbers stay inside the page")
 
 CONFIRMED_ACTIONS = []          # the assistant actions the user confirmed in this session; written into the provenance of the figures that follow
 
@@ -612,10 +751,12 @@ def save_spec_figure(spec, base, facts=None, app_version="", curve_w=1.5, axis_w
     files = _save_figure(fig, rc, base); d = {"confirmed_assistant_actions": list(CONFIRMED_ACTIONS)}; d.update(facts or {})
     return files + [write_provenance(base, d, app_version)]
 
-def run(workbook, recipe, outdir, only=None, log=None, stop=None, formats=("pdf", "png"), app_version=""):
-    """Draw the figures of a recipe from a workbook into outdir. Returns {"files": [...], "notes": [...], "figures": [...], "text": summary}."""
+def run(workbook, recipe, outdir, only=None, log=None, stop=None, formats=("pdf", "png"), app_version="", origin=None):
+    """Draw the figures of a recipe from a workbook into outdir. Returns {"files": [...], "notes": [...], "figures": [...], "text": summary}.
+    origin: make_driver(folder) of the app (real Origin or its dry run): each figure is also built in Origin as <figure>.opju
+    (in outdir/origin), with its data in worksheets; what Origin cannot build is listed in "origin" of the result."""
     import matplotlib
-    say = log or (lambda m: None); book = Book(load_sheets(workbook)); os.makedirs(outdir, exist_ok=True); files, done, failed = [], [], []
+    say = log or (lambda m: None); book = Book(load_sheets(workbook)); os.makedirs(outdir, exist_ok=True); files, done, failed, origin_done = [], [], [], []
     want = [norm(o) for o in (only or [])]
     for f in recipe.get("figures") or []:
         nm = f.get("name", "Figure"); fn = f.get("file") or re.sub(r"[^A-Za-z0-9_-]+", "_", nm)
@@ -631,6 +772,15 @@ def run(workbook, recipe, outdir, only=None, log=None, stop=None, formats=("pdf"
                                                             "label_sheets": sorted({(q.get("labels") or {}).get("sheet") for q in f.get("panels") or [] if (q.get("labels") or {}).get("sheet")}), "notes": list(book.notes), "confirmed_assistant_actions": list(CONFIRMED_ACTIONS)}, app_version)
             except Exception: pass
             done.append(nm); say(f"{nm}: saved as {fn}.pdf and {fn}.png (600 dpi)")
+            if origin is not None:
+                try:
+                    from opstudio import origin as O_
+                    r_ = O_.draw_in_origin(origin, fig, fn[:48], "figure", os.path.join(outdir, "origin"),
+                                           keep_open=True, export_dpi=fig._pf_dpi, width_mm=f.get("width_mm", 175))
+                    origin_done.append({"figure": nm, "project": r_["project"], "differences": r_["differences"]})
+                    say(f"{nm}: built in Origin as {os.path.basename(r_['project'])}" + (f" ({len(r_['differences'])} difference(s) listed)" if r_["differences"] else ""))
+                except Exception as e:
+                    book.note(f"{nm}: not built in Origin ({type(e).__name__}: {str(e)[:120]})")
         except Exception as e:
             failed.append(nm); book.note(f"{nm}: NOT drawn ({type(e).__name__}: {e})"); say(f"!! {nm} could not be drawn: {type(e).__name__}: {e}")
     text = f"{len(done)} figure(s) drawn" + (f", {len(failed)} not drawn ({', '.join(failed)})" if failed else "") + (f"; {len(book.notes)} note(s)" if book.notes else "")
@@ -638,7 +788,7 @@ def run(workbook, recipe, outdir, only=None, log=None, stop=None, formats=("pdf"
         with open(os.path.join(outdir, "figures_report.txt"), "w", encoding="utf-8") as fh:
             fh.write(f"Workbook: {workbook}\nRecipe: {recipe.get('title', '')}\n{text}\nNo number of the workbook was changed and no sheet was sorted: the sheets are only read.\n\n" + ("Notes (what was missing or moved):\n" + "\n".join("- " + n for n in book.notes) if book.notes else "Everything the recipe asks for was found."))
     except Exception: pass
-    return {"files": files, "notes": list(book.notes), "figures": done, "failed": failed, "text": text, "folder": outdir}
+    return {"files": files, "notes": list(book.notes), "figures": done, "failed": failed, "text": text, "folder": outdir, "origin": origin_done}
 
 SPEC_DOC = ('A figure = {"name","file","width_mm","height_mm","layout":{"rows":[ratios],"cols":[ratios],"sharex":bool},"panels":[...],"legend":{"where":"below","rows":1,"items":[{"label":..}]},"note":".."}. '
             'Panel "type":"xy": {"cell":[row,col],"letter":"(a)","title","xtitle","ytitle","xlim","ylim","xticks","xreverse","yfrom0","series":[{"sheet","x":column,"y":column|[columns]|"others","kind":"line|markers|line+markers","color":"#hex","lw","ls":"-|--|:","marker":"o|s|^|D","filled":bool,"label","optional":bool}]}. '

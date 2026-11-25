@@ -152,7 +152,8 @@
     35
    ],
    "inset": true,
-   "obs_marker": "o"
+   "obs_marker": "o",
+   "gap": 0.08
   },
   "origin_hint": "Origin: 3 stacked layers (fit, difference, ticks) + inset layer; ticks as '|' scatter.",
   "recommended_for": [
@@ -182,7 +183,13 @@
    "items": "list of rietveld bundles (one per file)"
   },
   "default_params": {
-   "ncols": 3
+   "ncols": 3,
+   "zoom": [
+    31,
+    35
+   ],
+   "inset": true,
+   "labels": false
   },
   "origin_hint": "Origin: Graph > Merge Graph Windows (3 columns) from six fit graphs.",
   "recommended_for": [

@@ -4,12 +4,14 @@ Every template registers: id, name, category, use case, data kind, data roles, a
 draw(data, style, params) function. Draw functions never invent labels: every text comes from `data`
 (user file / user confirmation) or `params` (user-editable).
 """
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Polygon
 from matplotlib.lines import Line2D
 from .core import (template, new_fig, finish, panel_title, series_color, fig_size, MM, distinct_colors, make_fig)
 from . import synthetic as S
+from . import side_tables as SD
 
 CAT_XRD = "XRD & Rietveld"
 CAT_PHASE = "Phase & chemical composition"
@@ -62,16 +64,14 @@ def draw_xrd_single(d, st, p):
     s = d["series"][0]
     ax.plot(s["x"], s["y"], color="k", lw=0.8)
     ymax = np.nanmax(s["y"])
-    for lab in [q for q in d.get("labels", []) if s["x"].min() <= q["x"] <= s["x"].max()]:
-        i = np.argmin(abs(s["x"] - lab["x"]))
-        y0 = np.nanmax(s["y"][max(0, i - 8): i + 8])
-        ax.text(lab["x"], y0 + p["label_offset_frac"] * ymax, lab["text"], ha="center", va="bottom", fontsize=7,
-                color=series_color(st, d.get("key", {}).get(lab["text"], ""), 0) if d.get("key") else "k", fontweight="bold")
     ax.set_xlabel(d["x_label"]); ax.set_ylabel(d["y_label"]); ax.set_xlim(s["x"].min(), s["x"].max())
     ax.set_ylim(0, ymax * 1.15)
-    if p["show_key"] and d.get("key"):
-        key = "   ".join(f"{k}, {v}" for k, v in d["key"].items())
-        fig.text(0.5, -0.02, key, ha="center", va="top", fontsize=7)
+    key = d.get("key") or {}
+    SD.draw_labels(ax, d.get("labels") or [], [(np.asarray(s["x"], float), np.asarray(s["y"], float))], [s["name"]], size=7,
+                   color_of=(lambda t: series_color(st, key.get(t, ""), 0)) if key else None)
+    if p["show_key"] and key:
+        txt = "   ".join(f"{k}, {v}" for k, v in key.items())
+        fig.text(0.5, -0.02, txt, ha="center", va="top", fontsize=7)
     finish(ax, st)
     return fig
 
@@ -92,27 +92,50 @@ def demo_stack():
           ["XRD", "FTIR", "Raman"])
 def draw_xrd_stacked(d, st, p):
     fig, ax = new_fig(st)
-    _stack(ax, d, st, p)
+    _, drawn, offs = _stack(ax, d, st, p)
     ax.set_xlabel(d["x_label"]); ax.set_ylabel(d["y_label"]); ax.set_yticks([])
+    _stack_labels(ax, d, drawn, offs, p)
     finish(ax, st)
     return fig
 
 
-def _stack(ax, d, st, p, names=True):
+def _stack(ax, d, st, p, names=True, step=None):
+    """Draw the traces one above the other. Returns (step, [(x, y as drawn)], [offset per trace])."""
     ser = d["series"]
     off = 0.0
-    step = 0 if p.get("already_offset") else (np.nanmax([np.nanmax(s["y"]) - np.nanmin(s["y"]) for s in ser]) * 0.75
-                                               if p.get("offset", "auto") == "auto" else float(p["offset"]))
+    if step is None:
+        step = 0 if p.get("already_offset") else (np.nanmax([np.nanmax(s["y"]) - np.nanmin(s["y"]) for s in ser]) * 0.75
+                                                   if p.get("offset", "auto") == "auto" else float(p["offset"]))
+    drawn, offs = [], []
     for i, s in enumerate(ser):
         col = series_color(st, s["name"], i) if p.get("color_by_sample") else "#222222"
         y = s["y"] + off
         ax.plot(s["x"], y, color=col, lw=0.7)
+        drawn.append((np.asarray(s["x"], float), np.asarray(y, float))); offs.append(off)
         if names:  # label sits just above the flat left part of its own trace
             left = y[: max(5, int(0.12 * len(y)))]
             span = np.nanmax([np.nanmax(q["y"]) for q in ser]) - np.nanmin([np.nanmin(q["y"]) for q in ser]) + step * len(ser)
             ax.text(s["x"].min() + 0.01 * np.ptp(s["x"]), np.nanpercentile(left, 95) + 0.012 * span, s["name"], fontsize=7, va="bottom")
         off += step
     ax.set_xlim(np.nanmin(ser[0]["x"]), np.nanmax(ser[0]["x"]))
+    return step, drawn, offs
+
+
+def _stack_labels(ax, d, drawn, offs, p, size=6.0):
+    """The user's labels on a stack: a label with a Sample goes to that trace (its height moved with the offset the app added)."""
+    labs = d.get("labels") or []
+    if not labs: return
+    names = [s["name"] for s in d["series"]]; out = []
+    for lb in labs:
+        q = dict(lb)
+        if not p.get("already_offset") and any(offs):
+            i = SD.best_match(lb["sample"], names) if lb.get("sample") is not None else None
+            if i is None: q.pop("y", None); q.pop("top", None)
+            else:
+                for k in ("y", "top"):
+                    if k in q: q[k] = q[k] + offs[i]
+        out.append(q)
+    SD.draw_labels(ax, out, drawn, names, size=size)
 
 
 @template("xrd_stack_with_zoom", "Stacked XRD + zoom panel", CAT_XRD,
@@ -125,14 +148,18 @@ def draw_xrd_stack_zoom(d, st, p):
     z0, z1 = sorted(p["zoom"]) if p.get("zoom") else (0, 0)
     has = z1 > z0 and any(np.any((np.asarray(s["x"]) >= z0) & (np.asarray(s["x"]) <= z1)) for s in d["series"])
     if not p.get("show_zoom", True) or not has:            # zoom unticked (or no data in the window): the full-range stack alone
-        fig, a = new_fig(st); _stack(a, d, st, p); a.set_yticks([]); a.set_xlabel(d["x_label"]); a.set_ylabel(d["y_label"]); finish(a, st)
+        fig, a = new_fig(st); _, dr, of = _stack(a, d, st, p); a.set_yticks([]); a.set_xlabel(d["x_label"]); a.set_ylabel(d["y_label"])
+        _stack_labels(a, d, dr, of, p); finish(a, st)
         return fig
     fig, (a, b) = new_fig(st, 1, 2, gridspec_kw={"width_ratios": p["width_ratio"], "wspace": 0.04})
-    _stack(a, d, st, p)
+    step, dr, of = _stack(a, d, st, p)
     dz = {"series": [{**s, "x": s["x"][(s["x"] >= z0) & (s["x"] <= z1)], "y": s["y"][(s["x"] >= z0) & (s["x"] <= z1)]}
-                     for s in d["series"]]}
-    _stack(b, dz, st, {**p, "offset": "auto"}, names=False)
-    a.axvspan(z0, z1, color="#DDDDDD", alpha=0.5, lw=0)
+                     for s in d["series"]], "labels": d.get("labels")}
+    _, drz, ofz = _stack(b, dz, st, p, names=False, step=step)          # the same offsets as (a): the traces line up
+    if p.get("shade_zoom", True): a.axvspan(z0, z1, color="#DDDDDD", alpha=0.5, lw=0)
+    b.set_xlim(z0, z1)
+    _stack_labels(a, d, dr, of, p); _stack_labels(b, dz, drz, ofz, p)
+    lo = min(a.get_ylim()[0], b.get_ylim()[0]); hi = max(a.get_ylim()[1], b.get_ylim()[1]); a.set_ylim(lo, hi); b.set_ylim(lo, hi)
     for ax, t in ((a, 0), (b, 1)):
         ax.set_yticks([]); ax.set_xlabel(d["x_label"]); finish(ax, st); panel_title(ax, t, "")
     a.set_ylabel(d["y_label"])
@@ -154,11 +181,26 @@ def demo_three_panels():
 def draw_xrd_multi(d, st, p):
     n = len(d["series"])
     fig, axs = new_fig(st, n, 1, sharex=True, gridspec_kw={"hspace": p["hspace"]}, aspect=1.35)
-    for i, (ax, s) in enumerate(zip(np.atleast_1d(axs), d["series"])):
+    axs = np.atleast_1d(axs); names = [s["name"] for s in d["series"]]
+    per = [[] for _ in range(n)]
+    for lb in d.get("labels") or []:                       # each label to its own panel: by its Sample, else by its peak height
+        i = SD.best_match(lb["sample"], names) if lb.get("sample") is not None else None
+        if i is None and lb.get("top", lb.get("y")) is not None:
+            ref = lb.get("top", lb.get("y")); sc = []
+            for s in d["series"]:
+                m = np.abs(np.asarray(s["x"], float) - lb["x"]) <= 0.15
+                sc.append(abs(float(np.nanmax(np.asarray(s["y"], float)[m])) - ref) if m.any() else np.inf)
+            i = int(np.argmin(sc)) if np.isfinite(min(sc)) else None
+        if i is None and n == 1: i = 0
+        if i is not None: per[i].append(lb)
+    for i, (ax, s) in enumerate(zip(axs, d["series"])):
         ax.plot(s["x"], s["y"], color="k", lw=0.7)
-        ax.text(0.01, 0.92, f"({'abcdefgh'[i]}) {s['name']}", transform=ax.transAxes, fontweight="bold", va="top", fontsize=7.5)
-        ax.set_ylabel(d["y_label"]); finish(ax, st)
-    np.atleast_1d(axs)[-1].set_xlabel(d["x_label"])
+        ax.set_xlim(np.nanmin(s["x"]), np.nanmax(s["x"])); ax.set_ylim(0 if np.nanmin(s["y"]) >= 0 else None, np.nanmax(s["y"]) * 1.12)
+        ax.text(0.01, 0.92, f"({'abcdefghijklmnop'[i]}) {s['name']}", transform=ax.transAxes, fontweight="bold", va="top", fontsize=7.5)
+        if d.get("y_label"): ax.set_ylabel(d["y_label"])
+        SD.draw_labels(ax, per[i], [(np.asarray(s["x"], float), np.asarray(s["y"], float))], [s["name"]])
+        finish(ax, st)
+    axs[-1].set_xlabel(d["x_label"])
     return fig
 
 
@@ -171,44 +213,81 @@ def demo_rietveld(seed=3, name="Sample B"):
             "x_label": "2θ (°), Cu Kα", "y_label": "Intensity (counts)"}
 
 
-@template("rietveld_fit_diff_ticks", "Rietveld fit: observed / calculated / difference / Bragg ticks", CAT_XRD,
-          "Publication Rietveld plot with Rwp in title, shaded zoom window and inset, tick rows per phase.",
-          "rietveld", {"x": "2θ", "obs": "observed", "calc": "calculated", "diff": "difference (optional)",
-                       "ticks": "reflection list per phase (from refinement output)"},
-          demo_rietveld, {"zoom": [31, 35], "inset": True, "obs_marker": "o"},
-          "Origin: 3 stacked layers (fit, difference, ticks) + inset layer; ticks as '|' scatter.", "house",
-          ["XRD Rietveld", "GSAS-II", "HighScore"])
-def draw_rietveld(d, st, p):
-    fig = make_fig(fig_size(st, "double", 1.75))
-    has_ticks = bool(d.get("ticks"))  # no reflection list in the file -> no empty tick panel
-    gs = fig.add_gridspec(3 if has_ticks else 2, 1, height_ratios=[4, 1, 1.1] if has_ticks else [4, 1], hspace=0.06)
-    a = fig.add_subplot(gs[0]); b = fig.add_subplot(gs[1], sharex=a); c = fig.add_subplot(gs[2], sharex=a) if has_ticks else b
-    a.plot(d["x"], d["obs"], ls="none", marker="o", ms=1.6, mfc="none", mec="#555555", mew=0.4, label="Observed")
-    a.plot(d["x"], d["calc"], color="#C0141E", lw=0.8, label="Calculated")
-    z0, z1 = sorted(p["zoom"]) if p.get("zoom") else (0, 0); x_ = np.asarray(d["x"], float)
-    zoom_on = bool(p.get("inset")) and z1 > z0 and np.any((x_ >= z0) & (x_ <= z1))      # unticked, or no data in the window: no band and no inset
+PHASE_WORDS = {"A": "Alite", "B": "Belite", "C": "Aluminate", "F": "Ferrite", "P": "Periclase", "R": "Rutile (std)"}     # the letters the template used before (style palette names)
+
+
+def _code_colors(labels):
+    """Colours the user gave to label codes in the label list: {code: colour} (codes split at + / , and brackets)."""
+    out = {}
+    for lb in labels or []:
+        if lb.get("color"):
+            for part in re.split(r"[+/,\s()\[\]]+", lb["text"]):
+                if part and part not in out: out[part] = lb["color"]
+    return out
+
+
+def _riet_title(d):
+    t = str(d.get("name") or "")
+    if d.get("rwp") is not None:
+        t += (", " if t else "") + r"$\mathregular{R_{wp}}$" + f" = {float(d['rwp']):.2f} %"
+    return t
+
+
+def _riet_block(fig, cell, d, st, p, k, small=False, show_labels=True, legend=True, xlabel=True, ylabel=True):
+    has_ticks = bool(d.get("ticks"))
+    nt = len(d.get("ticks") or {})
+    hr = [4, 1, max(0.8, 1.1 * max(nt, 6) / 6)] if has_ticks else [4, 1]
+    g = cell.subgridspec(3 if has_ticks else 2, 1, height_ratios=hr, hspace=p.get("gap", 0.08))
+    a = fig.add_subplot(g[0]); b = fig.add_subplot(g[1], sharex=a); c = fig.add_subplot(g[2], sharex=a) if has_ticks else b
+    x = np.asarray(d["x"], float)
+    a.plot(x, d["obs"], ls="none", marker=p.get("obs_marker", "o"), ms=1.2 if small else 1.6, mfc="none", mec="k", mew=0.35, label="Observed")
+    a.plot(x, d["calc"], color="#C0141E", lw=0.5 if small else 0.8, label="Calculated")
+    z0, z1 = sorted(p["zoom"]) if p.get("zoom") else (0, 0)
+    zoom_on = bool(p.get("inset")) and z1 > z0 and np.any((x >= z0) & (x <= z1))
     if zoom_on: a.axvspan(z0, z1, color="#DDDDDD", alpha=0.6, lw=0)
-    ttl = d.get("name", "") + (f", $R_{{wp}}$ = {d['rwp']:.2f} %" if d.get("rwp") else "")
-    panel_title(a, 0, ttl); a.set_ylabel(d.get("y_label", "Intensity (counts)")); a.legend(loc="upper left", bbox_to_anchor=(0, 0.9))
+    a.set_xlim(x.min(), x.max()); m_ = np.isfinite(np.asarray(d["obs"], float)); a.set_ylim(0, np.nanmax(np.asarray(d["obs"], float)[m_]) * (1.75 if zoom_on else 1.15))
+    panel_title(a, k, _riet_title(d))
+    if ylabel: a.set_ylabel(d.get("y_label") or "Intensity (counts)")
+    if legend: a.legend(loc="upper left", bbox_to_anchor=(0, 0.92), frameon=False)
     if zoom_on:
-        ins = a.inset_axes([0.6, 0.55, 0.38, 0.4])
-        m = (d["x"] >= z0) & (d["x"] <= z1)
-        ins.plot(d["x"][m], d["obs"][m], "o", ms=1.5, mfc="none", mec="#555555", mew=0.4)
-        ins.plot(d["x"][m], d["calc"][m], color="#C0141E", lw=0.8)
-        ins.plot(d["x"][m], d["diff"][m] - abs(d["diff"]).max() * 1.2, color="#444444", lw=0.5)
-        ins.set_yticks([]); ins.tick_params(labelsize=6); ins.set_title("Zoom of shaded region", fontsize=6, loc="left", fontweight="normal")
-    b.plot(d["x"], d["diff"], color="#444444", lw=0.5); b.axhline(0, color="#999999", lw=0.4); b.set_ylabel("Diff.")
+        ins = a.inset_axes([0.6, 0.5, 0.38, 0.45]); m = (x >= z0) & (x <= z1)
+        o, cc, df_ = np.asarray(d["obs"], float)[m], np.asarray(d["calc"], float)[m], np.asarray(d["diff"], float)[m]
+        lift = np.nanmin(np.r_[o, cc]) - np.nanmax(np.abs(df_)) * 1.2
+        ins.plot(x[m], o, "o", ms=1.4, mfc="none", mec="k", mew=0.35); ins.plot(x[m], cc, color="#C0141E", lw=0.7)
+        ins.plot(x[m], df_ + lift, color="#444444", lw=0.5)
+        lo, hi = np.nanmin(df_ + lift), np.nanmax(np.r_[o, cc]); ins.set_ylim(lo - 0.05 * (hi - lo), hi + 0.22 * (hi - lo)); ins.set_xlim(z0, z1)
+        ins.set_yticks([]); ins.tick_params(labelsize=5.5 if small else 6)
+        ins.text(0.5, 0.97, "Zoom of shaded region", transform=ins.transAxes, ha="center", va="top", fontsize=5.5 if small else 6)
+    b.plot(x, d["diff"], color="#444444", lw=0.4 if small else 0.5); b.axhline(0, color="#999999", lw=0.4)
+    if ylabel: b.set_ylabel("Diff.")
+    cols = _code_colors(d.get("labels"))
     for i, (ph, pos) in enumerate((d.get("ticks") or {}).items()):
-        c.plot(pos, [-i] * len(pos), "|", ms=6, color=series_color(st, {"A": "Alite", "B": "Belite", "C": "Aluminate",
-               "F": "Ferrite", "P": "Periclase", "R": "Rutile"}.get(ph, ph), i))
+        col = cols.get(ph) or series_color(st, PHASE_WORDS.get(ph, ph), i)
+        c.plot(pos, [-i] * len(pos), "|", ms=max(3.0, min(6.0, 34.0 / max(nt, 1))), color=col)
     if has_ticks:
-        c.set_yticks(range(0, -len(d["ticks"]), -1)); c.set_yticklabels(list(d["ticks"].keys()), fontsize=6)
-        c.set_ylim(-len(d["ticks"]) + 0.3, 0.7)
-    c.set_xlabel(d.get("x_label", "2θ (°)")); c.set_xlim(d["x"].min(), d["x"].max())
+        c.set_yticks(range(0, -nt, -1)); c.set_yticklabels(list(d["ticks"].keys()), fontsize=max(4.5, min(6.0, 40.0 / nt)), fontweight="bold")
+        for t_, ph in zip(c.get_yticklabels(), d["ticks"]): t_.set_color(cols.get(ph) or series_color(st, PHASE_WORDS.get(ph, ph), list(d["ticks"]).index(ph)))
+        c.set_ylim(-nt + 0.3, 0.7); c.tick_params(axis="y", length=0)
+    if xlabel: c.set_xlabel(d.get("x_label") or "2θ (°)")
     for ax in ((a, b) if has_ticks else (a,)):
         plt.setp(ax.get_xticklabels(), visible=False)
     for ax in {a, b, c}:
         finish(ax, st)
+    if show_labels and d.get("labels"):
+        SD.draw_labels(a, d["labels"], [(x, np.asarray(d["obs"], float))], [d.get("name", "")], size=5.5 if small else 6.5)
+    return a
+
+
+@template("rietveld_fit_diff_ticks", "Rietveld fit: observed / calculated / difference / Bragg ticks", CAT_XRD,
+          "Publication Rietveld plot with Rwp in title, shaded zoom window and inset, tick rows per phase.",
+          "rietveld", {"x": "2θ", "obs": "observed", "calc": "calculated", "diff": "difference (optional)",
+                       "ticks": "reflection list per phase (from refinement output)"},
+          demo_rietveld, {"zoom": [31, 35], "inset": True, "obs_marker": "o", "gap": 0.08},
+          "Origin: 3 stacked layers (fit, difference, ticks) + inset layer; ticks as '|' scatter.", "house",
+          ["XRD Rietveld", "GSAS-II", "HighScore"])
+def draw_rietveld(d, st, p):
+    fig = make_fig(fig_size(st, "double", 1.75))
+    _riet_block(fig, fig.add_gridspec(1, 1)[0], d, st, p, 0)
     return fig
 
 
@@ -216,22 +295,17 @@ def draw_rietveld(d, st, p):
           "All six refinements on one page with identical axes; each tile = fit + diff + ticks.", "rietveld",
           {"items": "list of rietveld bundles (one per file)"}, lambda: {"items": [demo_rietveld(i, n) for i, n in
                                                                                    enumerate(S.SAMPLES)]},
-          {"ncols": 3}, "Origin: Graph > Merge Graph Windows (3 columns) from six fit graphs.", "house", ["XRD Rietveld"])
+          {"ncols": 3, "zoom": [31, 35], "inset": True, "labels": False}, "Origin: Graph > Merge Graph Windows (3 columns) from six fit graphs.", "house", ["XRD Rietveld"])
 def draw_rietveld_grid(d, st, p):
-    items = d["items"]; nc = p["ncols"]; nr = int(np.ceil(len(items) / nc))
+    items = d["items"]; nc = min(p["ncols"], len(items)); nr = int(np.ceil(len(items) / nc))
     fig = make_fig(fig_size(st, "double", 1.5))
-    outer = fig.add_gridspec(nr, nc, hspace=0.35, wspace=0.25)
+    outer = fig.add_gridspec(nr, nc, hspace=0.42, wspace=0.22, bottom=0.1)
     for k, it in enumerate(items):
-        g = outer[k // nc, k % nc].subgridspec(2, 1, height_ratios=[3, 1], hspace=0.05)
-        a = fig.add_subplot(g[0]); b = fig.add_subplot(g[1], sharex=a)
-        a.plot(it["x"], it["obs"], ".", ms=0.8, color="#777777"); a.plot(it["x"], it["calc"], color="#C0141E", lw=0.5)
-        b.plot(it["x"], it["diff"], color="#444444", lw=0.3)
-        a.set_title(f"({'abcdefghij'[k]}) {it['name']}", fontsize=6.5, loc="left")
-        plt.setp(a.get_xticklabels(), visible=False)
-        for ax in (a, b):
-            ax.tick_params(labelsize=5.5); finish(ax, st)
-        if k // nc == nr - 1:
-            b.set_xlabel("2θ (°), Cu Kα", fontsize=6.5)
+        _riet_block(fig, outer[k // nc, k % nc], it, st, {**p, "inset": p.get("inset", True)}, k, small=True, show_labels=p.get("labels", False),
+                    legend=False, xlabel=k // nc == nr - 1, ylabel=k % nc == 0)
+    from matplotlib.lines import Line2D
+    fig.legend(handles=[Line2D([], [], ls="none", marker="o", mfc="none", mec="k", label="Observed"), Line2D([], [], color="#C0141E", label="Calculated"),
+                        Line2D([], [], color="#444444", label="Difference")], loc="lower center", ncols=3, frameon=False, bbox_to_anchor=(0.5, 0.0))
     return fig
 
 
@@ -395,24 +469,41 @@ def demo_vs_dosage():
                                                     {"name": "Series 2", "x": x, "y": np.array([7, 4, 10, 11, 15])}]}]}
 
 
+def _few_ticks(ax, xs):
+    u = np.unique(np.round(np.asarray(xs, float)[np.isfinite(np.asarray(xs, float))], 9))
+    if 2 <= len(u) <= 8: ax.set_xticks(u); ax.set_xticklabels([f"{v:g}" for v in u])
+
+
 @template("phase_vs_dosage_lines", "Measured vs modelled, one panel per phase", CAT_PHASE,
           "Lines + open markers; measured solid black, models dashed/dotted; shared legend in last cell.",
           "xy_series", {"panels": "one file (or sheet) per phase: x + measured + model columns"}, demo_vs_dosage,
           {"ncols": 3}, "Origin: Line+Symbol, then Merge Graph Windows; legend in a free layer.", "house",
           ["measured vs modelled", "models vs measured"])
 def draw_vs_dosage(d, st, p):
-    pan = d["panels"]; nc = min(p["ncols"], len(pan)); nr = int(np.ceil(len(pan) / nc))
-    fig, axs = new_fig(st, nr, nc, aspect=1.6 if nr == 1 else 1.25, gridspec_kw={"wspace": 0.35, "hspace": 0.45})
+    pan = d["panels"]; nc = min(p["ncols"], len(pan)); nr = int(np.ceil(len(pan) / nc))    # a free cell (if the grid has one) holds the legend
+    fig, axs = new_fig(st, nr, nc, aspect=1.6 if nr == 1 else 1.25, gridspec_kw={"wspace": 0.38, "hspace": 0.5})
     axs = np.atleast_1d(axs).ravel()
-    sty = [dict(color="k", marker="o", ls="-", mfc="k"), dict(color="#1F77B4", marker="s", ls="--", mfc="white"),
-           dict(color="#E07020", marker="^", ls=":", mfc="white")]
-    for k, (ax, pn) in enumerate(zip(axs, pan)):
-        for i, s in enumerate(pn["series"]):
-            ax.plot(s["x"], s["y"], label=s["name"], **sty[i % 3])
-        panel_title(ax, k, pn["title"]); ax.set_xlabel(d["x_label"]); ax.set_ylabel(d["y_label"]); finish(ax, st)
-    axs[0].legend(loc="best", fontsize=6)
-    for ax in axs[len(pan):]:
-        ax.axis("off")
+    sty = [dict(color="k", marker="o", ls="-", mfc="k"), dict(color="#0072B2", marker="s", ls="--", mfc="white"),
+           dict(color="#D55E00", marker="^", ls=":", mfc="white"), dict(color="#009E73", marker="D", ls="-.", mfc="white"),
+           dict(color="#CC79A7", marker="v", ls="--", mfc="white"), dict(color="#E69F00", marker="P", ls=":", mfc="white")]
+    names = [s["name"] for pn in pan for s in pn["series"]]; grp = [k for k, pn in enumerate(pan) for _ in pn["series"]]
+    keys = SD.role_keys(names, groups=grp); it = iter(keys); handles = {}
+    for k, (ax, pn) in enumerate(zip(axs, pan)):           # the same role keeps the same style in every panel, even when a column is missing
+        xs = []
+        for s in pn["series"]:
+            key = next(it); h, = ax.plot(s["x"], s["y"], label=s["name"], **sty[key % len(sty)]); xs += list(s["x"])
+            handles.setdefault(key, h)
+        panel_title(ax, k, pn["title"]); ax.set_xlabel(d["x_label"]); ax.set_ylabel(d.get("y_label") or "")
+        if p.get("y_from_zero", True) and all(np.nanmin(s["y"]) >= 0 for s in pn["series"]): ax.set_ylim(bottom=0)
+        _few_ticks(ax, xs); finish(ax, st)
+        if len(np.unique(xs)) <= 8: ax.xaxis.set_minor_locator(plt.NullLocator())
+    hs = [handles[k] for k in sorted(handles)]
+    if len(axs) > len(pan):                                # legend in the first free cell (all roles of all panels)
+        la = axs[len(pan)]; la.axis("off"); la.legend(handles=hs, labels=[h.get_label() for h in hs], loc="center left", fontsize=6.5, frameon=False)
+        if d.get("note"): la.text(0.0, 0.05, d["note"], transform=la.transAxes, fontsize=6, wrap=True)
+        for ax in axs[len(pan) + 1:]: ax.axis("off")
+    else:
+        axs[0].legend(handles=hs, labels=[h.get_label() for h in hs], loc="best", fontsize=6)
     return fig
 
 
@@ -1024,15 +1115,22 @@ def demo_scheil():
 def draw_scheil(d, st, p):
     pan = d["panels"]; nc = p["ncols"]; nr = int(np.ceil((len(pan) + 1) / nc))
     fig, axs = new_fig(st, nr, nc, aspect=1.3, gridspec_kw={"wspace": 0.3, "hspace": 0.5}); axs = np.atleast_1d(axs).ravel()
-    for k, (ax, pn) in enumerate(zip(axs, pan)):
-        for i, s in enumerate(pn["series"]):
-            ax.plot(s["x"], s["y"], color=series_color(st, s["name"].split(",")[0], i), label=s["name"])
+    names = [s["name"] for pn in pan for s in pn["series"]]; grp = [k for k, pn in enumerate(pan) for _ in pn["series"]]
+    keys = SD.role_keys(names, floor=0.5, groups=grp); it = iter(keys)
+    first = {}; handles = {}
+    for n_, k_ in zip(names, keys): first.setdefault(k_, n_)
+    ymax = max(np.nanmax(s["y"]) for pn in pan for s in pn["series"])
+    for k, (ax, pn) in enumerate(zip(axs, pan)):           # one colour per phase in every panel; the legend lists every phase of every panel
+        for s in pn["series"]:
+            key = next(it); nm = first[key]
+            h, = ax.plot(s["x"], s["y"], color=series_color(st, nm.split(",")[0], key), label=nm); handles.setdefault(key, h)
         if p["reverse_x"]:
             ax.set_xlim(max(pn["series"][0]["x"]), min(pn["series"][0]["x"]))
-        ax.set_ylim(bottom=0); panel_title(ax, k, pn["title"]); ax.set_xlabel(d["x_label"]); ax.set_ylabel(d["y_label"]); finish(ax, st)
-    la = axs[len(pan)]; la.axis("off"); h, l = axs[0].get_legend_handles_labels(); la.legend(h, l, loc="upper left")
+        ax.set_ylim(0, ymax * 1.1 if p.get("same_y", True) else None); panel_title(ax, k, pn["title"]); ax.set_xlabel(d["x_label"]); ax.set_ylabel(d.get("y_label") or ""); finish(ax, st)
+    la = axs[len(pan)]; la.axis("off"); hs = [handles[k] for k in sorted(handles)]
+    la.legend(hs, [h.get_label() for h in hs], loc="upper left", frameon=False)
     if d.get("note"):
-        la.text(0.02, 0.1, d["note"], transform=la.transAxes, fontsize=6.5, wrap=True)
+        la.text(0.02, 0.05, d["note"], transform=la.transAxes, fontsize=6.5, wrap=True)
     for ax in axs[len(pan) + 1:]:
         ax.axis("off")
     return fig
@@ -1070,14 +1168,35 @@ def demo_hatched():
           {"categories": "clinker", "groups": "scenario columns", "markers": "last column = measured"}, demo_hatched, {},
           "Origin: Grouped Column with pattern fill + Scatter layer (diamond) on same axes.", "house", ["model scenarios"])
 def draw_hatched(d, st, p):
-    fig, ax = new_fig(st)
-    _grouped(ax, d, st, p, hatches=[None, "////", "\\\\\\\\", "xxxx"], colors=["#555555", "#E6A800", "#5DADE2", "#D35400"])
-    if d.get("markers"):
-        ax.plot(np.arange(len(d["categories"])), d["markers"]["values"], "D", color="k", ms=5, label=d["markers"]["name"], mec="white")
-    ax.legend(ncols=3, loc="upper left", fontsize=6.5); ax.set_ylabel(d["y_label"]); ax.set_xlabel(d["x_label"])
-    if d.get("title"):
-        panel_title(ax, 0, d["title"])
-    finish(ax, st); ax.xaxis.set_minor_locator(plt.NullLocator())
+    sets = [d] + list(d.get("more") or [])                 # one panel per ticked table, one legend for all
+    fig, axs = new_fig(st, 1, len(sets), gridspec_kw={"wspace": 0.22}, aspect=2.0 if len(sets) > 1 else None)
+    axs = np.atleast_1d(axs)
+    hatches = [None, "////", "\\\\\\\\", "xxxx", "....", "++"]; colors = ["#555555", "#E6A800", "#5DADE2", "#D35400", "#009E73", "#CC79A7"]
+    for k, (ax, q) in enumerate(zip(axs, sets)):
+        n = len(q["groups"]); w = 0.8 / n; x = np.arange(len(q["categories"]))
+        for j, g in enumerate(q["groups"]):
+            v = np.asarray(q["values"][:, j], float); xo = x + (j - (n - 1) / 2) * w
+            ax.bar(xo, v, w, label=g, edgecolor="k", lw=0.4, color=colors[j % len(colors)], hatch=hatches[j % len(hatches)])
+            for xi, vi in zip(xo, v):                      # a bar of zero is still shown: "0" on the axis
+                if np.isfinite(vi) and vi == 0: ax.text(xi, 0, "0", ha="center", va="bottom", fontsize=6)
+        if q.get("markers"):
+            ax.plot(x, q["markers"]["values"], "D", color="k", ms=5, label=q["markers"]["name"], mec="white", zorder=5)
+        cats = [str(c) for c in q["categories"]]
+        if max(len(c) for c in cats) * len(cats) > (60 if len(sets) == 1 else 34):     # long names: break before a bracket or at a space
+            cats = [c.replace(" (", "\n(", 1) if " (" in c else c.replace(" ", "\n", 1) for c in cats]
+        longest = max(len(line) for c in cats for line in c.split("\n"))
+        fs_ = None if longest * len(cats) <= (70 if len(sets) == 1 else 40) else max(5.0, 7.5 * (70 if len(sets) == 1 else 40) / (longest * len(cats)))
+        ax.set_xticks(x); ax.set_xticklabels(cats, fontsize=fs_); ax.set_ylabel(q.get("y_label") or ""); ax.set_xlabel(q.get("x_label") or "")
+        panel_title(ax, k if len(sets) > 1 else (0 if q.get("title") else None), q.get("title") or "")
+        finish(ax, st); ax.xaxis.set_minor_locator(plt.NullLocator()); ax.tick_params(axis="x", length=0)
+    top = max(ax.get_ylim()[1] for ax in axs)
+    for ax in axs: ax.set_ylim(0, top)
+    h, l = axs[0].get_legend_handles_labels()              # bars first, measured points last
+    order = [i for i, t in enumerate(l) if not (d.get("markers") and t == d["markers"]["name"])] + [i for i, t in enumerate(l) if d.get("markers") and t == d["markers"]["name"]]
+    if len(sets) > 1:
+        fig.subplots_adjust(bottom=0.27)
+        fig.legend([h[i] for i in order], [l[i] for i in order], loc="lower center", ncols=min(len(order), 5), frameon=False, bbox_to_anchor=(0.5, 0.0))
+    else: axs[0].legend([h[i] for i in order], [l[i] for i in order], ncols=3, loc="upper left", fontsize=6.5)
     return fig
 
 

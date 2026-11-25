@@ -128,6 +128,13 @@ def _category(t, ex, mp):
 def bundle(template, tables, overrides=None):
     """(bundle, mapping). tables: list of Table. overrides: {key: value} set by the user (labels, zones ...)."""
     if not tables: raise NeedData("no data: tick a file first")
+    from . import side_tables as SD
+    side = {"labels": [], "ticks": [], "rwp": []}; data_tables = []
+    for x in tables:                                                        # peak-label lists, tick lists and Rwp tables ticked beside the data
+        k = SD.kind(x)
+        (side[k].append(x) if k else data_tables.append(x))
+    if not data_tables: raise NeedData("only label, tick or Rwp tables are ticked: tick the data table(s) as well")
+    tables = data_tables
     ex = template.demo(); t = tables[0]; mp = []; d = {}
     keys = list(ex)
     k_set = set(keys)
@@ -201,6 +208,15 @@ def bundle(template, tables, overrides=None):
         if "names" in k_set: d["names"] = groups[:2][::-1] if "values2" in k_set else groups
         if "markers" in k_set and V.shape[1] > 1 and overrides and overrides.get("_markers_last"):
             d["markers"] = {"name": groups[-1], "values": V[:, -1]}; d["groups"] = groups[:-1]; d["values"] = V[:, :-1]
+        if len(tables) > 1 and "markers" in k_set:                          # several tables of the same shape: one panel each
+            more = []
+            for x_ in tables[1:]:
+                mp_ = []; c2, g2, V2, _ = _category(x_, ex, mp_); q = {"categories": c2, "groups": g2, "values": V2, "title": x_.name,
+                                                                       "y_label": short_name(x_.ys[0]) if len(x_.ys) == 1 else "", "x_label": x_.cat or ""}
+                if V2.shape[1] > 1 and overrides and overrides.get("_markers_last"):
+                    q["markers"] = {"name": g2[-1], "values": V2[:, -1]}; q["groups"] = g2[:-1]; q["values"] = V2[:, :-1]
+                more.append(q); mp.append((f"panel {len(more) + 1}", x_.name))
+            d["more"] = more; d["title"] = t.name
     elif "points" in k_set:
         e0 = ex["points"][0]
         if isinstance(e0, dict) and _is_arr(e0.get("x")):
@@ -298,6 +314,7 @@ def bundle(template, tables, overrides=None):
         elif k == "names": d[k] = [short_name(c) for c in t.numeric[:2]]
         elif k == "apexes": d[k] = [short_name(c) for c in t.numeric[:3]]
         else: d[k] = _empty(v)
+    _side(d, side, tables, mp)
     for k, v in (overrides or {}).items():
         if not k.startswith("_"): d[k] = v
     ren = (overrides or {}).get("_renames") or {}
@@ -313,6 +330,41 @@ def bundle(template, tables, overrides=None):
                     else: nm(v_)
         nm(d); mp.append(("names on the graph", "; ".join(f"{a_} shown as {b_}" for a_, b_ in ren.items())))
     return d, mp
+
+
+def _side(d, side, tables, mp):
+    """Fill labels, ticks and Rwp from the ticked side tables (each one is matched by name to the data table it belongs to)."""
+    from . import side_tables as SD
+    names = [x.name for x in tables]
+    def owner(tb):                                                          # which data table a side table belongs to
+        i = SD.best_match(tb.name, names)
+        return i if i is not None else (0 if len(tables) == 1 else None)
+    labs = []
+    for tb in side["labels"]:
+        L = SD.labels_of(tb.df); i = owner(tb)
+        for it in L:
+            if "sample" not in it and i is not None and len(tables) > 1: it["sample"] = names[i]
+        labs += L; mp.append(("peak labels", f"{tb.name} ({len(L)} labels)"))
+    tk = {}
+    for tb in side["ticks"]:
+        T = SD.ticks_of(tb.df); i = owner(tb)
+        if T: tk[names[i] if i is not None else tb.name] = T; mp.append(("tick rows", f"{tb.name} -> {names[i] if i is not None else 'no matching data table'} ({', '.join(T)})"))
+    rw = {}
+    for tb in side["rwp"]:
+        rw.update(SD.rwp_of(tb.df)); mp.append(("Rwp", tb.name))
+    if labs: d["labels"] = labs
+    if rw: d["rwp_map"] = rw
+    if "items" in d:                                                        # a grid of fits: each fit gets its own ticks, labels and Rwp
+        for k, it in enumerate(d["items"]):
+            nm = names[k] if k < len(names) else it.get("name", "")
+            if tk: it["ticks"] = tk.get(nm) or (list(tk.values())[0] if len(tk) == 1 and len(tables) == 1 else {})
+            if rw and it.get("rwp") is None: it["rwp"] = SD.rwp_for(nm, rw)
+            if labs: it["labels"] = [q for q in labs if q.get("sample") is None or SD.best_match(q["sample"], names) == k]
+    elif {"obs", "calc"} <= set(d):
+        if tk: d["ticks"] = tk.get(names[0]) or list(tk.values())[0]
+        if rw and not d.get("rwp"): d["rwp"] = SD.rwp_for(names[0], rw)
+    elif tk:
+        d["ticks"] = tk if len(tk) > 1 else list(tk.values())[0]
 
 
 def read_tables(path, sheet=None, max_rows=200000):

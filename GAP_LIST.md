@@ -1,4 +1,4 @@
-# GAP_LIST – brief v2.1 against the app (version 5.54.7)
+# GAP_LIST – brief v2.1 against the app (version 5.55.0)
 
 Status: **done** = works and is tested · **partly** = some of it exists · **missing** = not there.
 Evidence for every "done" is in `TEST_REPORT.md`. Wording is neutral on purpose (no names of anyone's work).
@@ -59,3 +59,11 @@ Evidence for every "done" is in `TEST_REPORT.md`. Wording is neutral on purpose 
 | 12 | Visual system, start screen, Assistant | **partly** (unchanged) |
 | 13 | Acceptance checks | see `TEST_REPORT.md` |
 | 14 | Deliverables | **done**: CHANGELOG, COMMAND_MAP, TEST_REPORT, CLAUDE_CODE_HANDOFF, catalogue statuses; screenshots are made by `tools/screenshot_templates.py` and are not published |
+
+## Composed figures (5.55.0)
+
+| Requirement | Status | Where |
+|---|---|---|
+| A recipe for any workbook, without writing JSON | **done** (automatic; figure-plan sheet used when present) | `auto_recipe.py`, Tools ▸ Draw |
+| Recipe figures in Origin | **done as commands** (dry run); **not verified** in Origin | `paper_figures.run(origin=…)` |
+| Recipe editor (change a made recipe in the window) | **missing**: the recipe is a JSON file in your recipe folder | – |

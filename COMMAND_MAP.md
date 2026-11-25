@@ -130,6 +130,8 @@ Part 2 is the full inventory of the running window, written by `tools/command_in
 | Preview paper set (PDF) | Top bar ▸ Tools ▸ Draw |  |  |
 | Make paper set | Top bar ▸ Tools ▸ Draw |  |  |
 | Paper figures from a recipe… | Top bar ▸ Tools ▸ Draw |  | Paper figures from a recipe |
+| Paper figures from a recipe, also in Origin… | Top bar ▸ Tools ▸ Draw |  | Paper figures from a recipe, also in Origin |
+| Make a figure recipe from a workbook… | Top bar ▸ Tools ▸ Draw |  | Make a figure recipe from a workbook |
 | All analyses… | Top bar ▸ Tools ▸ Analysis |  | All analyses |
 | Graph gallery… | Top bar ▸ Tools ▸ Analysis |  | Graph gallery |
 | TGA: mass loss in temperature intervals | Top bar ▸ Tools ▸ Analysis |  |  |

@@ -1,4 +1,4 @@
-# TEST_REPORT – upgrade v2, app version 5.54.7
+# TEST_REPORT – upgrade v2, app version 5.55.0
 
 Where it was run: a Linux container, Python 3.12, PySide6 with `QT_QPA_PLATFORM=offscreen`. **No Windows and no Origin were
 available.** Everything that needs Origin was run through the app's own Origin driver in dry-run mode (it records the
@@ -110,3 +110,19 @@ Note on section G: the flow diagram template exists (`sankey_mass_energy`) but t
 ## 5. Known gaps (see GAP_LIST.md for the full list)
 
 Assistant and Settings as panels, collapse and named layouts; object model with stable IDs, format painter, nudge keys and the remaining right-click menus; Insert menu items; EMF; the Convert-files unit conversions and the extra importers; Confirm labels for FTIR and other band labels; the remaining general tools (LOWESS, ALS baseline, Bland–Altman as a tool, Weibull) and domain calculations (clinker moduli, amorphous content by internal standard as a tool, carbonation and chloride fits); Tier 2 and Tier 3 of the catalogue.
+
+
+## 5.55.0 – composed figures for any workbook
+
+Run in the same container (Python 3.12, PySide6 offscreen, matplotlib 3.11, pandas 3.0). Origin: dry run only.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Tick rows pair only with the exact code (`X` / `X'` / `Xa`); a lone row is reported; long reflection lists are read | **pass** | `tests/test_figures_general.py` (4 checks) |
+| A stack label stays at its own peak under a taller trace above it; the axis grows for a high label; a cut label is reported; an edge label turns inwards | **pass** | same (4 checks) |
+| Two-line titles of a 2 × 3 grid inside the page; Rwp upright | **pass** | same (2 checks) |
+| Side tables (labels, ticks, Rwp) recognised and used by the templates; a plain `Label, x, y` table stays data | **pass** | same (4 checks) |
+| Roles: `Model 1` ≠ `Model 2`; series of one panel never share a style; a model keeps its style where another is missing; legend lists phases of later panels; hatched bars per table with "0" | **pass** | same (5 checks) |
+| Automatic recipe on a neutral workbook without plan (fit + reflection list + labels + Rwp, FTIR, two calorimetry sheets, bars with SD, models): every sheet recognised, 5 figures drawn, ticks / labels / Rwp / colours / error bars / titles right; with a plan sheet: one figure per row with its titles and range | **pass** | same (11 checks) |
+| Recipe figures in Origin: one project per figure with labels and panels | **pass in dry run**; real Origin **not verified** | same (1 check); `tests/test_workspace_main.py` (2 window checks) |
+| All earlier suites | **pass** (unchanged counts) | `test_xrd_generator_actions.py` stalls after its last PASS in this container, the same on the unchanged 5.54.3 copy (not caused by this change) |

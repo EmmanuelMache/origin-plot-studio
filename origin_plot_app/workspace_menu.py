@@ -79,6 +79,8 @@ def install(w):
     add(d, "Preview paper set (PDF)", w.paper_preview)
     add(d, "Make paper set", w.paper_set)
     add(d, "Paper figures from a recipe…", w.paper_figures)
+    add(d, "Paper figures from a recipe, also in Origin…", lambda: w.paper_figures(origin=True))
+    add(d, "Make a figure recipe from a workbook…", w.make_recipe)
     a = mb.addMenu("&Analysis")
     add(a, "All analyses…", lambda: w.go(1))
     add(a, "Graph gallery…", lambda: w.go(2))
@@ -257,8 +259,10 @@ def open_entry(self, page, name):
 
 
 # ---------------------------------------------------------------------------------------------- Draw
-def paper_figures(self, workbook=None, recipe=None):
-    """Figures for a paper, composed by a recipe from the sheets of a workbook (paper_figures.py): PDF and PNG at 600 dpi."""
+def paper_figures(self, workbook=None, recipe=None, auto=None, origin=False):
+    """Figures for a paper, composed by a recipe from the sheets of a workbook (paper_figures.py): PDF and PNG at 600 dpi.
+    No saved recipe fits the workbook: the app offers to make one from the workbook itself (auto_recipe.py), keeps it in your
+    own recipe folder and draws from it. origin=True: every figure is also built in Origin (one .opju per figure)."""
     import paper_figures as pf
     if workbook is None:
         workbook, _ = QFileDialog.getOpenFileName(self, "The workbook with the data of the figures", "", "Excel workbook (*.xlsx *.xlsm *.xls);;All files (*.*)")
@@ -267,24 +271,71 @@ def paper_figures(self, workbook=None, recipe=None):
     if recipe is None:
         recipe = pf.recipe_for(workbook)
         if recipe is None:
-            recipe, _ = QFileDialog.getOpenFileName(self, "The recipe for these figures (.json)", pf.RECIPE_DIR if os.path.isdir(pf.RECIPE_DIR) else str(HERE),
-                                                    "Figure recipe (*.json)")
-            if not recipe:
-                return None
+            if auto is None and not _noopen():
+                box = QMessageBox(self); box.setWindowTitle("Paper figures"); box.setIcon(QMessageBox.Question)
+                box.setText(f"No saved recipe fits '{os.path.basename(workbook)}'.\n\nThe app can make one from the workbook: it reads what every sheet holds "
+                            "(patterns, fits, tick and label lists, series, tables, a figure plan if there is one) and lays out the figures. You can edit it later.")
+                mk = box.addButton("Make one from the workbook", QMessageBox.AcceptRole); ch = box.addButton("Choose a recipe file…", QMessageBox.ActionRole)
+                box.addButton(QMessageBox.Cancel); box.exec()
+                auto = True if box.clickedButton() is mk else (False if box.clickedButton() is ch else None)
+                if auto is None: return None
+            if auto:
+                recipe = self.make_recipe(workbook)
+                if not recipe: return None
+            else:
+                recipe, _ = QFileDialog.getOpenFileName(self, "The recipe for these figures (.json)", pf.RECIPE_DIR if os.path.isdir(pf.RECIPE_DIR) else str(HERE),
+                                                        "Figure recipe (*.json)")
+                if not recipe:
+                    return None
     rec = recipe if isinstance(recipe, dict) else pf.load_recipe(recipe)
     folder = os.path.join(self.run_folder(), "Paper_figures")
+    drv = None
+    if origin:
+        import origin_plot_app as opa
+        def drv(f, _log=self.log):
+            if os.environ.get("OPS_ORIGIN_DRY"): return opa.Driver(f, _log, dry=True)
+            try: return opa.Driver(f, _log, dry=False)
+            except Exception as e:
+                _log(f"   Origin is not available ({str(e)[:80]}): the commands are written as a script beside each figure instead."); return opa.Driver(f, _log, dry=True)
     def work(log, progress):
-        return pf.run(workbook, rec, folder, log=log, stop=lambda: self.cancel[0])
+        return pf.run(workbook, rec, folder, log=log, stop=lambda: self.cancel[0], origin=drv)
     def after(res):
         if not res:
             self.set_status("The paper figures were not made: see Details.")
             return
         for n in res.get("notes") or []:
             self.log("   note: " + n)
+        for o in res.get("origin") or []:
+            for d_ in o.get("differences") or []: self.log(f"   Origin, {o['figure']}: {d_}")
         self.set_status(res["text"] + ".  Folder: " + folder)
         self.last_folder = folder
-    self.start_job(work, f"Drawing the paper figures from {os.path.basename(workbook)}", after)
+        self.last_paper_figures = res
+    self.start_job(work, f"Drawing the paper figures from {os.path.basename(workbook)}" + (" (and in Origin)" if origin else ""), after)
     return "started"
+
+
+def make_recipe(self, workbook=None):
+    """A figure recipe made from a workbook by reading its sheets (auto_recipe.py). Saved in your own recipe folder
+    (never in the app's folder, which is public), so the next time the workbook is opened the recipe is found by its name."""
+    import auto_recipe as ar, paper_figures as pf
+    if workbook is None:
+        workbook, _ = QFileDialog.getOpenFileName(self, "The workbook to make a figure recipe for", "", "Excel workbook (*.xlsx *.xlsm *.xls);;All files (*.*)")
+        if not workbook:
+            return None
+    base = os.path.splitext(os.path.basename(workbook))[0]
+    try:
+        rec, report = ar.build(workbook, base)
+    except Exception as e:
+        self.set_status(f"No recipe could be made from {base}: {type(e).__name__}: {str(e)[:120]}"); return None
+    if not rec["figures"]:
+        self.set_status(f"{base}: no sheet that the app can draw was found (see Details)."); [self.log("   " + r) for r in report]; return None
+    folder = os.environ.get("OPS_RECIPE_DIR") or pf.plugin_dirs()[1]
+    path = ar.save(rec, folder, base + "_auto")
+    self.log(f"Recipe made from {base}: {len(rec['figures'])} figure(s) -> {path}")
+    for r in report: self.log("   " + r)
+    self.set_status(f"Recipe made: {len(rec['figures'])} figure(s). Saved as {os.path.basename(path)} in your recipe folder.")
+    self.last_recipe = path
+    return path
 
 
 def own_graph_dialog(self, it=None, values=None):
@@ -831,6 +882,6 @@ def about(self):
 
 
 METHODS = {f.__name__: f for f in (new_project, autosave, resume_last, import_origin, convert_files, write_workbook, figtype_template_any, refresh_previews,
-                                   open_entry, paper_figures, own_graph_dialog, typed_labels_dialog, phase_library, update_source, _upd_token,
+                                   open_entry, paper_figures, make_recipe, own_graph_dialog, typed_labels_dialog, phase_library, update_source, _upd_token,
                                    startup_checks, _upd_msg, _upd_install, check_updates, update_from_zip, undo_update, update_source_dialog, restart_app,
                                    system_check, problem_report, open_error_log, about)}

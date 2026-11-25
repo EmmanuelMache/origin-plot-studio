@@ -2,6 +2,24 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.55.0
+
+### Paper figures for any workbook
+* **No recipe? The app makes one.** *Tools ▸ Draw ▸ Paper figures from a recipe…* offers to make the recipe from the workbook itself when no saved recipe fits. It reads what every sheet holds – diffraction or spectral patterns, fits (observed / calculated / difference), Bragg tick lists (pairs `<code> 2θ` + `<code> row`, or a long reflection list), peak-label lists, zoom windows, already-offset stacks, x–y series, category tables with SD columns, agreement indices (Rwp), colour keys written as `<name> <code> #RRGGBB`, and a figure-plan sheet if there is one (Figure / Sheets to use / X title / Y title / Layout / Extras, wildcards such as `*_Profile` included). The recipe is saved in your own recipe folder, never in the app's folder. Also as its own command: **Make a figure recipe from a workbook…** (new module `auto_recipe.py`).
+* **Recipe figures in Origin.** *Paper figures from a recipe, also in Origin…* builds every figure in Origin as well (one `.opju` per figure, data in worksheets, labels as text objects); without Origin the LabTalk script is written beside each figure.
+
+### Fixed (wrong or lost content)
+* **Tick rows could show another phase's positions.** A row `<code> row` was paired with the first 2θ column whose name *started* with the code, so `B` took `B' 2θ` and `C` took `Cal 2θ` whenever those came first. Now only the exact code pairs; a row without its partner is reported. A code that is literally `X` is no longer swallowed by the column-name pattern.
+* **Labels of an offset stack were pushed above the top trace.** Each label was kept clear of *every* curve of the panel. Now a label only keeps clear of its own curve (found by its Sample value or its peak height) and of other labels; the names of the stack no longer cover labels.
+* **Labels above the y range disappeared silently.** The axis now grows to hold them; with a y range fixed in the recipe, the cut labels are listed in the report. A label at the edge of a panel is turned inwards.
+* **Titles over the top row were cut off** (two-line titles in a 2 × 3 grid). The panels are moved in until everything is on the page; a legend in a free cell shrinks its text to fit.
+* **Templates:** *Measured vs modelled* gave a series the style of another model where a column was missing (style by position → style by role, the same in every panel); *Phase evolution vs temperature* left out of the legend a phase that appears only in later panels; *Hatched bars* drew one table only and showed nothing for a bar of zero.
+
+### Improved
+* **Templates use the side tables you tick:** a label list, a tick list and an Rwp table ticked beside the data are matched to their data table by name and drawn (labels at their own peaks, coloured tick rows, `R_wp` in the title). A plain `Label, x, y` data table is still data.
+* Rietveld templates: one block function for one fit and the 2 × 3 grid (fit, difference, tick rows, inset, Rwp, shared legend). Stack + zoom: the zoom panel keeps the offsets of the full panel.
+* Recipes: error bars on bar panels (`"error"`), auto-stacked spectra with a reversed axis, `"sharey"` for panels of a row, `"collide_with"` for labels, `"rwp"` written upright, the tick block of a fit scales with the number of phases, a small gap between fit and difference.
+
 ## 5.54.7
 
 * **New "Start here" tab, first in the top bar.** Add your data there; the app says what kind of file it looks like (from the columns, the same guess the ★ marks and "Use what the app recommends" use) and lists the best-fitting templates. Draw the best one at once, or go browse the full gallery yourself - either way, your data is also in Workspace to review and draw in Origin.
