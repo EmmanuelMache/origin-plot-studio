@@ -668,7 +668,7 @@
   "id": "tga_dtg_zones_multi",
   "name": "DTG of several samples with shaded decomposition zones",
   "category": "Thermal analysis (TGA / DTG / DSC)",
-  "use_case": "Overlay DTG of all samples; shaded and labelled zones (C-S-H/AFt, AFm, portlandite, calcite).",
+  "use_case": "Overlay DTG of all samples; shaded zones named inside the graph (C-S-H/AFt, AFm, portlandite, calcite); legend at the lower left.",
   "source": "house",
   "data_kind": "thermal",
   "data_roles": {
@@ -1250,9 +1250,9 @@
  {
   "schema": "opstudio.template/1",
   "id": "ftir_stacked_bands",
-  "name": "FTIR stacked spectra with band lines",
+  "name": "FTIR stacked spectra with labelled bands",
   "category": "Spectroscopy (FTIR / Raman / NMR)",
-  "use_case": "Reversed wavenumber axis, offset spectra, dashed band lines labelled at top, one shaded region; names at right in sample colour.",
+  "use_case": "Offset spectra, one colour per sample; every band marked on its curve and labelled with its wavenumber and usual assignment; legend at the lower left.",
   "source": "house",
   "data_kind": "xy_series",
   "data_roles": {
@@ -1261,9 +1261,11 @@
    "bands": "user-confirmed band list"
   },
   "default_params": {
-   "offset": 8
+   "offset": 15,
+   "label_bands": true,
+   "band_lines": false
   },
-  "origin_hint": "Origin: Stacked Lines by Y Offsets, X reversed (From 4000 To 500).",
+  "origin_hint": "Origin: Stacked Lines by Y Offsets; band labels as texts in the colour of their spectrum.",
   "recommended_for": [
    "FTIR",
    "ATR"

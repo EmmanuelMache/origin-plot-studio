@@ -2,6 +2,18 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.58.4
+
+FTIR and TGA graphs drawn after two reference pictures, and the merge shown where you look:
+
+* **Infrared spectra (Analysis ▸ *FTIR stacked spectra with labelled bands*, the first graph offered for infrared files)** are drawn as in the reference: the spectra one above the other in **one colour per sample**, the y scale shown (*Transmittance (%), offset per sample*), wavenumber from 400 up to 4000, and **every band of every spectrum marked on its curve (▼) and labelled below it** in the colour of the spectrum with its wavenumber and the usual assignment (`1409 ν₃ CO₃²⁻`, `957 Si–O (C-S-H)`, `3642 O–H (Ca(OH)₂)`; the CO₂ of the air is named as such). The legend with the sample names stands at the lower left. The names are the usual ones for those wavenumbers - possibilities to check; with more than four spectra they stand at the top spectrum only. A band near 665 cm⁻¹ got its name (Si–O).
+* **DTG of several thermal runs (Analysis ▸ *DTG of several samples with shaded decomposition zones*, now the first graph offered for a series of TGA files)** is drawn as in the reference: the DTG curves of all samples in one graph, in % per minute, over the shaded zones **named inside the graph** in bold (C-S-H / AFt 30–200 °C, AFm ~150–250 °C, portlandite 400–550 °C, calcite 600–800 °C), x from 30 to 900 °C, a framed legend at the lower left (moved only if curves run through that corner), left and bottom axis only.
+* **Fixed: that graph was wrong for files as the instrument writes them.** Time, mass and DSC of every file were each drawn as a "sample" and no zones were shaded. Each file is now one sample - its mass against its temperature - and the heating rate is read from the file's own time column.
+* **Fixed: "the merge is not working".** The merge did write its workbook, but the Workbook then showed the sheet of the *first file* - exactly what was there before. It now opens the merged workbook on **All side by side**: every file with its own X and Y columns, named after the file. That sheet (and *Peaks of all files*) is a view to read and export; the sheet of each file is one choice away in the Sheet box, and the graphs are drawn from those.
+* **Fixed: after a merge every sample was drawn twice in the combined figure** ("6 x TGA" for three files) - the sheets of the merged workbook were counted beside the files they were made from.
+
+Both graphs go to Origin with their labels: the band labels as texts at their wavenumbers, the marks as symbols, the zones as shaded areas with their names. Not checked in a running Origin here.
+
 ## 5.58.3
 
 Seen on a screenshot of the Workbook with a merged workbook of infrared spectra open:

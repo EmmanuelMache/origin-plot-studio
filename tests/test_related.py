@@ -59,7 +59,8 @@ from opstudio import api as _api
 from opstudio.detection import detect as _det, compatibility as _compat
 rk = _api.recommend([ir]); tpl_ = _api.resolve("ftir_stacked_bands")
 check("ONE infrared spectrum is offered the infrared graph (spectrum with band lines) before the plain line plot - it was offered the line plot only", rk and rk[0][0] == "ftir_stacked_bands" and _compat(tpl_[0], [ir], _det(ir), tpl_[4])[0], [(t_, s_) for t_, s_, _w in rk][:3])
-check("... and that graph draws one spectrum, wavenumber from high to low", len(_api.draw("ftir_stacked_bands", [ir])[0].axes[0].lines) >= 1 and _api.draw("ftir_stacked_bands", [ir])[0].axes[0].get_xlim()[0] > 3000)
+_one = _api.draw("ftir_stacked_bands", [ir])[0].axes[0]
+check("... and that graph draws one spectrum, wavenumber from low to high, its bands marked and named", len([l for l in _one.lines if not l.get_label().startswith("_")]) == 1 and _one.get_xlim()[0] < 1000 < 3000 < _one.get_xlim()[1] and len([t for t in _one.texts if t.get_text().strip()]) >= 1, (_one.get_xlim(), len(_one.texts)))
 check("a transmittance spectrum is read at its minima", list(R.peak_table("FTIR", OD.Table("t", pd.DataFrame({"Wavenumber (cm-1)": x, "Transmittance (%)": 100 - 60 * y})))["Read as"])[0].startswith("minimum"))
 check("the reference of infrared bands: ranges in cm-1, most central first, nothing outside them", [b["short"] for b in ftir_core.suggest(875)][0] == "ν₂ CO₃²⁻" and ftir_core.suggest(2000) == [] and all(b["range"][0] < b["range"][1] for b in ftir_core.REFERENCE_BANDS))
 nm = R.names_of(ft)
@@ -132,9 +133,9 @@ sh._current_path = files[0]; sh.inspect_current(); pump(timeout=1.0)
 first = sh.recs.item(0).text() if sh.recs.count() else ""
 check("Start here: the three ticked runs look like one series - the app chooses 'Combine selected files in one graph' by itself", sh.combine_mode.currentIndex() == 1 and sh._rec_paths == files, (sh.combine_mode.currentText(), [os.path.basename(p) for p in sh._rec_paths]))
 check("... says why, and that the fourth file (another kind) is left out of it", "look like one series" in sh.rec_caption.text() and "AB Mix" in sh.rec_caption.text() and "The other one is left out" in sh.rec_caption.text(), sh.rec_caption.text())
-check("... the recommended graph of the series is the one highlighted (not the single-sample graph that was highlighted before)", sh.recs.currentRow() == 0 and "stacked" in sh.recs.currentItem().text().lower(), sh.recs.currentItem().text()[:50] if sh.recs.currentItem() else None)
+check("... the recommended graph of the series is the one highlighted (not the single-sample graph that was highlighted before)", sh.recs.currentRow() == 0 and "dtg of several samples" in sh.recs.currentItem().text().lower(), sh.recs.currentItem().text()[:50] if sh.recs.currentItem() else None)
 top3 = [sh.recs.item(i).text().split("\n")[0] for i in range(min(3, sh.recs.count()))]
-check("... and the graphs that show the samples together come first, the stacked one before the others", "stacked" in top3[0].lower() and "Recommended" in first and all("several" in t_.lower() or "stack" in t_.lower() for t_ in top3) and "Shows the 3 files of the series together" in first, top3)
+check("... and the graphs that show the samples together come first: their DTG curves over the named zones, then the stacked panels", "dtg of several samples" in top3[0].lower() and "stacked" in top3[1].lower() and "Recommended" in first and all("several" in t_.lower() or "stack" in t_.lower() for t_ in top3) and "Shows the 3 files of the series together" in first, top3)
 sh.combine_mode.setCurrentIndex(0); pump(timeout=.8)
 check("choosing 'Separate graph for each file' is kept for these files (the app does not switch back)", sh.combine_mode.currentIndex() == 0 and "look like one series" not in sh.rec_caption.text() and sh.recs.item(0).text().startswith("TG and DTG in one graph"), sh.recs.item(0).text()[:40])
 sh.inspect_current(); pump(timeout=.5); check("... also when the page is drawn again", sh.combine_mode.currentIndex() == 0)
@@ -179,7 +180,18 @@ pk_all = book_m.get(R.PEAKS_OVERVIEW)
 check("... a sheet with the peaks of all files (file, position, label, what it may be)", pk_all is not None and list(pk_all.columns)[:4] == ["File", "Position", "Label", "What it may be"] and sorted(set(pk_all["File"])) == sorted(stems_[:3]) and len(pk_all) == 9, None if pk_all is None else pk_all.head(3).to_dict("list"))
 wide_ = book_m[R.OVERVIEW_SHEET]
 check("... and a last sheet with all files side by side, every column labelled with its file", list(book_m)[-1] == R.OVERVIEW_SHEET and all(c.endswith("]") for c in wide_.columns) and f"Mass (%) [{stems_[1]}]" in wide_.columns and f"Intensity (counts) [pattern]" in wide_.columns and len(wide_) == len(T), list(wide_.columns)[:4])
-check("... the side-by-side sheet is the same data once more: Workspace does not draw it a second time, and the app opens the workbook on a sheet of one file", len([i for i in new if i.kind == "TGA"]) == 3 and wb.sheet.currentText() in stems_, (len(new), wb.sheet.currentText()))
+check("... the side-by-side sheet is the same data once more: Workspace does not draw it a second time", len([i for i in new if i.kind == "TGA"]) == 3, len(new))
+check("after merging the Workbook shows the MERGED result at once: the sheet 'All side by side' of the new workbook, every column named after its file - it showed the sheet of the first file, as if nothing had been merged",
+      wb.path == merged and wb.sheet.currentText() == R.OVERVIEW_SHEET and wb.caption.text().endswith(R.OVERVIEW_SHEET) and f"Mass (%) [{stems_[1]}]" in list(wb.model.df.columns) and "MERGED" in wb.info.text(), (wb.caption.text(), list(wb.model.df.columns)[:3]))
+check("... it is a view: read only, and the graphs of the merged workbook keep being drawn from the sheets of the single files", wb.model.read_only and wb.model.setData(wb.model.index(0, 0), "1") is False
+      and c.settings_for(merged, c.project_for(merged)).get("sheet") != R.OVERVIEW_SHEET and not any(str(col).endswith("]") for col in c.table_for(merged).df.columns), c.settings_for(merged, c.project_for(merged)).get("sheet"))
+wb.sheet.setCurrentText(stems_[1]); pump(timeout=.3)
+check("... the sheet of each file is one choice away in the Sheet box, editable as before, and the choice is kept when you come back to the file", wb.caption.text().endswith(stems_[1]) and not wb.model.read_only and "Mass (%)" in list(wb.model.df.columns)
+      and (wb.files.setCurrentRow(0), pump(timeout=.2), wb.files.setCurrentRow(wb.paths.index(merged)), pump(timeout=.3), wb.sheet.currentText())[-1] == stems_[1], wb.caption.text())
+wb.sheet.setCurrentText(R.OVERVIEW_SHEET); pump(timeout=.3)
+tga_groups = [g for g in w.combined if all(m.kind == "TGA" for m in g.members)]
+check("the combined figure of the series still has each sample once (the sheets of the merged workbook are copies: it read '6 x TGA' for three files)", tga_groups and all(len(g.members) == 3 for g in tga_groups) and sp.merged_copy(merged) and not sp.merged_copy(files[0])
+      and len(sp.without_copies(w.singles)) < len(w.singles), [len(g.members) for g in tga_groups])
 only = TMP / "only_wide.xlsx"; wide_.to_excel(only, index=False)
 check("a workbook that holds only such a side-by-side sheet is read as one table per file", [n_ for n_, _r in sp.read_tables(str(only))] == stems_)
 check("Excel sheet names: 31 characters, no forbidden signs, none twice", R.sheet_name("a/b[c]:d*e?f" + "x" * 40, []) == ("a_b_c__d_e_f" + "x" * 40)[:31] and R.sheet_name("Run", ["run"]) == "Run (2)")

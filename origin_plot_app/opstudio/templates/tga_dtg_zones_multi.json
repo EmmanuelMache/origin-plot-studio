@@ -3,7 +3,7 @@
  "id": "tga_dtg_zones_multi",
  "name": "DTG of several samples with shaded decomposition zones",
  "category": "Thermal analysis (TGA / DTG / DSC)",
- "use_case": "Overlay DTG of all samples; shaded and labelled zones (C-S-H/AFt, AFm, portlandite, calcite).",
+ "use_case": "Overlay DTG of all samples; shaded zones named inside the graph (C-S-H/AFt, AFm, portlandite, calcite); legend at the lower left.",
  "source": "house",
  "data_kind": "thermal",
  "data_roles": {

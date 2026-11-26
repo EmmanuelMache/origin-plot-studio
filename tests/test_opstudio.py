@@ -237,4 +237,52 @@ check("Origin: all installed templates go through the driver without an error", 
 ogs = open(os.path.join(LIB, "origin", "rietveld_fit_diff_ticks.ogs"), encoding="utf-8").read().splitlines()
 check("the shipped Origin scripts make their workbooks first too", max(i for i, l in enumerate(ogs) if "impASC" in l) < next(i for i, l in enumerate(ogs) if l.startswith("win -t plot")))
 check("every template has its Origin script and names it in its JSON (origin_template)", all(os.path.isfile(os.path.join(LIB, "origin", t + ".ogs")) for t in opstudio.REGISTRY) and json.load(open(os.path.join(LIB, "templates", "tga_dtg_single.json"), encoding="utf-8"))["origin_template"]["script"] == "origin/tga_dtg_single.ogs")
+
+# ---- 5.58.4: thermal runs as the instrument writes them, DTG over named zones, infrared spectra with labelled bands
+from opstudio import templates_materials as TM
+def run_(name, k):
+    Tm = 28 + 0.1667 * np.arange(5400) + 0.4 * np.sin(np.arange(5400) / 40.0) * np.exp(-np.arange(5400) / 300.0)      # a measured temperature: not evenly spaced, wobbling at the start
+    m = 100 - (6 + k) / (1 + np.exp(-(Tm - 110) / 18)) - (3 + k) / (1 + np.exp(-(Tm - 460) / 9)) - 2.5 / (1 + np.exp(-(Tm - 720) / 14))
+    return D.Table(name, pd.DataFrame({"Temperature (°C)": Tm, "Time (min)": np.arange(5400) / 60.0, "Mass (%)": m, "DSC (uV)": np.cos(Tm / 50.0)}))
+runs = [run_("Run A", 0), run_("Run B", 1), run_("Run C", 2)]
+fz, mpz = api.draw("tga_dtg_zones_multi", runs); az = fz.axes[0]; curves_ = [l for l in az.lines if not l.get_label().startswith("_")]
+check("several thermal runs (temperature, time, mass, DSC): ONE curve per file, named after the file - time and DSC were drawn as if they were samples",
+      [l.get_label() for l in curves_] == ["Run A", "Run B", "Run C"] and [m_[1] for m_ in mpz if m_[0].startswith("mass")] == ["Mass (%)"] * 3, ([l.get_label() for l in curves_], mpz[:2]))
+ymin_ = min(float(np.nanmin(l.get_ydata())) for l in curves_)
+check("... their DTG in % per minute, with the heating rate read from the time column (10 °C/min here), on a measured, uneven temperature", -3.5 < ymin_ < -0.3 and all(np.isfinite(l.get_ydata()).sum() > 5000 for l in curves_) and abs(TM._rate({"T": runs[0].arr("Temperature (°C)"), "time": runs[0].arr("Time (min)")}, 99) - 10) < 0.2, ymin_)
+zt = [t for t in az.texts if t.get_text().strip()]; spans_ = [p for p in az.patches]
+check("... over the four usual zones, shaded, each named INSIDE the graph in bold in the darker tone of its shade (user files had no zones at all)",
+      len(spans_) >= 4 and len(zt) == 4 and all(t.get_fontweight() == "bold" and 0 < t.get_position()[1] < 1 for t in zt) and any("Portlandite" in t.get_text() and "400–550" in t.get_text() for t in zt) and len({t.get_color() for t in zt}) == 4, [(t.get_text().replace("\n", " "), t.get_position()[1]) for t in zt])
+check("... x from 30 to 900 °C, left and bottom axis only, a framed legend with the names of the files", az.get_xlim() == (30.0, 900.0) and not az.spines["top"].get_visible() and not az.spines["right"].get_visible() and az.spines["left"].get_visible()
+      and az.get_legend() is not None and az.get_legend().get_frame_on() and [t.get_text() for t in az.get_legend().get_texts()] == ["Run A", "Run B", "Run C"] and "min" in az.get_ylabel(), (az.get_xlim(), az.get_ylabel()))
+rk_t = api.recommend(runs)
+check("... and it is the first graph offered for several thermal runs", rk_t and rk_t[0][0] == "tga_dtg_zones_multi", [(a_, b_) for a_, b_, _c in rk_t][:3])
+one_ = api.draw("tga_dtg_single", [runs[0]])[0]
+check("one run alone keeps its TG + DTG graph", len(one_.axes) == 2)
+wn = np.linspace(400, 4000, 3600)
+def spec_(name, k):
+    y = 96 - k - sum(a_ * np.exp(-(wn - c_) ** 2 / (2 * w_ ** 2)) for c_, a_, w_ in ((668, 6, 9), (873, 8, 7), (960, 22 - 3 * k, 30), (1410, 14, 28), (1650, 5, 22), (2350, 6, 14), (3400, 9, 160), (3642, 7, 6)))
+    return D.Table(name, pd.DataFrame({"Wavenumber (cm-1)": wn, "Transmittance (%)": y}))
+irs_ = [spec_("Mix 1", 0), spec_("Mix 2", 1), spec_("Mix 3", 2)]
+fi, _mpi = api.draw("ftir_stacked_bands", irs_); ai = fi.axes[0]; sp_lines = [l for l in ai.lines if not l.get_label().startswith("_")]; marks_ = [l for l in ai.lines if l.get_label().startswith("_") and l.get_marker() == "v"]
+tops_ = [float(np.nanmax(l.get_ydata())) for l in sp_lines]
+check("infrared spectra of several samples: one above the other (15 lower each), one colour per sample, wavenumber from 400 up to 4000, the y scale shown",
+      len(sp_lines) == 3 and abs((tops_[0] - tops_[1]) - 16) < 1.5 and len({l.get_color() for l in sp_lines}) == 3 and ai.get_xlim()[0] < 500 and ai.get_xlim()[1] > 3900 and len(ai.get_yticks()) > 2 and "offset" in ai.get_ylabel().lower(), (tops_, ai.get_xlim(), ai.get_ylabel()))
+labs_ = [t for t in ai.texts if t.get_text().strip()]; txt_ = [t.get_text() for t in labs_]
+check("... every band of every spectrum is marked on its curve (▼) and labelled below it, upright, in the colour of its spectrum, with wavenumber and the usual assignment",
+      len(marks_) == 3 and all(len(m_.get_xdata()) >= 7 for m_ in marks_) and len(labs_) >= 21 and all(t.get_rotation() == 90 for t in labs_) and {t.get_color() for t in labs_} == {l.get_color() for l in sp_lines}
+      and any(s_.startswith("3642 O–H (Ca(OH)") for s_ in txt_) and any(s_.startswith("960 Si–O") for s_ in txt_) and any("CO$_{3}^{2-}$" in s_ and s_.startswith("141") for s_ in txt_), txt_[:9])
+check("... the CO2 of the air is named as such, and the small figures are mathtext (no empty boxes; Origin gets real sub- and superscripts)", any("CO$_{2}$ (air)" in s_ for s_ in txt_) and not any(ch in "".join(txt_) for ch in "₂₃²⁻")
+      and TM._mathtext("ν₄ SO₄²⁻") == "ν$_{4}$ SO$_{4}^{2-}$" and O._otext("CO$_{3}^{2-}$") == "CO\\-(3)\\+(2-)", [s_ for s_ in txt_ if "air" in s_][:1])
+check("... the legend names the samples at the lower left; no names at the right, no dashed lines across", ai.get_legend() is not None and [t.get_text() for t in ai.get_legend().get_texts()] == ["Mix 1", "Mix 2", "Mix 3"] and ai.get_legend()._loc in (3, "lower left") and not any(l.get_linestyle() in (":", "dotted") for l in ai.lines), ai.get_legend()._loc)
+Ri = O.read_figure(fi)["layers"][0]; pos_ = sorted(round(t["x"]) for t in Ri["texts"] if t["text"].startswith("3642"))
+check("Origin: the band labels are sent at their wavenumbers on the curves (data coordinates), the marks as symbols without a line", pos_ == [3642, 3642, 3642] and len([c_ for c_ in Ri["curves"] if c_["kind"] == "scatter" and c_["marker"] == 4]) == 3 and len([c_ for c_ in Ri["curves"] if c_["kind"] == "line"]) == 3, pos_)
+many_ = api.demo_figure("ftir_stacked_bands").axes[0]
+check("six spectra: the names stand at the top spectrum only (the others carry the marks), the legend in rows under the lowest", len({t.get_color() for t in many_.texts if t.get_text().strip()}) == 1 and len([l for l in many_.lines if l.get_marker() == "v"]) == 6 and many_.get_legend()._ncols == 3)
+fast_ = [D.Table(n_, pd.DataFrame({"Temperature (°C)": 30 + np.arange(2400) / 3.0, "Time (min)": np.arange(2400) / 60.0, "Mass (%)": 100 - (5 + k_) / (1 + np.exp(-(30 + np.arange(2400) / 3.0 - 450) / 9))})) for k_, n_ in enumerate(("P", "Q"))]
+check("a run heated at 20 °C/min: the rate is read from its own time column (the DTG in % per minute is twice that of the 10 °C/min default)", abs(TM._rate({"T": fast_[0].arr("Temperature (°C)"), "time": fast_[0].arr("Time (min)")}, 10) - 20) < 0.1
+      and abs(min(np.nanmin(l.get_ydata()) for l in api.draw("tga_dtg_zones_multi", fast_)[0].axes[0].lines) / min(np.nanmin(l.get_ydata()) for l in api.draw("tga_dtg_zones_multi", [D.Table(t_.name, t_.df.drop(columns=["Time (min)"])) for t_ in fast_])[0].axes[0].lines) - 2) < 0.05)
+wide_t = D.Table("W", pd.DataFrame({"Temperature (°C)": T, "Mass P (%)": tg["Mass (%)"], "Mass Q (%)": tg["Mass (%)"] - 1}))
+check("ONE table with a mass column per sample stays a sample per column, as before", [l.get_label() for l in api.draw("tga_dtg_zones_multi", [wide_t])[0].axes[0].lines if not l.get_label().startswith("_")] == ["Mass P (%)", "Mass Q (%)"])
+check("a band near 665 cm-1 has a name of its own (Si–O)", __import__("opstudio.ftir_core", fromlist=["x"]).suggest(668)[0]["short"] == "Si–O")
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.exit(1 if N[1] else 0)

@@ -30,6 +30,7 @@ REFERENCE_BANDS = [
     {"name": "Si-O of quartz (doublet near 798 and 779)", "short": "Si–O (quartz)", "range": [772, 802], "applies_to": "sand, tailings, fly ash"},
     {"name": "Carbonate v4 of vaterite", "short": "ν₄ CO₃²⁻ (vaterite)", "range": [738, 750], "applies_to": "carbonated paste"},
     {"name": "Carbonate v4 in-plane bend (calcite near 712; aragonite 700 and 713)", "short": "ν₄ CO₃²⁻", "range": [698, 716], "applies_to": "carbonate rocks, carbonated paste"},
+    {"name": "Si-O-Si bend of C-S-H (near 665)", "short": "Si–O", "range": [655, 680], "applies_to": "hydrated cement"},
     {"name": "Sulfate v4 bend (gypsum near 669 and 602; ettringite near 620)", "short": "ν₄ SO₄²⁻", "range": [595, 675], "applies_to": "gypsum, hydrates"},
     {"name": "Si-O bend of alite / belite (near 520)", "short": "δ Si–O (clinker)", "range": [505, 535], "applies_to": "clinker, cement"},
     {"name": "Si-O-Si bend (silicates, C-S-H, quartz)", "short": "δ Si–O–Si", "range": [430, 480], "applies_to": "silicates"},

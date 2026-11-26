@@ -183,8 +183,18 @@ def bundle(template, tables, overrides=None):
         d["components"] = comps; mp += [("x", c[0]), ("observed", c[1]), ("fit", c[2]), ("components", ", ".join(c[3:]) or "none")]
     elif "samples" in k_set:                                                # thermal: T + mass per sample
         ss = []
+        from .detection import normalise as _norm
         for x in tables:
             _need(2, x, "temperature and mass"); T = x.arr(x.x)
+            _find = lambda cols, *keys: next((c for c in cols if any(k_ in _norm(c) for k_ in keys)), None)
+            masses = [c for c in x.ys if any(k_ in _norm(c) for k_ in ("mass", "weight", "tgpercent"))]; mc = masses[0] if len(masses) == 1 else None      # several mass columns = one table with a sample per column: as before
+            if mc and "ms" not in k_set:
+                # a thermal run as the instrument writes it (temperature, time, mass, DSC ...): ONE sample, its mass against its
+                # temperature. Every column was taken for a sample before - time and DSC were drawn as if they were mass curves.
+                tc = _find(x.numeric, "temperature", "temp", "celsius", "degc") or x.x; tm = _find(x.numeric, "time", "minutes", "elapsed")
+                s_ = {"name": x.name, "T": x.arr(tc), "mass": x.arr(mc)}
+                if tm and tm not in (tc, mc): s_["time"] = x.arr(tm)
+                ss.append(s_); mp += [(f"temperature ({x.name})", tc), (f"mass ({x.name})", mc)]; continue
             for c in ([x.ys[0]] if "ms" in k_set else x.ys):
                 ss.append({"name": x.name if len(tables) > 1 and len(x.ys) == 1 else short_name(c) if len(x.ys) > 1 else x.name, "T": T, "mass": x.arr(c)})
             mp += [(f"temperature ({x.name})", x.x), (f"mass ({x.name})", ", ".join(x.ys[:1] if "ms" in k_set else x.ys))]

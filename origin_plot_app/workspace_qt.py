@@ -1544,7 +1544,7 @@ class Workspace(QMainWindow):
         msgs = []
         mode = self.groupmode.currentText() if hasattr(self, "groupmode") else "Decide for me"
         try:
-            groups, _why = sp.make_groups(self.singles, mode, self.opt)
+            groups, _why = sp.make_groups(sp.without_copies(self.singles), mode, self.opt)
             hidden = {(h, tuple(k)) for h, k in getattr(self, "hidden_groups", [])}
             groups = [g for g in groups if (g.how, tuple(sp.key_of(m) for m in g.members)) not in hidden]       # the ones you removed from the list (Delete) stay away
             for g in groups:

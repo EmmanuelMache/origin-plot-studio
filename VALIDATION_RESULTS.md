@@ -15,19 +15,19 @@ delivered update (228 checks, seven suites, on a Qt 5 stand-in) is prior evidenc
 |---|---:|---:|
 | Workbench core (detection, fit columns, merges, project archives) — `tests/test_workbench_core.py` | 46 | 0 |
 | Desktop workflow (real widgets) — `tests/test_workbench_ui.py` | 15 | 0 |
-| Template engine and Origin driver (dry run) — `tests/test_opstudio.py` | 78 | 0 |
+| Template engine and Origin driver (dry run) — `tests/test_opstudio.py` | 93 | 0 |
 | Composed figures (workbooks of figures) — `tests/test_figures_general.py` | 40 | 0 |
 | Analysis tools (all 44) — `tests/test_analysis_tools.py` | 17 | 0 |
 | HighScore / XRD workflows — `tests/test_highscore.py` | 27 | 0 |
 | Workbook graph types (26) — `tests/test_gallery_graphs.py` | 34 | 0 |
-| **Total** | **257** | **0** |
+| **Total** | **272** | **0** |
 
 The workbench core suite has 11 checks more than the delivered one (fit columns by name, peak lists, the wider list of
 data types, a file with no table, the template example cache, the one-parse workbook cache, the look of every fit graph).
 
 ## Every test file
 
-37 files, **1307 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
+37 files, **1326 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
 fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
 `TEST_REPORT.md`, section 2.
 

@@ -131,7 +131,7 @@ class WorkingTableModel(QAbstractTableModel):
     only=None                     # names of the only columns that can be edited (the Label column of a peak table)
     def flags(self,index): return super().flags(index)|(Qt.NoItemFlags if (self.read_only or (self.only is not None and str(self.df.columns[index.column()]) not in self.only)) else Qt.ItemIsEditable)
     def setData(self,index,value,role=Qt.EditRole):
-        if role!=Qt.EditRole or not index.isValid(): return False
+        if role!=Qt.EditRole or not index.isValid() or self.read_only: return False
         r,c=index.row(),index.column(); before=self.df.iat[r,c]
         if pd.api.types.is_numeric_dtype(self.df.iloc[:,c]):
             try: value=float(value) if str(value).strip() else np.nan
@@ -759,6 +759,10 @@ class WorkbookPage(QWidget):
                 if self.controller.peak_frame(self.path)[0] is not None:
                     self.sheet.addItem(related.PEAKS_SHEET); self.sheet.setItemData(self.sheet.count()-1,'The peaks the app found in this file (steps of mass loss of a thermal run, bands of an infrared spectrum), what each may be, and a Label column of your own',Qt.ToolTipRole)
             except Exception: pass
+            # a workbook the app merged opens on 'All side by side' - the merged result - until you choose another of its sheets
+            views=self.__dict__.setdefault('_views',{})
+            if self.sheet.findText(related.OVERVIEW_SHEET)>=0 and views.get(self.path,related.OVERVIEW_SHEET)==related.OVERVIEW_SHEET: selected=related.OVERVIEW_SHEET
+            elif views.get(self.path)==related.PEAKS_OVERVIEW and self.sheet.findText(related.PEAKS_OVERVIEW)>=0: selected=related.PEAKS_OVERVIEW
             self.sheet.setCurrentText(selected); self._loading=False
             has=self.sheet.findText(related.PEAKS_SHEET)>=0; self.b_peaks.setVisible(has)
             if has:
@@ -799,8 +803,23 @@ class WorkbookPage(QWidget):
         if self._loading or self.path is None: return
         import related
         self.draw_labels.setVisible(False)
+        if name and name!=related.PEAKS_SHEET: self.__dict__.setdefault('_views',{})[self.path]=name
         if name==related.PEAKS_SHEET: return self.open_peaks()
         slug=self.controller.project_for(self.path)
+        if name in (related.OVERVIEW_SHEET,related.PEAKS_OVERVIEW):
+            # the two sheets of a merged workbook that show ALL its files: looked at and exported here; the graphs keep
+            # being drawn from the sheets of the single files (a view, not the sheet chosen for the graphs)
+            try:
+                frame=self.controller.raw_sheets(self.path,slug)[name]
+                self.model=WorkingTableModel(frame,lambda:None,self); self.model.read_only=True; self.table.setModel(self.model); self.fit_headers()
+                self.caption.setText(os.path.basename(self.path)+' / '+name)
+                n_files=len([s for s in self.controller.raw_sheets(self.path,slug) if s not in (related.OVERVIEW_SHEET,related.PEAKS_OVERVIEW)])
+                self.info.setText((f'MERGED: {n_files} files side by side \u00b7 {len(frame):,} rows \u00b7 {len(frame.columns)} columns. Every file has its own X and Y columns, named after the file; nothing is interpolated. '
+                                   if name==related.OVERVIEW_SHEET else f'The peaks of all {n_files} files in one table \u00b7 {len(frame):,} rows. ')
+                                  +'To look at only: the sheet of each file is in the Sheet box above, and those are what the graphs are drawn from. Export data\u2026 saves this table.')
+                self._loading=True; self.columns.clear(); self.x.clear(); self.y.clear(); self._loading=False; self.update_suggestion()
+            except Exception as e: self.info.setText('Could not open sheet: '+str(e))
+            return
         try:
             frame=self.controller.raw_sheets(self.path,slug)[name]; prefs=self.controller.settings_for(self.path,slug); prefs['sheet']=name
             self.add_worked_columns(frame,slug,name)

@@ -261,6 +261,7 @@ def recommend(tables, top=None):
         if tid == 'scientific_line': score += 5 if detected.kind == 'General XY' else .5
         if tid == 'tga_dtg_single' and detected.kind == 'TGA': score += 4
         if tid == 'dsc_heatflow' and detected.kind == 'DSC': score += 4
+        if tid == 'tga_dtg_zones_multi' and detected.kind == 'TGA' and len(tables) > 1: score += 5      # several thermal runs: their DTG curves over the named zones first
         if tid == 'ftir_stacked_bands' and detected.kind == 'FTIR': score += 4        # a spectrum (or several) with its bands, before the plain line plot
         if tid == 'raman_stacked' and detected.kind == 'Raman': score += 4
         if tid == 'xrd_single_labeled': score += 5 if len(tables) == 1 and len(tables[0].ys) == 1 else 1

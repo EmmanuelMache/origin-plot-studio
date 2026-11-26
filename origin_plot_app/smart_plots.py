@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.58.3"
+VERSION = "5.58.4"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -2341,6 +2341,29 @@ def load_reference(path):
     try:
         r = pd.read_csv(path); return [(str(c), float(t)) for c, t in zip(r.iloc[:, 1], r.iloc[:, 2])]
     except Exception: return []
+
+def merged_copy(path):
+    """True for a workbook the app merged from other files (it is kept in a 'derived' folder of the app's project data)."""
+    parts = re.split(r"[\\/]", str(path)); return "derived" in parts[:-1] and "project_data" in parts
+
+
+def without_copies(items):
+    """The graphs for the automatic combined figures. The sheets of a workbook the app merged are copies of the files it was
+    made from: while a graph of the same kind and name from an ordinary file is in the list, the copy is left out - every
+    sample was drawn twice in the combined figure ('6 x TGA' for three files)."""
+    plain = [i for i in items if not merged_copy(i.path)]
+    if len(plain) == len(items): return list(items)
+    try: seen = {(i.kind, n) for i, n in zip(plain, display_names(plain))}
+    except Exception: return list(items)
+    out = []
+    for i in items:
+        if merged_copy(i.path):
+            try:
+                if (i.kind, display_names([i])[0]) in seen or (i.kind, i.name) in seen: continue
+            except Exception: pass
+        out.append(i)
+    return out
+
 
 def key_of(it):
     """A stable name for a graph in the list (used by panel figures and saved sessions)."""

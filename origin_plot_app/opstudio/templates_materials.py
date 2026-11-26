@@ -790,7 +790,30 @@ def demo_tg(names=S.SAMPLES):
 
 def _dtg(s):
     from .tga_core import dtg
-    return dtg(s["T"], s["mass"])["dtg_per_C"]  # always smoothed derivative; raw instrument DTG may be offered as option
+    T = np.asarray(s["T"], float); m = np.asarray(s["mass"], float)
+    if len(T) > 3 and np.isfinite(T).all() and np.isfinite(m).all() and np.all(np.diff(T) > 0) and np.allclose(np.diff(T), np.diff(T)[0], rtol=1e-3):
+        return dtg(T, m)["dtg_per_C"]  # always smoothed derivative; raw instrument DTG may be offered as option
+    # a measured run: the temperature is not evenly spaced and wobbles at the start. The derivative is taken on an even
+    # temperature grid and read back at the measured points.
+    ok = np.isfinite(T) & np.isfinite(m); out = np.full(len(T), np.nan)
+    if ok.sum() < 8: return out
+    o = np.argsort(T[ok], kind="stable"); Ts, ms = T[ok][o], m[ok][o]; keep = np.concatenate([[True], np.diff(Ts) > 0]); Ts, ms = Ts[keep], ms[keep]
+    if len(Ts) < 8: return out
+    grid = np.linspace(Ts[0], Ts[-1], int(min(max(len(Ts), 400), 6000))); out[ok] = np.interp(T[ok], grid, dtg(grid, np.interp(grid, Ts, ms))["dtg_per_C"])
+    return out
+
+
+def _rate(s, default):
+    """Heating rate in °C per minute: from the time column of the run when it has one, else the parameter."""
+    t = s.get("time")
+    if t is None: return float(default)
+    T = np.asarray(s["T"], float); t = np.asarray(t, float); ok = np.isfinite(T) & np.isfinite(t)
+    if ok.sum() < 10 or np.ptp(t[ok]) <= 0: return float(default)
+    r = float(np.polyfit(t[ok], T[ok], 1)[0])                    # the slope of temperature against time
+    return r if 0.2 <= r <= 200 else float(default)
+
+
+ZONE_INK = {"#9EC5E8": "#0B5394", "#A8D5A2": "#1B6B2A", "#F6C89F": "#A61C1C", "#C9C9DD": "#4B2E83"}      # the colour of a zone's name: the darker tone of its shade
 
 
 @template("tga_dtg_single", "TG and DTG in one graph (DTG natural sign, right axis)", CAT_TH,
@@ -815,19 +838,40 @@ def draw_tga_single(d, st, p):
 
 
 @template("tga_dtg_zones_multi", "DTG of several samples with shaded decomposition zones", CAT_TH,
-          "Overlay DTG of all samples; shaded and labelled zones (C-S-H/AFt, AFm, portlandite, calcite).", "thermal",
+          "Overlay DTG of all samples; shaded zones named inside the graph (C-S-H/AFt, AFm, portlandite, calcite); legend at the lower left.", "thermal",
           {"samples": "one T/mass (or DTG) pair per sample", "zones": "user-confirmed temperature windows"},
           demo_tg, {"label_zones": True, "heating_rate_C_per_min": 10}, "Origin: Line plot + Insert > Rectangle (axis-scaled) per zone.",
           "house", ["TGA"], ["zone mass loss", "peak temperature per zone"])
 def draw_tga_zones(d, st, p):
-    fig, ax = new_fig(st)
-    for k, z in enumerate(d["zones"]):
-        ax.axvspan(*z["T"], color=z["color"], alpha=0.35, lw=0)
-        if p["label_zones"]:
-            ax.text(np.mean(z["T"]), 1.01 + 0.09 * (k % 2), f"{z['name']}\n({z['T'][0]}–{z['T'][1]} °C)", transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=6)
+    """DTG of all samples in one graph over shaded, named temperature zones (the usual ones of cement pastes when none
+    are given): names inside the graph at the top of each zone in the darker tone of its shade, a zone that overlaps the
+    one before it named lower; legend at the lower left; left and bottom axis only."""
+    fig, ax = new_fig(st); zones = d.get("zones") or ZONES_CEMENT
+    for z in zones:
+        ax.axvspan(*z["T"], color=z["color"], alpha=0.35, lw=0, zorder=0)
     for i, s in enumerate(d["samples"]):
-        ax.plot(s["T"], _dtg(s) * p["heating_rate_C_per_min"], color=series_color(st, s["name"], i), label=s["name"])
-    ax.set_xlabel(d["x_label"]); ax.set_ylabel("DTG (% min$^{-1}$)"); ax.legend(loc="lower left"); ax.set_xlim(30, 900); finish(ax, st)
+        ax.plot(s["T"], _dtg(s) * _rate(s, p["heating_rate_C_per_min"]), color=series_color(st, s["name"], i), label=s["name"])
+    hi = min(900.0, max(float(np.nanmax(s["T"])) for s in d["samples"])); ax.set_xlim(30, hi if hi > 200 else 900)
+    lo_y, hi_y = ax.get_ylim(); ax.set_ylim(lo_y, hi_y + 0.26 * (hi_y - lo_y))            # room for the names of the zones above the curves (two rows: a zone that overlaps another is named on the second)
+    if p["label_zones"]:
+        last_end = None; xl0, xl1 = ax.get_xlim()
+        for z in zones:
+            if z["T"][0] > xl1: continue
+            low = last_end is not None and z["T"][0] < last_end                             # overlaps the zone before it: its name stands lower
+            edge = z["T"][0] <= xl0 + 0.02 * (xl1 - xl0)                                     # a zone that begins at the axis: its name starts there instead of running out of the graph
+            ax.text(xl0 + 0.012 * (xl1 - xl0) if edge else np.mean(z["T"]), 0.885 if low else 0.975, f"{z['name']}\n({'~' if low else ''}{z['T'][0]}–{z['T'][1]} °C)", transform=ax.get_xaxis_transform(),
+                    ha="left" if edge else "center", va="top", fontsize=6.5, fontweight="bold", color=ZONE_INK.get(z["color"], "#333333"), zorder=5)
+            last_end = z["T"][1] if not low else last_end
+    ax.set_xlabel(d["x_label"]); ax.set_ylabel("DTG (% min$^{-1}$)"); lg = ax.legend(loc="lower left", frameon=True); finish(ax, st)
+    try:                                                                                     # the legend stands at the lower left unless curves run through that corner
+        fig.canvas.draw(); bb = lg.get_window_extent()
+        for ln in ax.lines:
+            pts = ax.transData.transform(np.column_stack([np.asarray(ln.get_xdata(), float), np.asarray(ln.get_ydata(), float)])); pts = pts[np.isfinite(pts).all(axis=1)]
+            if len(pts) and ((pts[:, 0] >= bb.x0) & (pts[:, 0] <= bb.x1) & (pts[:, 1] >= bb.y0) & (pts[:, 1] <= bb.y1)).any():
+                lg.remove(); lg = ax.legend(loc="best", frameon=True); break
+    except Exception: pass
+    for side in ("top", "right"): ax.spines[side].set_visible(False)
+    ax.tick_params(top=False, right=False, which="both")
     return fig
 
 
@@ -1167,23 +1211,85 @@ def demo_ftir():
             "shade": [800, 1100]}
 
 
-@template("ftir_stacked_bands", "FTIR stacked spectra with band lines", CAT_SPEC,
-          "Reversed wavenumber axis, offset spectra, dashed band lines labelled at top, one shaded region; names at right in sample colour.",
+@template("ftir_stacked_bands", "FTIR stacked spectra with labelled bands", CAT_SPEC,
+          "Offset spectra, one colour per sample; every band marked on its curve and labelled with its wavenumber and usual assignment; legend at the lower left.",
           "xy_series", {"x": "wavenumber", "series": "one per sample", "bands": "user-confirmed band list"}, demo_ftir,
-          {"offset": 8}, "Origin: Stacked Lines by Y Offsets, X reversed (From 4000 To 500).", "house", ["FTIR", "ATR"])
+          {"offset": 15, "label_bands": True, "band_lines": False}, "Origin: Stacked Lines by Y Offsets; band labels as texts in the colour of their spectrum.", "house", ["FTIR", "ATR"])
 def draw_ftir(d, st, p):
-    fig, ax = new_fig(st)
+    """Spectra one above the other (each lower by 'offset'), one colour per sample, the legend at the lower left. Every
+    band of every spectrum is marked on its curve and labelled below it, in the colour of the spectrum, with its
+    wavenumber and what it usually is ('1406 ν₃ CO₃²⁻'); the CO₂ of the air is named as such. Wavenumber runs from low
+    to high (the 'reverse x' switch turns it)."""
+    fig, ax = new_fig(st); off = float(p.get("offset", 15) or 0); handles = []; drawn = []
     for i, s in enumerate(d["series"]):
-        c = series_color(st, s["name"], i); y = s["y"] - i * p["offset"]; ax.plot(s["x"], y, color=c, lw=0.8)
-        ax.text(s["x"].min() - 40, y[-1], s["name"], color=c, fontweight="bold", va="center", fontsize=7)
+        c = series_color(st, s["name"], i); x = np.asarray(s["x"], float); y = np.asarray(s["y"], float) - i * off
+        handles += ax.plot(x, y, color=c, lw=0.9, label=s["name"]); drawn.append((c, x, y))
+    if p.get("label_bands", True):
+        lo_y, hi_y = ax.get_ylim(); gap = 0.013 * (hi_y - lo_y)                                  # between a mark and its label, in the units of the axis
+        for k, (c, x, y) in enumerate(drawn):
+            lab = _ftir_labels(x, y)
+            if not lab: continue
+            if len(drawn) > 4 and k: lab = [(q[0], q[1], "", q[3]) for q in lab]                 # many spectra: the names stand at the top one, the others carry the marks only
+            down = lab[0][3]                                                                     # one marker row per spectrum: its bands as symbols without a line
+            ax.plot([q[0] for q in lab], [q[1] for q in lab], marker="v" if down else "^", ms=2.6, color=c, ls="none", zorder=4, label="_nolegend_")
+            for pos, yv, txt, _ in lab:
+                if txt: ax.text(pos, yv - gap if down else yv + gap, txt, rotation=90, ha="center", va="top" if down else "bottom", fontsize=5.2, color=c, zorder=4)
     if d.get("shade"):
-        ax.axvspan(*d["shade"], color="#9EC5E8", alpha=0.45, lw=0)
-    for b in d.get("bands", []):
-        ax.axvline(b["x"], color="#888888", ls=":", lw=0.7)
-        ax.text(b["x"], 1.01, f"{b['label']}, {b['x']}", rotation=90, transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=6)
-    ax.set_xlim(max(d["series"][0]["x"]), min(d["series"][0]["x"])); ax.set_yticks([])
-    ax.set_xlabel(d["x_label"]); ax.set_ylabel(d["y_label"]); finish(ax, st)
+        ax.axvspan(*d["shade"], color="#9EC5E8", alpha=0.25, lw=0, zorder=0)
+    if p.get("band_lines"):
+        for b in d.get("bands", []):
+            ax.axvline(b["x"], color="#888888", ls=":", lw=0.7)
+            ax.text(b["x"], 1.01, f"{b['label']}, {b['x']}", rotation=90, transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=6)
+    xs = np.concatenate([np.asarray(s["x"], float) for s in d["series"]]); ax.set_xlim(float(np.nanmin(xs)), float(np.nanmax(xs)))
+    lo_y, hi_y = ax.get_ylim(); ax.set_ylim(lo_y - 0.10 * (hi_y - lo_y), hi_y)             # room for the labels under the lowest spectrum
+    yl = str(d["y_label"]); ax.set_xlabel(d["x_label"]); ax.set_ylabel(yl if "offset" in yl.lower() or len(d["series"]) < 2 else yl + ", offset per sample")
+    lg = ax.legend(handles=handles, loc="lower left", frameon=False, ncol=1 if len(handles) <= 3 else 3); finish(ax, st)
+    try:                                                                                     # the legend under the lowest spectrum: the axis is extended downwards when a curve runs through that corner
+        fig.canvas.draw(); bb = lg.get_window_extent(); hit = False
+        for ln in handles:
+            pts = ax.transData.transform(np.column_stack([np.asarray(ln.get_xdata(), float), np.asarray(ln.get_ydata(), float)])); pts = pts[np.isfinite(pts).all(axis=1)]
+            hit = hit or bool(len(pts) and ((pts[:, 0] >= bb.x0) & (pts[:, 0] <= bb.x1) & (pts[:, 1] >= bb.y0) & (pts[:, 1] <= bb.y1)).any())
+        if hit:
+            f = min(0.4, bb.height / ax.bbox.height + 0.05); lo2, hi2 = ax.get_ylim(); ax.set_ylim(hi2 - (hi2 - lo2) / (1 - f), hi2)
+    except Exception: pass
     return fig
+
+
+_SUB = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789"); _SUP = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻", "0123456789+-")
+def _mathtext(s):
+    """'ν₃ CO₃²⁻' -> 'ν$_{3}$ CO$_{3}^{2-}$': the small figures are drawn by matplotlib itself (several fonts have no
+    raised minus and showed an empty box) and reach Origin as its own sub- and superscripts."""
+    import re
+    s = re.sub("[₀-₉]+", lambda m: "$_{" + m.group(0).translate(_SUB) + "}$", str(s)); s = re.sub("[⁰¹²³⁴-⁹⁺⁻]+", lambda m: "$^{" + m.group(0).translate(_SUP) + "}$", s)
+    return s.replace("$$", "")
+
+
+def _ftir_labels(x, y):
+    """[(wavenumber, y on the curve, label, is a minimum)] of the bands of one spectrum: the bands the app finds
+    (smart_plots.find_peaks, as for its own infrared graph), not those at the very ends of the range; of the CO2 doublet
+    of the air only the stronger one, named as air. The name is the usual one for that wavenumber (opstudio.ftir_core)
+    - a possibility, shown without a question mark to keep the figure readable; change the text in the editor."""
+    try:
+        import smart_plots as sp
+        from . import ftir_core
+    except Exception: return []
+    ok = np.isfinite(x) & np.isfinite(y); x, y = x[ok], y[ok]; o = np.argsort(x); x, y = x[o], y[o]
+    if len(x) < 20: return []
+    down = bool(np.nanmedian(y) > np.nanmin(y) + 0.6 * (np.nanmax(y) - np.nanmin(y)))      # transmittance: the curve lies high and the bands hang down
+    try: pk = sp.find_peaks(x, -y if down else y, max_n=12, min_rel=0.03, min_sep=8)
+    except Exception: return []
+    lo, hi = float(x[0]), float(x[-1]); a0, a1 = sp.FTIR_AIR_CO2; out = []
+    air = [q for q in pk if a0 <= q["pos"] <= a1]; air = max(air, key=lambda q: q.get("height", 0)) if air else None
+    for q in sorted(pk, key=lambda q: q["pos"]):
+        pos = float(q["pos"])
+        if not (lo + 25 <= pos <= hi - 25): continue
+        if a0 <= pos <= a1:
+            if q is not air: continue
+            name = "CO$_{2}$ (air)"
+        else:
+            c = ftir_core.suggest(pos); name = _mathtext(c[0]["short"]) if c else ""
+        out.append((pos, float(np.interp(pos, x, y)), f"{pos:.0f} {name}".strip(), down))
+    return out
 
 
 def demo_raman():
