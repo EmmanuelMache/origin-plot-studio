@@ -1,4 +1,4 @@
-# Validation results — Origin Plot Studio 5.58.1
+# Validation results — Origin Plot Studio 5.58.2
 
 Date: 26 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
 
@@ -27,7 +27,7 @@ data types, a file with no table, the template example cache, the one-parse work
 
 ## Every test file
 
-37 files, **1257 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
+37 files, **1294 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
 fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
 `TEST_REPORT.md`, section 2.
 
@@ -128,6 +128,16 @@ The app's own update check (5.58.1 against 5.58.0) gives the same Origin command
 the four thermal examples as different: the temperature axis from 0 instead of 30, and the places of labels that
 follow from it - the intended changes above. The update window therefore asks before installing. **Whether a figure meets a journal's standard is the author's judgement; nothing here was compared
 with a published figure.**
+
+## 5.58.2: spreadsheet tools, direct PowerPoint / Word, one graph at a time
+
+The spreadsheet tools were checked on the table model and on the page (paste of a block copied in Excel's form, rows
+and columns added as needed, insert, rename, sort, fill down, calculated columns, each undone again). The direct way
+into PowerPoint and Word was checked against stand-ins for the two programs that write down what they are asked: a new
+slide at the end of the open presentation with the picture fitted and centred; a picture at the cursor of the open
+document no wider than its text; and the file route when the program cannot be reached. **It was not run against
+PowerPoint or Word.** Selecting and resetting one graph of a two-graph figure was checked on the app's own thermal
+examples.
 
 ## Not verified
 

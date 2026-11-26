@@ -221,6 +221,12 @@ class Workbench:
                         hit = [l for q, l in own if abs(float(q) - float(pos)) <= related.TOLERANCE[kind] / 3.0]
                         if hit: frame.at[frame.index[i], 'Label'] = hit[0]
             self._peak_frames[key] = (frame if frame is not None and len(frame) else None, kind if frame is not None and len(frame) else None)
+        if self._peak_frames[key][0] is None:
+            # an XRD pattern: its peaks are found and named with its graph (positions, d-spacings, phases of the library).
+            # That table of the graph is shown here as it is - whatever has a label on a graph can be read in the Workbook.
+            for item in self.ws.singles:
+                if getattr(item, 'path', '') == path and not isinstance(item, TemplateGraph) and str(getattr(item, 'kind', '')).startswith('XRD') and getattr(item, 'results', None) is not None and len(item.results):
+                    if item.det.get('_source_sheet') in (None, selected) or len(self.raw_sheets(path, slug)) == 1: return item.results.copy(), 'XRD'
         return self._peak_frames[key]
 
     def peak_names(self, path, slug=None, sheet=None):
@@ -230,7 +236,8 @@ class Workbench:
         try:
             selected = self._table(path, slug, sheet)[1]
             if not self.settings_for(path, slug).get('sheet_settings', {}).get(selected, {}).get('peak_names_on'): return None
-            return related.names_of(self.peak_frame(path, slug, sheet)[0]) or None
+            frame, kind = self.peak_frame(path, slug, sheet)
+            return (related.names_of(frame) or None) if kind in ('TGA', 'FTIR') else None
         except Exception: return None
 
     def set_peak_labels(self, path, on=None, slug=None):

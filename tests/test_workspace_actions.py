@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]; A = ROOT / "origin_plot_app"; sys.pa
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
+import numpy as np
 import workspace_qt as W, workspace_actions as WA, smart_plots as sp
 ok = fail = 0
 def check(name, cond, info=""):
@@ -144,5 +145,62 @@ outside = sorted(os.path.relpath(p, A).replace("\\", "/") for p in needed if os.
 check("no data file of the program lies outside what the updater installs", outside == [], outside[:8])
 real_tpl = OE.TEMPLATES; OE.TEMPLATES = str(TMP / "nowhere"); bad = w.send_to_office("pptx"); OE.TEMPLATES = real_tpl
 check("an installation without the Office files says so plainly instead of doing nothing", bad is None and "missing from this installation" in w.status.text() and "Update the app once more" in w.status.text(), w.status.text()[:160])
+# ---- a figure of two graphs: each graph for itself
+two = next((i for i in w.items if isinstance(i, sp.Combined) and len((getattr(i, "spec", None) or {}).get("panels", [])) == 2), None)
+if two is None:
+    for i in w.items:
+        if isinstance(i, sp.Combined):
+            try: i.build(w.opt) if getattr(i, "spec", None) is None else None
+            except Exception: pass
+    two = next((i for i in w.items if isinstance(i, sp.Combined) and len((getattr(i, "spec", None) or {}).get("panels", [])) == 2), None)
+check("the thermal runs give a figure of two graphs (mass above, DTG below)", two is not None, [type(i).__name__ for i in w.items][:6])
+if two is not None:
+    w.go(0); w.list.setCurrentRow(w.items.index(two)); app.processEvents(); w.canvas.draw(); axs = w.main_axes()
+    check("the figure on show has one axes per graph", len(axs) == 2, len(axs))
+    w.modes.button(2).setChecked(False); app.processEvents(); w.modes.button(2).setChecked(True); app.processEvents(); axs = w.main_axes()
+    check("Select range can be dragged in every graph of the figure (it could only be dragged in the first)", len(getattr(w, "spans", [])) == 2 and {id(s_.ax) for s_ in w.spans} == {id(a) for a in axs})
+    w.on_span(200.0, 300.0, axs[1]); app.processEvents(); names_b = [c_.yname for c_ in w.curves(two)]
+    check("a range selected in graph (b) belongs to graph (b): the line says so, and what is worked out uses the curves of graph (b)", w.sel == (200.0, 300.0) and w.sel_panel == 1 and "graph (b) of 2" in w.seltext.text()
+          and names_b and all(n_ == str(two.spec["panels"][1].get("yname")) for n_ in names_b), (w.seltext.text(), names_b[:2]))
+    w.on_span(200.0, 300.0, axs[0]); names_a = [c_.yname for c_ in w.curves(two)]
+    check("... and one selected in graph (a) to graph (a)", w.sel_panel == 0 and names_a and all(n_ == str(two.spec["panels"][0].get("yname")) for n_ in names_a), names_a[:2])
+    w.clear_selection(); w.modes.button(2).setChecked(False); app.processEvents()
+    full = [a.get_ylim() for a in axs]
+    for a in axs: lo_, hi_ = a.get_ylim(); a.set_ylim(lo_ + 0.25 * (hi_ - lo_), hi_ - 0.25 * (hi_ - lo_))
+    zoomed = [a.get_ylim() for a in axs]; w._last_ax = axs[1]; w._reset_one = None; r_ = w.reset_axes()
+    check("Reset axes brings back the graph you last worked in; the other graph keeps its view", r_ == "one" and np.allclose(axs[1].get_ylim(), full[1]) and np.allclose(axs[0].get_ylim(), zoomed[0]) and "other graphs keep their view" in w.status.text(), (r_, axs[0].get_ylim(), zoomed[0]))
+    r_ = w.reset_axes(); app.processEvents()
+    check("... a second Reset brings back all graphs", r_ == "all")
+# ---- straight into the open PowerPoint / Word (Windows automation, here with stand-ins that write down what they are asked)
+import types as _types
+calls = []
+class _Rec:
+    def __init__(self, name, **kw): self.__dict__["_n"] = name; self.__dict__.update(kw)
+    def __setattr__(self, k, v): calls.append((self._n + "." + k, v)); self.__dict__[k] = v
+class _Slides:
+    def __init__(self): self.Count = 2
+    def Add(self, index, layout):
+        calls.append(("Slides.Add", index, layout)); self.Count += 1
+        shapes = _types.SimpleNamespace(AddPicture=lambda f, link, save, l, t, w_, h_: (calls.append(("AddPicture", os.path.basename(f), link, save, round(l, 1), round(t, 1), round(w_, 1), round(h_, 1))) or _Rec("pic")))
+        return _types.SimpleNamespace(Shapes=shapes, SlideIndex=index)
+pres_ = _types.SimpleNamespace(Slides=_Slides(), PageSetup=_types.SimpleNamespace(SlideWidth=960.0, SlideHeight=540.0), Name="Talk.pptx")
+ppt_ = _Rec("ppt", Presentations=_types.SimpleNamespace(Count=1, Add=lambda: pres_), ActivePresentation=pres_, ActiveWindow=_types.SimpleNamespace(View=_types.SimpleNamespace(GotoSlide=lambda i: calls.append(("GotoSlide", i)))), Activate=lambda: None)
+sel_ = _Rec("sel", InlineShapes=_types.SimpleNamespace(AddPicture=lambda f, link, save: (calls.append(("Word.AddPicture", os.path.basename(f), link, save)) or _Rec("shape", Width=900.0))), ParagraphFormat=_Rec("para"), TypeParagraph=lambda: calls.append(("TypeParagraph",)))
+doc_ = _types.SimpleNamespace(PageSetup=_types.SimpleNamespace(PageWidth=595.0, LeftMargin=70.0, RightMargin=70.0), Name="Paper.docx")
+word_ = _Rec("word", Documents=_types.SimpleNamespace(Count=1, Add=lambda: doc_), ActiveDocument=doc_, Selection=sel_, Activate=lambda: None)
+real_office = OE._office; OE._office = lambda name: ppt_ if name.startswith("PowerPoint") else word_
+w.tick_all(False); app.processEvents(); w._office_live = True; w.list.setCurrentRow(i_x); app.processEvents()
+r1 = w.send_to_office("pptx"); add_ = next((c for c in calls if c[0] == "AddPicture"), None)
+check("Send to PowerPoint puts the graph on a NEW slide at the end of the presentation you have open, as a picture that fits the slide, and shows that slide",
+      r1 == "live" and ("Slides.Add", 3, 12) in calls and add_ is not None and add_[2] is False and add_[3] is True and add_[4] >= 25 and add_[5] >= 25 and abs(add_[4] * 2 + add_[6] - 960) < 1 and abs(add_[5] * 2 + add_[7] - 540) < 1
+      and ("GotoSlide", 3) in calls and "the open presentation 'Talk.pptx'" in w.status.text(), (add_, w.status.text()[:110]))
+calls.clear(); r2 = w.send_to_office("docx")
+check("Send to Word inserts the picture at the cursor of the document you have open, no wider than its text, centred, in its own paragraph",
+      r2 == "live" and any(c[0] == "Word.AddPicture" and c[2] is False and c[3] is True for c in calls) and ("shape.Width", 455.0) in calls or r2 == "live" and any(c[0] == "shape.Width" and c[1] <= 455.0 for c in calls) and ("TypeParagraph",) in calls
+      and "the open document 'Paper.docx'" in w.status.text(), (calls[:6], w.status.text()[:100]))
+def _refuse(name): raise RuntimeError("the program is not installed")
+OE._office = _refuse; n_files = len(list((TMP / "results").rglob("*.pptx"))); r3 = w.send_to_office("pptx")
+check("PowerPoint not there (or refusing): the presentation is written as a file instead, as before", isinstance(r3, str) and r3.endswith(".pptx") and os.path.isfile(r3) and len(list((TMP / "results").rglob("*.pptx"))) == n_files + 1, r3)
+OE._office = real_office; w._office_live = False
 w.tick_all(False); app.processEvents()
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

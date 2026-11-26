@@ -98,7 +98,7 @@ def arrange_workbook(w, it=None):
 
 # Project workbook: editable working copies; source files are never overwritten.
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QTimer
-from PySide6.QtWidgets import (QComboBox, QFileDialog, QFrame, QHeaderView, QInputDialog,
+from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QFrame, QHeaderView, QInputDialog,
                               QMessageBox, QSplitter, QTableView, QTabWidget, QWidget)
 import copy
 from pathlib import Path
@@ -171,6 +171,101 @@ class WorkingTableModel(QAbstractTableModel):
         names=[self.df.columns[c] for c in sorted({c for c in cols if 0<=c<len(self.df.columns)})]
         if not names or self.locked() or len(names)>=len(self.df.columns): return []
         self._change(lambda: self.df.drop(columns=names,inplace=True)); return [str(n) for n in names]
+    # ---- the tools of a spreadsheet: each is one step of Undo edit
+    @staticmethod
+    def _value(text,numeric):
+        t=str(text).strip()
+        if not numeric: return str(text)
+        if not t: return np.nan
+        try: return float(t.replace(',','.')) if t.count(',')==1 and '.' not in t else float(t)
+        except ValueError: return str(text)
+    def paste(self,r0,c0,rows):
+        """A block of cells (rows of texts, as copied from Excel or from this table) with its top-left corner at (r0, c0).
+        Rows and columns are added when the block reaches past the table. Returns (rows, columns) pasted."""
+        rows=[list(r) for r in rows if r is not None]
+        if not rows or self.locked() or r0<0 or c0<0: return (0,0)
+        width=max(len(r) for r in rows)
+        def go():
+            need_r=r0+len(rows)-len(self.df)
+            for k in range(max(0,c0+width-len(self.df.columns))):
+                name='New column'; j=2
+                while name in self.df.columns: name=f'New column {j}'; j+=1
+                self.df[name]=np.nan
+            if need_r>0:
+                extra=pd.DataFrame({c:[np.nan]*need_r for c in self.df.columns}); base=self.df.copy()
+                self._fill(pd.concat([base,extra],ignore_index=True))
+            for c in range(width):
+                col=self.df.columns[c0+c]; numeric=pd.api.types.is_numeric_dtype(self.df[col]); vals=[self._value(r[c] if c<len(r) else '',numeric) for r in rows]
+                if numeric and any(isinstance(v,str) for v in vals): self.df[col]=self.df[col].astype(object)
+                elif pd.api.types.is_integer_dtype(self.df[col]): self.df[col]=self.df[col].astype(float)
+                self.df.iloc[r0:r0+len(rows),c0+c]=vals
+        self._change(go); return (len(rows),width)
+    def _fill(self,snap):
+        self.df.drop(index=self.df.index,inplace=True); self.df.drop(columns=list(self.df.columns),inplace=True)
+        for k,c in enumerate(snap.columns): self.df.insert(k,c,snap.iloc[:,k].to_numpy())
+    def insert_rows(self,r,n=1):
+        """n empty rows before row r (r = number of rows: at the end)."""
+        if self.locked() or n<1: return 0
+        r=max(0,min(r,len(self.df)))
+        def go():
+            empty=pd.DataFrame({c:[np.nan]*n for c in self.df.columns}); base=self.df.copy()
+            self._fill(pd.concat([base.iloc[:r],empty,base.iloc[r:]],ignore_index=True))
+        self._change(go); return n
+    def insert_column(self,c,name):
+        name=str(name).strip()
+        if self.locked() or not name or name in [str(x) for x in self.df.columns]: return False
+        self._change(lambda: self.df.insert(max(0,min(c,len(self.df.columns))),name,np.nan)); return True
+    def rename_column(self,c,name):
+        name=str(name).strip()
+        if self.locked() or not name or not 0<=c<len(self.df.columns) or name in [str(x) for i,x in enumerate(self.df.columns) if i!=c]: return False
+        old=self.df.columns[c]
+        if str(old)==name: return False
+        self._change(lambda: self.df.rename(columns={old:name},inplace=True)); return True
+    def sort_by(self,c,ascending=True):
+        if self.locked() or not 0<=c<len(self.df.columns): return False
+        col=self.df.columns[c]
+        def go():
+            key=pd.to_numeric(self.df[col],errors='coerce'); order=(key if key.notna().any() else self.df[col].astype(str)).sort_values(ascending=ascending,kind='stable',na_position='last').index
+            self._fill(self.df.loc[order].reset_index(drop=True).copy())
+        self._change(go); return True
+    def fill_down(self,cells):
+        """In each selected column: the value of its top selected cell in all selected cells below it."""
+        if self.locked() or not cells: return 0
+        by={}
+        for r,c in cells: by.setdefault(c,[]).append(r)
+        by={c:sorted(rs) for c,rs in by.items() if len(rs)>1}
+        if not by: return 0
+        def go():
+            for c,rs in by.items(): self.df.iloc[rs[1:],c]=self.df.iat[rs[0],c]
+        self._change(go); return sum(len(rs)-1 for rs in by.values())
+    def letters(self):
+        """Excel's letters for the columns: A, B ... Z, AA ..."""
+        out=[]
+        for i in range(len(self.df.columns)):
+            s='';k=i
+            while True:
+                s=chr(65+k%26)+s; k=k//26-1
+                if k<0: break
+            out.append(s)
+        return out
+    def add_calculated(self,name,formula):
+        """A new last column worked out from the others. The formula uses the letters of the columns as in Excel (A, B,
+        C ...) and + - * / ** ( ), with log, log10, exp, sqrt, abs, sin, cos, tan, pi, cumsum, diff, mean, min, max:
+        '=C/C.max()*100' or '(B-A)/2'. Returns '' or what is wrong with it."""
+        name=str(name).strip(); f=str(formula).strip().lstrip('=').replace('^','**')
+        if self.locked(): return 'this table cannot be changed'
+        if not name or name in [str(x) for x in self.df.columns]: return 'give the new column a name that is not used yet'
+        if not f: return 'type a formula, for example  B*2  or  (C-B)/A'
+        ns={l:pd.to_numeric(self.df.iloc[:,i],errors='coerce') for i,l in enumerate(self.letters())}
+        fn={'log':np.log,'ln':np.log,'log10':np.log10,'exp':np.exp,'sqrt':np.sqrt,'abs':np.abs,'sin':np.sin,'cos':np.cos,'tan':np.tan,'pi':np.pi,
+            'cumsum':lambda s:s.cumsum(),'diff':lambda s:s.diff(),'mean':lambda s:s.mean(),'min':lambda s:s.min(),'max':lambda s:s.max()}
+        if re.search(r'__|import|lambda|\[|\{|;',f): return 'only column letters, numbers, + - * / ** ( ) and the listed functions are understood'
+        try:
+            with np.errstate(all='ignore'): out=eval(f,{'__builtins__':{}},{**fn,**ns})
+        except Exception as e: return f'the formula could not be worked out: {e}'
+        try: values=np.broadcast_to(np.asarray(out,dtype=float),(len(self.df),)).copy()
+        except Exception: return 'the formula does not give one number per row'
+        self._change(lambda: self.df.insert(len(self.df.columns),name,values)); return ''
     def undo_edit(self):
         if not self.undo: return
         step=self.undo.pop(); self.redo.append(step)
@@ -235,6 +330,23 @@ class WorkbookPage(QWidget):
                               'Only the working copy changes - the file on the disk never does. Undo edit takes it back')
         for widget,fn in ((self.table,self.delete_in_table),(self.files,self.remove_files)):
             sc=QShortcut(QKeySequence(Qt.Key_Delete),widget,activated=fn); sc.setContext(Qt.WidgetWithChildrenShortcut)
+        for seq,fn in ((QKeySequence.Copy,self.copy_cells),(QKeySequence.Paste,self.paste_cells),(QKeySequence.Cut,self.cut_cells),(QKeySequence('Ctrl+D'),self.fill_down)):
+            sc=QShortcut(QKeySequence(seq),self.table,activated=fn); sc.setContext(Qt.WidgetWithChildrenShortcut)
+        self.table.horizontalHeader().sectionDoubleClicked.connect(self.rename_column)
+        from PySide6.QtWidgets import QToolButton, QMenu
+        tb=QToolButton(); tb.setText('Table \u25be'); tb.setPopupMode(QToolButton.InstantPopup); tb.setToolTip('The tools of a spreadsheet for the table on show: copy, cut, paste (also from Excel), insert rows and columns, rename, sort, fill down, a calculated column. Each is one step of Undo edit; the file on the disk is never changed')
+        tm=QMenu(tb); self.table_tools=tm
+        for text,fn,tip in (('Copy  (Ctrl+C)',self.copy_cells,'The selected cells to the clipboard, ready for Excel'),('Cut  (Ctrl+X)',self.cut_cells,'Copy the selected cells and empty them'),
+                            ('Paste  (Ctrl+V)',self.paste_cells,'Cells copied in Excel (or here) into the table, from the selected cell; rows and columns are added when the block is larger'),(None,None,None),
+                            ('Insert a row above',lambda: self.insert_row(False),'An empty row above the selected one'),('Insert a row below',lambda: self.insert_row(True),'An empty row below the selected one'),
+                            ('Insert a column\u2026',self.insert_column,'An empty column left of the selected one'),('Rename this column\u2026',lambda: self.rename_column(),'Also: double click the column header'),(None,None,None),
+                            ('Sort by this column, smallest first',lambda: self.sort_column(True),'All rows are reordered'),('Sort by this column, largest first',lambda: self.sort_column(False),'All rows are reordered'),
+                            ('Fill down  (Ctrl+D)',self.fill_down,'The top selected cell of each column into the selected cells below it'),
+                            ('Add a calculated column\u2026',self.add_calculated,'A new column from a formula with the letters of the columns, as in Excel:  C/C.max()*100'),(None,None,None),
+                            ('Delete the selected rows',lambda: self.delete_rows(),''),('Delete the selected columns',lambda: self.delete_columns(),''),('Empty the selected cells  (Delete)',self.delete_in_table,'')):
+            if text is None: tm.addSeparator(); continue
+            a=tm.addAction(text,fn); a.setToolTip(tip)
+        tm.setToolTipsVisible(True); tb.setMenu(tm); row.insertWidget(2,tb); self.b_table=tb
         self.files.setContextMenuPolicy(Qt.CustomContextMenu); self.files.customContextMenuRequested.connect(self.files_menu)
         self.files.setSelectionMode(QAbstractItemView.ExtendedSelection)
         srow=QHBoxLayout(); self.suggest=QLabel('',objectName='soft'); self.suggest.setWordWrap(True); srow.addWidget(self.suggest,1)
@@ -374,6 +486,84 @@ class WorkbookPage(QWidget):
         if n: self.columns_changed()
         self.ws.set_status((f"{'Used again' if use else 'Left out of the graphs'}: {', '.join(names)}." + ('' if use else ' It stays in the table and its export; it is not carried to Workspace.')) if n else 'Select a column in the list first.'); return n
 
+    # ------------------------------------------------------------ the tools of a spreadsheet
+    def _cur(self):
+        i=self.table.currentIndex(); cells=self._sel()[0]
+        if cells: return min(r for r,_c in cells),min(c for _r,c in cells)
+        return (i.row(),i.column()) if i.isValid() else (0,0)
+
+    def copy_cells(self):
+        cells=self._sel()[0]
+        if not cells or self.model is None: return ''
+        rows=sorted({r for r,_c in cells}); cols=sorted({c for _r,c in cells}); have=set(cells)
+        text='\n'.join('\t'.join(('' if (r,c) not in have or pd.isna(self.model.df.iat[r,c]) else str(self.model.df.iat[r,c])) for c in cols) for r in rows)
+        QApplication.clipboard().setText(text); self.ws.set_status(f'{len(rows)} x {len(cols)} cell(s) copied: paste them here or in Excel.'); return text
+
+    def cut_cells(self):
+        text=self.copy_cells()
+        if text and not self._locked(): self.model.clear_cells(self._sel()[0])
+        return text
+
+    def paste_cells(self,text=None):
+        if self._locked(): return (0,0)
+        text=QApplication.clipboard().text() if text is None else text
+        rows=[ln.split('\t') for ln in str(text).replace('\r\n','\n').replace('\r','\n').split('\n')]
+        while rows and rows[-1]==['']: rows.pop()
+        if not rows: self.ws.set_status('There is nothing to paste: copy cells in Excel or here first.'); return (0,0)
+        r,c=self._cur(); done=self.model.paste(r,c,rows); self._after_table_change()
+        self.ws.set_status(f'{done[0]} row(s) x {done[1]} column(s) pasted from row {r+1}. Undo edit takes it back.'); return done
+
+    def _after_table_change(self):
+        if self.model is not None: self.info.setText(f'{len(self.model.df):,} rows \u00b7 {len(self.model.df.columns)} columns \u00b7 Working copy; source file unchanged')
+        self.refresh_columns()
+
+    def insert_row(self,below=False):
+        if self._locked(): return 0
+        r,_c=self._cur(); n=self.model.insert_rows(r+(1 if below else 0)); self._after_table_change(); self.ws.set_status('An empty row is added. Undo edit takes it back.'); return n
+
+    def insert_column(self,name=None):
+        if self._locked(): return False
+        if name is None:
+            name,ok=QInputDialog.getText(self,'Insert a column','Name of the new column:',text='New column')
+            if not ok: return False
+        _r,c=self._cur(); ok=self.model.insert_column(c,name); self._after_table_change()
+        self.ws.set_status(f"Column '{name}' added." if ok else 'The column was not added: give it a name that is not used yet.'); return ok
+
+    def rename_column(self,col=None,name=None):
+        if self._locked(): return False
+        col=self._cur()[1] if col is None or col is False else int(col)
+        if not 0<=col<len(self.model.df.columns): return False
+        old=str(self.model.df.columns[col])
+        if name is None:
+            name,ok=QInputDialog.getText(self,'Rename the column','New name:',text=old)
+            if not ok: return False
+        ok=self.model.rename_column(col,name)
+        if ok and self.path:                                           # the choices made for the column follow its new name
+            prefs=self.controller.mapping_for(self.path)
+            for key in ('order','off','derived','derived_on'):
+                if key in prefs: prefs[key]=[str(name).strip() if c==old else c for c in prefs[key]]
+        self._after_table_change(); self.ws.set_status(f"'{old}' is now '{str(name).strip()}'." if ok else 'The column keeps its name (the new one is empty or already used).'); return ok
+
+    def sort_column(self,ascending=True):
+        if self._locked(): return False
+        ok=self.model.sort_by(self._cur()[1],ascending); self._after_table_change()
+        self.ws.set_status(('All rows sorted by the selected column. Undo edit takes it back.') if ok else 'Select a cell of the column to sort by first.'); return ok
+
+    def fill_down(self):
+        if self._locked(): return 0
+        n=self.model.fill_down(self._sel()[0]); self.ws.set_status(f'{n} cell(s) filled with the value above them.' if n else 'Select two or more cells of a column: the top one is copied into those below.'); return n
+
+    def add_calculated(self,name=None,formula=None):
+        if self._locked(): return 'locked'
+        if name is None or formula is None:
+            hint=', '.join(f'{l} = {c}' for l,c in zip(self.model.letters(),self.model.df.columns))[:400]
+            formula,ok=QInputDialog.getText(self,'Add a calculated column',f'Formula with the letters of the columns, as in Excel.\n{hint}\n\nFor example  C/C.max()*100   or   (B-A)/2   or   log10(C)\nFormula:')
+            if not ok: return 'cancelled'
+            name,ok=QInputDialog.getText(self,'Add a calculated column','Name of the new column:',text='Calculated')
+            if not ok: return 'cancelled'
+        err=self.model.add_calculated(name,formula); self._after_table_change()
+        self.ws.set_status(f"Column '{name}' = {formula} added as the last column." if not err else f'No column was added: {err}.'); return err
+
     def table_menu(self,where,col=-1,header=False):
         from PySide6.QtWidgets import QMenu
         if self.model is None: return
@@ -394,6 +584,14 @@ class WorkbookPage(QWidget):
                 off=name in (self.controller.mapping_for(self.path).get('off') or [])
                 m.addAction(f"Use '{name}' in the graphs again" if off else f"Hide '{name}': leave it out of the graphs",lambda: self.hide_columns(off,[name]))
                 m.addAction(f"Leave '{name}' out in all files",lambda: self.ws.set_status(f"'{name}' is left out in {self.set_column_everywhere(name,False)} file(s)."))
+        if not lock:
+            m.addSeparator(); m.addAction('Copy  (Ctrl+C)',self.copy_cells); m.addAction('Cut  (Ctrl+X)',self.cut_cells); m.addAction('Paste  (Ctrl+V)',self.paste_cells)
+            if not header: m.addAction('Insert a row above',lambda: self.insert_row(False)); m.addAction('Insert a row below',lambda: self.insert_row(True)); m.addAction('Fill down  (Ctrl+D)',self.fill_down)
+            if name:
+                m.addAction(f"Rename '{name}'\u2026",lambda: self.rename_column(col)); m.addAction('Insert a column here\u2026',self.insert_column)
+                m.addAction(f"Sort by '{name}', smallest first",lambda: (self.table.setCurrentIndex(self.model.index(max(0,self._cur()[0]),col)),self.sort_column(True)))
+                m.addAction(f"Sort by '{name}', largest first",lambda: (self.table.setCurrentIndex(self.model.index(max(0,self._cur()[0]),col)),self.sort_column(False)))
+            m.addAction('Add a calculated column\u2026',self.add_calculated)
         m.addSeparator(); m.addAction('Undo edit',self.undo_edit); m.addAction('Redo edit',self.redo_edit)
         m.exec(where)
 
@@ -472,7 +670,7 @@ class WorkbookPage(QWidget):
             if d: out.append((d[0],d[1]))
         except Exception: pass
         try:
-            peaks,kind=self.controller.peak_frame(path,sheet=sheet); c=related.peak_column(kind,table,peaks) if peaks is not None else None
+            peaks,kind=self.controller.peak_frame(path,sheet=sheet); c=related.peak_column(kind,table,peaks) if peaks is not None and kind in ('TGA','FTIR') else None
             if c:
                 out.append(c); m=related.meaning_column(kind,table,peaks)
                 if m: out.append(m)
@@ -528,6 +726,12 @@ class WorkbookPage(QWidget):
         frame,kind=self.controller.peak_frame(self.path)
         if frame is None: return
         path=self.path; key=(self.controller.project_for(path),path,related.PEAKS_SHEET)
+        if kind=='XRD':                                              # the peak table of the pattern's graph: read here, changed with the graph (labels, phases)
+            self.model=WorkingTableModel(frame,lambda:None,self); self.model.read_only=True; self.table.setModel(self.model); self.table.resizeColumnsToContents()
+            self.caption.setText(os.path.basename(path)+' / peaks')
+            self.info.setText(f"{len(frame)} peaks of the pattern as its graph in Workspace found and named them (positions, d-spacings, phases of your library). "
+                              "Read and export them here; labels and phases are changed with the graph (Workspace: right click the graph, Peak labels). Export data\u2026 saves this table.")
+            self._loading=True; self.draw_labels.setVisible(False); self.columns.clear(); self._loading=False; self.update_suggestion(); return
         if key not in self.models or self.models[key].df is not frame:
             self.models[key]=WorkingTableModel(frame,lambda p=path:(self.controller.set_peak_labels(p),self.refresh_peak_column(p)),self); self.models[key].only=('Label',)
         self.model=self.models[key]; self.table.setModel(self.model); self.table.resizeColumnsToContents()

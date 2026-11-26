@@ -93,3 +93,59 @@ def figure_png(fig, dpi):
     import io
     buf = io.BytesIO(); w, h = fig.get_size_inches(); fig.savefig(buf, format="png", dpi=dpi, facecolor="white")
     return buf.getvalue(), float(w), float(h)
+
+
+# ----------------------------------------------------------------------------------------------- straight into the open program (Windows)
+def _office(name):
+    """The running PowerPoint or Word (or a new one), through Windows automation - the way the app talks to Origin."""
+    import pythoncom, win32com.client
+    try: pythoncom.CoInitialize()
+    except Exception: pass
+    try: app = win32com.client.GetActiveObject(name)
+    except Exception: app = win32com.client.Dispatch(name)
+    try: app.Visible = True
+    except Exception: pass
+    return app
+
+
+def send_live(kind, files):
+    """Put pictures straight into PowerPoint or Word, as you would by hand. files: [(png path, width in, height in, name)].
+
+    PowerPoint: the presentation you have open (a new one if none is) gets one new slide per picture at its end, the
+    picture as large as the slide allows; the last new slide is shown. Word: the pictures are inserted where the cursor
+    stands in the document you have open (a new document if none is), each in its own centred paragraph, no wider than
+    the text. Nothing is saved: the presentation or document stays yours to save.
+    Returns a sentence saying where the pictures went. Raises when the program is not installed or refuses - the caller
+    then writes a file instead."""
+    if not files: raise ValueError("no picture to send")
+    if kind == "pptx":
+        app = _office("PowerPoint.Application"); new = app.Presentations.Count == 0
+        pres = app.Presentations.Add() if new else app.ActivePresentation
+        sw, sh = float(pres.PageSetup.SlideWidth), float(pres.PageSetup.SlideHeight); m = 0.35 * 72.0; slide = None
+        for png, w, h, name in files:
+            slide = pres.Slides.Add(pres.Slides.Count + 1, 12)                       # 12 = a blank slide
+            pw, ph = _fit(w * 72.0, h * 72.0, sw - 2 * m, sh - 2 * m)
+            pic = slide.Shapes.AddPicture(os.path.abspath(png), False, True, (sw - pw) / 2.0, (sh - ph) / 2.0, pw, ph)
+            try: pic.AlternativeText = str(name)
+            except Exception: pass
+        try: app.ActiveWindow.View.GotoSlide(slide.SlideIndex); app.Activate()
+        except Exception: pass
+        return f"{len(files)} new slide(s) at the end of " + ("a new presentation" if new else f"the open presentation '{pres.Name}'")
+    app = _office("Word.Application"); new = app.Documents.Count == 0
+    doc = app.Documents.Add() if new else app.ActiveDocument
+    try: text_w = float(doc.PageSetup.PageWidth) - float(doc.PageSetup.LeftMargin) - float(doc.PageSetup.RightMargin)
+    except Exception: text_w = TEXT_W * 72.0
+    sel = app.Selection
+    for png, w, h, name in files:
+        shape = sel.InlineShapes.AddPicture(os.path.abspath(png), False, True)
+        try:
+            shape.LockAspectRatio = True; want = min(w * 72.0, text_w)
+            if abs(float(shape.Width) - want) > 1.0: shape.Width = want
+            shape.AlternativeText = str(name)
+        except Exception: pass
+        try: sel.ParagraphFormat.Alignment = 1                                       # centred
+        except Exception: pass
+        sel.TypeParagraph()
+    try: app.Activate()
+    except Exception: pass
+    return f"{len(files)} picture(s) at the cursor of " + ("a new document" if new else f"the open document '{doc.Name}'")

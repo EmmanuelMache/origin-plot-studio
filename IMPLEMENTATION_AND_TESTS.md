@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 37 test files: 1 257 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
+* All 37 test files: 1 294 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -224,6 +224,16 @@ Tested in `tests/test_workbook_editing.py` (49 checks), `tests/test_related.py` 
 5. Thermal and infrared graphs: round temperature axis, no event for the start-up dip, one DTG unit, no labels on air CO₂ or range ends. These change default drawings; the app's update check reports its thermal examples as different, as intended.
 
 Not done: the right axis of a TG + DTG graph still carries tick numbers above zero where no curve is (the two curves share the height by design); restricting them would make the preview differ from Origin, where the tick range cannot be limited by the commands known to work.
+
+### By request, 5.58.2
+
+Tested in `tests/test_workbook_editing.py` (76 checks), `tests/test_workspace_actions.py` (50), `tests/test_templates_page.py` (70).
+
+1. Spreadsheet tools on the Workbook table. "All the options Excel has" was read as: the operations needed to prepare a table for a graph. Left out and said so in the notes: recalculating cell formulas, formats, charts.
+2. XRD peak table in the Workbook (read-only there; it belongs to the graph).
+3. Send to PowerPoint / Word through Windows automation into the open presentation or document, with the file route as fall-back. **Not run against PowerPoint or Word** - there is neither here; the calls are checked against stand-ins that record them.
+4. Each graph of a multi-graph figure for itself: Select range, the calculation on a selection, Reset axes. Zoom and Pan already acted on the graph under the mouse; graphs that share an x axis by design (stacked panels) still move together in x.
+5. Analysis: Delete on the file list; Remove carries through the app.
 
 ## Interpretation details
 

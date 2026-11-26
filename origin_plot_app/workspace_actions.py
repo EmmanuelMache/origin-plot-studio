@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
@@ -105,6 +106,11 @@ def install(w):
     w.list.model().rowsMoved.connect(lambda *_a: w.reorder_from_list())
     # the graph: wheel zoom around the pointer, double click resets
     w.canvas.mpl_connect("scroll_event", w.wheel_zoom)
+    def _note_graph(e):                                     # which graph of the figure the mouse works in: Reset axes and the tools act on that one
+        if e.inaxes is not None:
+            if getattr(w, "_last_ax", None) is not e.inaxes: w._reset_one = None
+            w._last_ax = e.inaxes
+    w.canvas.mpl_connect("button_press_event", _note_graph); w.canvas.mpl_connect("scroll_event", _note_graph)
     w.canvas.mpl_connect("button_press_event", lambda e: (None if (hasattr(w, "ribbon") and w.ribbon.on_double(e)) else w.reset_axes())
                          if getattr(e, "dblclick", False) and e.button == 1 else None)          # double click on a title: type it; elsewhere: reset the axes
     # Save ▾ and Help in the top bar
@@ -256,6 +262,18 @@ def send_to_office(self, kind, path=None):
         pics, left = office_pictures(self, 600 if word else 300)
         if not pics:
             self.set_status(f"No graph could be drawn for the {what}."); return None
+        if path is None and sys.platform == "win32" and not os.environ.get("OPS_NO_OPEN") or getattr(self, "_office_live", False):
+            # straight into the PowerPoint or Word that is open (a new slide / at the cursor), as you would paste it by hand;
+            # if the program is not there or refuses, the file is written instead (below)
+            try:
+                folder = Path(self.run_folder()) / "pictures_for_office"; folder.mkdir(parents=True, exist_ok=True); files = []
+                for k, (png, w_, h_, nm) in enumerate(pics, 1):
+                    f_ = folder / (re.sub(r'[\\/:*?"<>|]+', "_", nm)[:50].strip() + f"_{k}.png"); f_.write_bytes(png); files.append((str(f_), w_, h_, nm))
+                where = oe.send_live(kind, files)
+                self.set_status(f"Sent to {'Word' if word else 'PowerPoint'}: {where}." + (f"  (left out, no final form: {', '.join(left[:3])})" if left else ""))
+                return "live"
+            except Exception as e:
+                self.log(f"Send to {'Word' if word else 'PowerPoint'}: the open program could not be reached ({e}); a file is written instead.")
         if path is None:
             folder = Path(self.run_folder()); folder.mkdir(parents=True, exist_ok=True)
             base = re.sub(r'[\\/:*?"<>|]+', "_", pics[0][3])[:60].strip() or "graph"

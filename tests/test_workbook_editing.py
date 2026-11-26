@@ -42,6 +42,30 @@ check("typed cells and deletions undo in the order they were made", df.iat[0, 0]
 ro = WB.WorkingTableModel(df.copy(), lambda: None); ro.read_only = True
 check("a table made by the app is not changed", ro.clear_cells([(0, 0)]) == 0 and ro.delete_rows([0]) == 0 and ro.delete_columns([0]) == [])
 
+# ---------------------------------------------------------------- the tools of a spreadsheet, on the model
+d2 = pd.DataFrame({"x": [1.0, 2.0, 3.0], "y": [10.0, 20.0, 30.0], "t": ["a", "b", "c"]}); m2 = WB.WorkingTableModel(d2, lambda: None); id2 = id(d2)
+check("paste: a block copied in Excel goes in from the chosen cell", m2.paste(1, 0, [["7", "70"], ["8", "80"]]) == (2, 2) and list(d2["x"]) == [1.0, 7.0, 8.0] and list(d2["y"]) == [10.0, 70.0, 80.0] and id(m2.df) == id2)
+m2.undo_edit(); check("... one Undo edit takes the whole block back", list(d2["x"]) == [1.0, 2.0, 3.0] and list(d2["y"]) == [10.0, 20.0, 30.0])
+check("paste past the end of the table adds the rows and columns it needs", m2.paste(2, 2, [["p", "1.5"], ["q", "2,5"]]) == (2, 2) and len(d2) == 4 and list(d2.columns) == ["x", "y", "t", "New column"] and list(d2["t"])[2:] == ["p", "q"]
+      and list(d2["New column"])[2:] == [1.5, 2.5] and np.isnan(d2["x"].iloc[3]), d2.to_dict("list"))
+m2.undo_edit(); check("... and Undo edit removes them again", d2.shape == (3, 3))
+check("insert a row: an empty row at that place", m2.insert_rows(1) == 1 and len(d2) == 4 and np.isnan(d2.iat[1, 0]) and d2.iat[2, 0] == 2.0)
+m2.undo_edit()
+check("insert a column, and no second column of the same name", m2.insert_column(1, "note") and list(d2.columns) == ["x", "note", "y", "t"] and not m2.insert_column(0, "note"))
+check("rename a column; not to a name that is taken", m2.rename_column(1, "remark") and list(d2.columns)[1] == "remark" and not m2.rename_column(1, "x"))
+m2.undo_edit(); m2.undo_edit(); check("... both undone", list(d2.columns) == ["x", "y", "t"])
+check("sort by a column, largest first: whole rows move together", m2.sort_by(0, False) and list(d2["x"]) == [3.0, 2.0, 1.0] and list(d2["t"]) == ["c", "b", "a"])
+m2.undo_edit(); check("... undone: the order of the file again", list(d2["x"]) == [1.0, 2.0, 3.0])
+check("fill down: the top selected cell into the selected cells below it", m2.fill_down([(0, 1), (1, 1), (2, 1)]) == 2 and list(d2["y"]) == [10.0, 10.0, 10.0])
+m2.undo_edit()
+check("the columns have Excel's letters", m2.letters() == ["A", "B", "C"] and WB.WorkingTableModel(pd.DataFrame(np.zeros((1, 28))), lambda: None).letters()[25:] == ["Z", "AA", "AB"])
+check("a calculated column from a formula with those letters", m2.add_calculated("ratio", "=B/A") == "" and list(d2["ratio"]) == [10.0, 10.0, 10.0] and list(d2.columns)[-1] == "ratio")
+check("... with functions and a column's own maximum (per cent of the largest value)", m2.add_calculated("pct", "B/B.max()*100") == "" and np.allclose(d2["pct"], [100 / 3, 200 / 3, 100.0]) and m2.add_calculated("lg", "log10(B)") == "" and np.allclose(d2["lg"], np.log10([10, 20, 30])))
+check("... a formula that cannot be worked out, or tries something else, adds nothing and says why", "could not be worked out" in m2.add_calculated("bad", "B/Q") and "only column letters" in m2.add_calculated("bad2", "__import__('os')") and "name" in m2.add_calculated("pct", "A")
+      and list(d2.columns) == ["x", "y", "t", "ratio", "pct", "lg"])
+for _ in range(3): m2.undo_edit()
+check("... calculated columns are undone like any other edit", list(d2.columns) == ["x", "y", "t"])
+
 # ---------------------------------------------------------------- in the app
 w = W.Workspace([]); w.resize(1600, 1000); w.show(); pump(); w.go(6); sh = w.pages.widget(6); c = w.workbench
 T = np.linspace(25, 1000, 400); files = []
@@ -81,6 +105,24 @@ n = wb.hide_columns(True, ["Time (min)"]); pump(timeout=.8); check("... and it c
 import inspect
 src = inspect.getsource(WB.WorkbookPage.table_menu)
 check("the right-click menu of the table offers: empty cells, delete rows, delete column, hide column, leave out in all files, undo", all(t in src for t in ("Empty", "Delete the", "Delete column", "Hide '", "out in all files", "Undo edit")))
+
+# ---- copy, paste and the Table menu on the page
+tools = [a.text() for a in wb.table_tools.actions() if a.text()]
+check("a 'Table' button holds the tools of a spreadsheet: copy, cut, paste, insert rows and columns, rename, sort, fill down, calculated column, delete", wb.b_table.isVisibleTo(wb) and all(any(k in t for t in tools) for k in ("Copy", "Cut", "Paste", "Insert a row above", "Insert a column", "Rename", "Sort by", "Fill down", "calculated column", "Delete the selected rows")), tools)
+check("Ctrl+C, Ctrl+V, Ctrl+X and Ctrl+D work on the table", all(k in keys(wb.table) for k in ("Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+D")), keys(wb.table))
+sm.select(QItemSelection(mdl.index(0, 0), mdl.index(1, 1)), QItemSelectionModel.ClearAndSelect); pump()
+copied = wb.copy_cells(); clip = QApplication.clipboard().text()
+check("Copy puts the selected cells on the clipboard as rows and columns (what Excel reads)", copied == clip and clip.count("\n") == 1 and clip.count("\t") == 2 and clip.startswith(str(mdl.df.iat[0, 0])), repr(clip[:60]))
+sm.select(QItemSelection(mdl.index(3, 2), mdl.index(3, 2)), QItemSelectionModel.ClearAndSelect); wb.table.setCurrentIndex(mdl.index(3, 2)); pump()
+done_ = wb.paste_cells("11.5\t0.25\n12.5\t0.75"); pump(timeout=.5)
+check("Paste writes a block copied in Excel into the table from the selected cell; the graphs of the file follow", done_ == (2, 2) and float(mdl.df.iat[3, 2]) == 11.5 and float(mdl.df.iat[4, 3]) == 0.75 and float(c.table_for(files[0]).num.iloc[3, list(c.table_for(files[0]).num.columns).index("Mass (%)")]) == 11.5, (done_, mdl.df.iloc[3:5, 2:4].values.tolist()))
+wb.undo_edit(); pump(timeout=.4)
+err_ = wb.add_calculated("Loss (%)", "100-C"); pump(timeout=.5)
+check("a calculated column on the page: 100 - mass as 'Loss (%)', listed under Columns and used by the graphs", err_ == "" and "Loss (%)" in mdl.df.columns and abs(float(mdl.df["Loss (%)"].iloc[-1]) - (100 - float(mdl.df["Mass (%)"].iloc[-1]))) < 1e-9
+      and "Loss (%)" in [wb.columns.item(i).text() for i in range(wb.columns.count())] and "Loss (%)" in c.table_for(files[0]).cols, list(mdl.df.columns))
+ok_ = wb.rename_column(list(mdl.df.columns).index("Loss (%)"), "Mass loss (%)"); pump(timeout=.5)
+check("renaming a column (or double click on its header)", ok_ and "Mass loss (%)" in mdl.df.columns and "Loss (%)" not in mdl.df.columns)
+wb.undo_edit(); wb.undo_edit(); pump(timeout=.5); check("... both undone with Undo edit", "Loss (%)" not in mdl.df.columns and "Mass loss (%)" not in mdl.df.columns)
 
 # ---- X and Y chosen in the table, and the graph that follows
 hdr = lambda: [mdl.headerData(i, Qt.Horizontal) for i in range(mdl.columnCount())]
@@ -137,10 +179,31 @@ for n_ in [i for i in sh._walk() if tuple(i.data(0, Qt.UserRole))[0] == "file" a
 pump(timeout=.3); w.header_nav.button(7).click(); pump(timeout=.8)
 check("files ticked on Start here, 'Workbook' clicked in the top bar: the Workbook is filled with exactly those files, the first one shown", sorted(wb.paths) == sorted(files) and wb.model.rowCount() > 0 and wb.files.currentRow() >= 0, [os.path.basename(p) for p in wb.paths])
 w.go(0); idle(w); pump(timeout=1.0); idle(w)
+# an XRD pattern: the peaks its graph found and named can be read in the Workbook
+xr = TMP / "pattern.csv"; xx = np.linspace(5, 70, 2600); yy = 80 + sum(a_ * np.exp(-(xx - c_) ** 2 / 0.006) for a_, c_ in [(900, 29.4), (400, 32.2), (300, 34.1), (250, 47.5)])
+pd.DataFrame({"2theta (deg)": xx, "Intensity (counts)": yy}).to_csv(xr, index=False)
+w.go(6); pump(timeout=.4); sh.add_files([str(xr)]); idle(w); pump(timeout=1.0); pump(lambda: c.ready(str(xr)), 60); sh.open_projects(); idle(w); pump(timeout=1.0)
+xi_ = next((i for i in w.singles if getattr(i, "path", "") == str(xr) and str(i.kind).startswith("XRD")), None)
+w.go(7); pump(timeout=.8); wb.files.setCurrentRow(wb.paths.index(str(xr))) if str(xr) in wb.paths else None; pump(timeout=.6)
+import related as R_
+has_ = wb.sheet.findText(R_.PEAKS_SHEET) >= 0
+if has_: wb.sheet.setCurrentText(R_.PEAKS_SHEET); pump(timeout=.5)
+check("an XRD pattern has the Peaks sheet too: the table of peaks of its graph (what is labelled there), to read and export; it is not edited here", xi_ is not None and xi_.results is not None and has_ and wb.model is not None and wb.model.read_only
+      and len(wb.model.df) == len(xi_.results) and "changed with the graph" in wb.info.text(), (xi_ is not None, has_, wb.info.text()[:80]))
 # a file added on another page is ticked when Start here first shows it
 extra = TMP / "later.csv"; pd.DataFrame({"x": T, "y": T * 2}).to_csv(extra, index=False)
 w.go(0); pump(); w.load([str(extra)]); idle(w); pump(timeout=1.0); had = bool(graphs(str(extra)))
 w.go(6); pump(timeout=.8); sh.refresh_projects(); pump(timeout=.4)
 check("a file added in Workspace is ticked when Start here first lists it (it is in use)", had and str(extra) in [p for _s, p in sh.ticked_inputs()], [os.path.basename(p) for _s, p in sh.ticked_inputs()])
 w.go(0); pump(timeout=1.0); idle(w); check("... so visiting Start here and coming back does not take its graphs away", bool(graphs(str(extra))))
+# ---- Analysis: Delete on the list of files
+tp = w.templates_page; w.go(5); pump(timeout=.6)
+check("the list of files on Analysis has the Delete key", "Del" in keys(tp.files), keys(tp.files))
+row_ = next((i for i in range(tp.files.count()) if tp.files.item(i).data(Qt.UserRole) == files[0]), None)
+if row_ is not None:
+    tp.files.clearSelection(); tp.files.item(row_).setSelected(True); pump(); had_ = bool(graphs(files[0])); tp.remove_files(); pump(timeout=.8)
+    check("Remove (or Delete) on a highlighted file takes it out of the app's lists - its graphs leave Workspace too, it is unticked on Start here, and the file stays on the disk",
+          had_ and not graphs(files[0]) and files[0] not in [p for _s, p in sh.ticked_inputs()] and os.path.isfile(files[0]) and "left Workspace" in w.status.text(), w.status.text()[:120])
+    w.undo_any(); pump(timeout=.6); check("... Undo in Workspace brings the graphs back", bool(graphs(files[0])))
+else: check("the file is listed on Analysis", False, [tp.files.item(i).text() for i in range(tp.files.count())])
 print(f"\n{N[0]} passed, {N[1]} failed"); sys.stdout.flush(); os._exit(1 if N[1] else 0)

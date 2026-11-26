@@ -1,4 +1,4 @@
-# Origin Plot Studio 5.58.1
+# Origin Plot Studio 5.58.2
 
 New in this version: the three-column Start here with projects, the Workbook section and a lighter header - see [the update guide](UPDATE_GUIDE.md); what was checked and what is not done is in [the implementation notes](IMPLEMENTATION_AND_TESTS.md) and [the validation results](VALIDATION_RESULTS.md).
 

@@ -261,6 +261,8 @@ class TemplatePage(QWidget):
     def _files_panel(self):
         w = QWidget(); v = QVBoxLayout(w); v.setContentsMargins(8, 8, 8, 8)
         self.files = multi_list("Your files. Click a file to tick or untick it; Shift+click ticks a range; Ctrl+A ticks all. The ticked files are drawn. Drop files here to add them")
+        from PySide6.QtGui import QShortcut as _QS, QKeySequence as _QK
+        _sc = _QS(_QK(Qt.Key_Delete), self.files, activated=self.remove_files); _sc.setContext(Qt.WidgetWithChildrenShortcut)      # Delete on the list of files: remove them
         self.files.itemChanged.connect(lambda _i: (self.update_count(), self.schedule(), self.filter_templates()))
         self.files.currentItemChanged.connect(lambda cur, _p: self.show_columns(cur.data(Qt.UserRole) if cur else None))
         self.files.setContextMenuPolicy(Qt.CustomContextMenu); self.files.customContextMenuRequested.connect(self._files_menu)
@@ -272,7 +274,7 @@ class TemplatePage(QWidget):
         v.addLayout(h)
         h2 = QHBoxLayout(); self.together = QCheckBox("All ticked files in one graph"); self.together.setToolTip("On: the ticked files go into ONE graph per template (one curve or one panel per file). Off: one graph per file")
         self.together.toggled.connect(lambda _c: (self.update_count(), self.schedule())); h2.addWidget(self.together)
-        h2.addWidget(self._btn("Remove", "Remove the highlighted files from this page (they stay on the disk and in Workspace)", self.remove_files)); v.addLayout(h2)
+        h2.addWidget(self._btn("Remove", "Remove the highlighted files (or, with none highlighted, the ticked ones) from the app's lists - Delete does the same. They stay on the disk; graphs of theirs in Workspace leave it too", self.remove_files)); v.addLayout(h2)
         return w
 
     def _columns_panel(self):
@@ -505,12 +507,19 @@ class TemplatePage(QWidget):
         if on_done: on_done([])
 
     def remove_files(self):
-        sel = [i.data(Qt.UserRole) for i in self.files.selectedItems()]
-        if not sel: self.ws.set_status("Highlight the files to remove first."); return
-        own = [p for p in sel if p in self.extra_files]
-        if QMessageBox.question(self, "Remove files", f"Remove {len(own)} file(s) from this page? They stay on the disk." + ("" if len(own) == len(sel) else f"\n{len(sel) - len(own)} file(s) belong to Workspace and stay in the list.")) != QMessageBox.Yes: return
+        """Remove (the button, the right-click entry, the Delete key): the highlighted files - or, with none highlighted,
+        the ticked ones - leave this page. A file whose graphs are in Workspace leaves there too (it is unticked on Start
+        here; one Undo in Workspace brings its graphs back). The files on the disk are not touched."""
+        sel = [i.data(Qt.UserRole) for i in self.files.selectedItems()] or checked(self.files)
+        if not sel: self.ws.set_status("Highlight or tick the files to remove first."); return
+        own = [p for p in sel if p in self.extra_files]; shared = [p for p in sel if p not in own]
+        if QMessageBox.question(self, "Remove files", f"Remove {len(sel)} file(s) from the app's lists? They stay on the disk." + (f"\n{len(shared)} of them have graphs in Workspace: those graphs leave it too (Undo there brings them back)." if shared else "")) != QMessageBox.Yes: return
+        ctrl = getattr(self.ws, "workbench", None); n = 0
+        if ctrl is not None:
+            try: n = ctrl.deselect_inputs(sel)
+            except Exception: n = 0
         self._removed = list(own); self.extra_files = [p for p in self.extra_files if p not in own]; self.refresh_files(); self.schedule()
-        self.ws.set_status(f"{len(own)} ticked file(s) removed from this page. Add files… brings them back.")
+        self.ws.set_status(f"{len(sel)} file(s) removed from this page" + (f"; {n} graph(s) left Workspace" if n else "") + ". Add files… brings them back.")
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls(): e.acceptProposedAction()

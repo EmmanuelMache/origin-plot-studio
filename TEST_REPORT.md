@@ -1,4 +1,4 @@
-# TEST_REPORT – upgrade v2, app version 5.58.1
+# TEST_REPORT – upgrade v2, app version 5.58.2
 
 Where it was run: a Linux container, Python 3.12, PySide6 with `QT_QPA_PLATFORM=offscreen`. **No Windows and no Origin were
 available.** Everything that needs Origin was run through the app's own Origin driver in dry-run mode (it records the
@@ -56,8 +56,8 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_thermal_photo.py` | 18 | 0 |  |
 | `tests/test_workbench_core.py` | 46 | 0 | detection, fit columns, merges, project archives (no Qt) |
 | `tests/test_workbench_ui.py` | 15 | 0 | real widgets: projects, graphs, Workbook, save / reopen, portable projects |
-| `tests/test_workbook_editing.py` | 49 | 0 | new in 5.58.1: delete and hide in the Workbook, files off the list, the Start here selection rule |
-| `tests/test_workspace_actions.py` | 40 | 0 |  |
+| `tests/test_workbook_editing.py` | 76 | 0 | new in 5.58.1: delete and hide in the Workbook, files off the list, the Start here selection rule |
+| `tests/test_workspace_actions.py` | 50 | 0 |  |
 | `tests/test_workspace_main.py` | 83 | 0 |  |
 | `tests/test_workspace_qt.py` | 29 | 0 |  |
 | `tests/test_workspace_steps34.py` | 89 | 0 |  |
@@ -68,7 +68,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **1257** | **1** | 37 files |
+| **Total** | **1294** | **1** | 37 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.56.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

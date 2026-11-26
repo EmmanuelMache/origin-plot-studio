@@ -1739,6 +1739,8 @@ class Workspace(QMainWindow):
         self.canvas.draw_idle()
         self.navtb.update()                                  # new graph: Reset goes back to this view
         self.navtb.push_current()
+        self._home_limits = {id(a): (a.get_xlim(), a.get_ylim()) for a in self.fig.axes}      # the full range of every graph of the figure, each for itself
+        self._last_ax = None; self.sel_panel = 0
         if self.modes.button(2).isChecked():
             self.arm_span()
 
@@ -1762,9 +1764,9 @@ class Workspace(QMainWindow):
                 self.modes.button(j).setChecked(False)
         if self.navtb.mode:                                   # leave matplotlib's zoom/pan mode first
             (self.navtb.zoom if "rect" in str(self.navtb.mode) else self.navtb.pan)()      # "zoom rect" or "pan/zoom"
-        if self.span is not None:
-            self.span.set_active(False)
-            self.span = None
+        for s_ in getattr(self, "spans", []) or ([self.span] if self.span is not None else []):
+            s_.set_active(False)
+        self.span = None; self.spans = []
         if on and i == 0:
             self.navtb.zoom()
         elif on and i == 1:
@@ -1772,38 +1774,75 @@ class Workspace(QMainWindow):
         elif on and i == 2:
             self.arm_span()
 
-    def arm_span(self):
-        if not self.fig.axes:
-            return
-        self.span = SpanSelector(self.fig.axes[0], self.on_span, "horizontal", useblit=True, interactive=True,
-                                 props=dict(alpha=0.12, facecolor=BLUE))
+    def main_axes(self):
+        """One axes for every graph or panel of the figure on show - the one that gets the mouse there - in the order they
+        were drawn. Axes that lie on the same place (a second y axis) count once, the top one; an inset inside a graph
+        does not count."""
+        boxes, tops = [], []
+        for ax in self.fig.axes:
+            if not ax.get_visible(): continue
+            b = ax.get_position(); key = (round(b.x0, 3), round(b.y0, 3), round(b.width, 3), round(b.height, 3))
+            if key in boxes: tops[boxes.index(key)] = ax
+            else: boxes.append(key); tops.append(ax)
+        inside = lambda a, b: a is not b and b[0] - 1e-6 <= a[0] and b[1] - 1e-6 <= a[1] and a[0] + a[2] <= b[0] + b[2] + 1e-6 and a[1] + a[3] <= b[1] + b[3] + 1e-6
+        return [tops[k] for k, bx in enumerate(boxes) if not any(inside(bx, other) for other in boxes)]
 
-    def on_span(self, a, b):
+    def arm_span(self):
+        """Select range: a range can be dragged in EVERY graph of the figure (it could only be dragged in the first). The
+        graph a range is dragged in is the one the selection belongs to."""
+        axes = self.main_axes()
+        if not axes:
+            return
+        self.spans = [SpanSelector(ax, (lambda a, b, ax=ax: self.on_span(a, b, ax)), "horizontal", useblit=True, interactive=True,
+                                   props=dict(alpha=0.12, facecolor=BLUE)) for ax in axes]
+        self.span = self.spans[0]
+
+    def on_span(self, a, b, ax=None):
         if abs(b - a) <= 0:
             return
         self.sel = (min(a, b), max(a, b))
-        self.seltext.setText(f"Selected {self.sel[0]:.6g} to {self.sel[1]:.6g}")
+        axes = self.main_axes(); k = next((i for i, m in enumerate(axes) if m is ax), 0)
+        self.sel_panel = k; self._last_ax = ax if ax is not None else (axes[0] if axes else None)
+        for s_ in getattr(self, "spans", []):                # a selection in one graph: the one of another graph goes
+            if s_.ax is not ax and ax is not None:
+                try: s_.clear()
+                except Exception: pass
+        self.seltext.setText(f"Selected {self.sel[0]:.6g} to {self.sel[1]:.6g}" + (f"  \u00b7 graph ({chr(97 + k)}) of {len(axes)}" if len(axes) > 1 else ""))
         self.selbar.show()
 
     def clear_selection(self):
-        self.sel = None
+        self.sel = None; self.sel_panel = 0
         self.selbar.hide()
         self.result.setText("")
-        if self.span is not None:
+        for s_ in getattr(self, "spans", []) or ([self.span] if self.span is not None else []):
             try:
-                self.span.clear()
+                s_.clear()
             except Exception:
                 pass
 
-    def reset_axes(self):
-        self.navtb.home()
+    def reset_axes(self, everything=False):
+        """Back to the full range. In a figure of several graphs: only the graph you last worked in (clicked, zoomed,
+        selected in) - the others keep their view; a second Reset, or no graph worked in yet, resets all."""
+        axes = self.main_axes() if self.fig.axes else []; last = getattr(self, "_last_ax", None); home = getattr(self, "_home_limits", {})
+        if not everything and len(axes) > 1 and last is not None and last in self.fig.axes and not getattr(self, "_reset_one", None) is last:
+            bx = last.get_position(); n = 0
+            for a in self.fig.axes:                          # the graph and what lies on it (its second y axis)
+                p = a.get_position()
+                if abs(p.x0 - bx.x0) < 1e-6 and abs(p.y0 - bx.y0) < 1e-6 and abs(p.width - bx.width) < 1e-6 and id(a) in home:
+                    a.set_xlim(home[id(a)][0]); a.set_ylim(home[id(a)][1]); n += 1
+            if n:
+                self._reset_one = last; self.canvas.draw_idle()
+                self.set_status("This graph is back at its full range; the other graphs keep their view. Reset again for all of them."); return "one"
+        self._reset_one = None
+        self.navtb.home(); return "all"
 
     def curves(self, it):
         """The visible curves of the graph's first panel, as the Analysis menu reads them."""
         import analysis_tools as at
         if not getattr(it, "spec", None):
             return []
-        p0 = ((it.spec or {}).get("panels") or [{}])[0]
+        pans = (it.spec or {}).get("panels") or [{}]; k = getattr(self, "sel_panel", 0) if self.sel is not None else 0
+        p0 = pans[k] if 0 <= k < len(pans) and len(pans) == len(self.main_axes() or [0]) else pans[0]      # a range selected in graph (b): the curves of graph (b)
         out = []
         for c in p0.get("curves", []):
             if not str(c.get("label", "")).startswith("_") and len(c.get("x", [])) > 2:

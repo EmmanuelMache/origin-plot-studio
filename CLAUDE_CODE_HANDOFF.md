@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.58.1** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.58.2** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -63,6 +63,12 @@ Drawing defaults changed on purpose (the updater reports different examples): `f
 Analysis: `TemplatePage.chosen(least)` = kept previews, else all previews on show; `_nothing(what, least)`; `to_workbook()`.
 Merge (side by side) writes `related.merged_workbook` (.xlsx: a sheet per file + `OVERVIEW_SHEET`); `smart_plots._without_overview` drops that overview sheet when the workbook has two or more other sheets (or splits it when it is alone), `TemplatePage._best_sheet` never picks it.
 A table with a column of words in every row is read by the Workspace loader as a label table, not as data - test files must not have one.
+
+5.58.2: `WorkingTableModel.paste / insert_rows / insert_column / rename_column / sort_by / fill_down / add_calculated / letters` (all through `_change`; `_fill` replaces the frame's content in place); page: `copy_cells / cut_cells / paste_cells / insert_row / insert_column / rename_column / sort_column / fill_down / add_calculated`, `table_tools` menu. `add_calculated` evaluates the formula with `eval` in a namespace of column letters and a few numpy functions only, after refusing `__`, `import`, `lambda`, brackets and `;`.
+`Workbench.peak_frame` falls back to the results table of a loaded XRD graph (kind `'XRD'`, read-only in `open_peaks`).
+`office_export.send_live(kind, files)` (pywin32: `GetActiveObject` / `Dispatch` of `PowerPoint.Application` / `Word.Application`), tried first on Windows by `send_to_office`, file route on any exception; tests replace `office_export._office` with stand-ins and set `w._office_live`.
+Workspace: `main_axes()`, `spans` (one SpanSelector per graph), `on_span(a, b, ax)` sets `sel_panel`, `curves(it)` reads that panel, `reset_axes()` returns 'one' / 'all' using `_home_limits` and `_last_ax` (set by `_note_graph` in `workspace_actions.install`).
+Analysis: `remove_files` uses `Workbench.deselect_inputs`; Delete shortcut on `TemplatePage.files`.
 
 Not done / to know: Windows and a live Origin were not available (PySide6 offscreen on Linux, Origin dry run; the Origin order was checked by following the active window through the commands). A big workbook still needs one header-less parse and one normal parse. The `figures-5.55.2`
 workbook-of-figures work is unchanged and its tests (`tests/test_figures_general.py`, 37) pass.
