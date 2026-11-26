@@ -119,4 +119,60 @@ if a is not None:
 else:
     check("the assistant panel is reachable", False)
 w.close()
+
+# ---- a search-match peak list ('Matched by' = PDF numbers) and its pattern list (Ref. Code, Compound Name): labels are mineral names
+import numpy as np, pandas as pd, pdf_names as PN
+os.environ["OPS_PRIVATE_DIR"] = str(Path(tempfile.mkdtemp())); PN.forget()
+PD = Path(tempfile.mkdtemp()); lam_ = 1.5406
+pk_ = [(18.05, 900, "01-072-0156"), (20.86, 300, "01-085-0794"), (26.64, 1500, "01-085-0794"), (29.41, 2000, "01-072-1652"), (34.09, 1200, "01-072-0156"), (36.0, 250, "01-072-1652; 01-085-0794"), (39.42, 380, "01-072-1652"),
+       (43.15, 330, "01-072-1652"), (47.12, 420, "01-072-0156; 01-072-1652"), (48.51, 360, "01-072-1652"), (50.14, 280, "01-085-0794"), (50.8, 400, "01-072-0156"), (54.3, 150, ""), (59.96, 180, "01-085-0794")]
+peaks_df = pd.DataFrame({"Pos. [°2θ]": [q[0] for q in pk_], "Height [cts]": [q[1] for q in pk_], "FWHM Left [°2θ]": 0.12, "d-spacing [Å]": [lam_ / (2 * np.sin(np.radians(q[0] / 2))) for q in pk_],
+                         "Rel. Int. [%]": [100 * q[1] / 2000 for q in pk_], "Matched by": [q[2] for q in pk_]})
+patt_df = pd.DataFrame({"Visible": ["*"] * 3, "Ref. Code": ["01-072-0156", "01-072-1652", "01-085-0794"], "Score": [62, 71, 55], "Compound Name": ["Portlandite, syn", "Calcite", "Quartz low"],
+                        "Displ. [°2θ]": [0.0] * 3, "Scale Fac.": [0.45, 0.98, 0.71], "Chem. Formula": ["Ca ( O H )2", "Ca C O3", "Si O2"]})
+f_pk, f_pt, f_sc = PD / "Mix7_peaklist.csv", PD / "Mix7_patternlist.csv", PD / "Mix7.csv"
+peaks_df.to_csv(f_pk, index=False); patt_df.to_csv(f_pt, index=False)
+x_ = np.arange(5, 70, 0.02); pd.DataFrame({"Pos. [°2θ]": x_, "Iobs [cts]": 60 + sum(h_ * np.exp(-(x_ - p_) ** 2 / (2 * 0.06 ** 2)) for p_, h_, _ in pk_) + np.random.default_rng(1).normal(0, 4, len(x_))}).to_csv(f_sc, index=False)
+labs_of = lambda it: [l[1] for l in (it.spec["panels"][0].get("labels") or [])]
+import re as _re
+names_ = PN.table_names(patt_df)
+check("a pattern list (Ref. Code, Compound Name) is recognised: PDF number -> name, 'syn' and 'low' are not part of the mineral name", names_ is not None and {c: e["name"] for c, e in names_.items()} == {"01-072-0156": "Portlandite", "01-072-1652": "Calcite", "01-085-0794": "Quartz"}, names_)
+check("... a peak list, a scan and a table of numbers are not taken for one", PN.table_names(peaks_df) is None and PN.table_names(pd.DataFrame({"Code": [1, 2], "Name": ["a", "b"], "Value": [3.0, 4.0]})) is None)
+both_ = PN.table_names(pd.DataFrame({"Ref. Code": ["00-044-1481", "01-070-2038"], "Compound Name": ["Calcium Hydroxide", "Calcium Sulfate Hydrate"], "Mineral Name": ["", "Gypsum"]}))
+check("... the Mineral Name column wins over the compound name; a compound that is one mineral without doubt is given its mineral name (calcium hydroxide = portlandite)", both_ and both_["00-044-1481"]["name"] == "Portlandite" and both_["01-070-2038"]["name"] == "Gypsum", both_)
+check("... PDF numbers are compared as numbers (00-005-0586 = 5-586), several in one cell are all read", PN.key("00-005-0586") == PN.key("5-586") and PN.codes_in("01-072-1652; 01-085-0794") == ["01-072-1652", "01-085-0794"] and PN.looks_coded(peaks_df["Matched by"]) and not PN.looks_coded(["Quartz", "Calcite"]))
+PN.forget(); its_a, _l = sp.load_file(str(f_pk)); pl_a = its_a[0]; pl_a.build({})
+check("WITHOUT its pattern list the peak list keeps the codes apart (3 phases, not one '?') and says which pattern list to add", pl_a.kind == "XRD peak list" and len(pl_a.results) == 3 and any("NO NAME" in r and "01-072-0156" in r and "pattern list" in r for r in pl_a.record), [r[:80] for r in pl_a.record])
+its_p, lines_p = sp.load_file(str(f_pt))
+check("the pattern list itself gives no graph: it is read as information and says which names it holds", its_p == [] and any("used as information (pattern list" in l and "01-072-1652 = Calcite" in l for l in lines_p) and str(f_pt) in sp._INFO_ONLY, lines_p[:2])
+pool_ = [pl_a]; sp.prepare(pool_, sp.load_file(str(f_sc))[0], {}); sc_ = next(i for i in pool_ if i.kind == "XRD")
+check("read AFTER its peak list, the pattern list gives the graphs that were waiting their names: peak list and measured pattern are drawn again", labs_of(pl_a)[:4] == ["Portlandite", "Quartz", "Quartz", "Calcite"] and labs_of(sc_)[:4] == ["Portlandite", "Quartz", "Quartz", "Calcite"]
+      and any("labelled with the mineral names now" in l for l in sp._LINK_NEWS), (labs_of(pl_a)[:4], labs_of(sc_)[:4]))
+sp._LINK_NEWS.clear(); all_l = labs_of(pl_a) + labs_of(sc_)
+check("NO label is a PDF number: every matched peak carries the name of its mineral, a peak matched by two patterns both names", all_l and not any(_re.search(r"\d{2}-\d{3}-\d{4}", str(t)) for t in all_l) and "Calcite+Quartz" in labs_of(sc_) and len(labs_of(pl_a)) == 13, all_l[:14])
+curves_ = [c["label"] for c in pl_a.spec["panels"][0]["curves"]]
+check("the peak list drawn by itself: sticks coloured by mineral with the names in the legend (once, not 'name – name'), the peak no pattern explains grey and without a label, room left and right of the first and last peak",
+      curves_ == ["Portlandite", "Quartz", "Calcite", "not matched"] and not any(abs(l[0] - 54.3) < 0.01 for l in pl_a.spec["panels"][0]["labels"]) and pl_a.spec["xlim"][0] < 17.5 and pl_a.spec["xlim"][1] > 60.5
+      and any("matched by no pattern" in r for r in pl_a.record), (curves_, pl_a.spec["xlim"]))
+check("... the record says which name stands for which PDF number, and nothing of it goes into the phase library", any("01-072-0156 = Portlandite" in r for r in pl_a.record) and pl_a.det.get("_learnt") is True and not any("stored for future" in r for r in pl_a.record))
+fig_pl = sp.publication_figure(sc_, None, 1.5, 1.5); texts_ = [t.get_text() for a_ in fig_pl.axes for t in a_.texts]
+check("the measured pattern of the sample is drawn with those names on its peaks", "Portlandite" in texts_ and "Calcite" in texts_ and not any(_re.search(r"\d{2}-\d{3}-\d{4}", t) for t in texts_), texts_[:6])
+a_txt, b_txt = f_pk.read_text(encoding="utf-8"), f_pt.read_text(encoding="utf-8")
+one1, one2, one3 = PD / "Run8.csv", PD / "Run9.csv", PD / "Run10.xlsx"
+one1.write_text(a_txt + "\n" + b_txt, encoding="utf-8"); one2.write_text("Pattern List\n" + b_txt + "\nPeak List\n" + a_txt, encoding="utf-8")
+with pd.ExcelWriter(one3) as xw_: peaks_df.to_excel(xw_, sheet_name="Peak List", index=False); patt_df.to_excel(xw_, sheet_name="Pattern List", index=False)
+got_ = []
+for f_ in (one1, one2, one3):
+    PN.forget(); its_ = sp.load_file(str(f_))[0]; [i.build({}) for i in its_]; got_.append([(i.kind, labs_of(i)[:3]) for i in its_])
+check("peak list and pattern list in ONE file - one under the other in a csv (either order, with title lines) or two sheets of a workbook: one graph, labelled with the names", all(g == [("XRD peak list", ["Portlandite", "Quartz", "Quartz"])] for g in got_), got_)
+raw_pt = b_txt.replace('"Portlandite, syn"', "Portlandite, syn").replace("[°2θ]", "[°2Th.]"); raw_pk = a_txt.replace("[°2θ]", "[°2Th.]")
+u_pt, u_pk = PD / "Run11_patterns.csv", PD / "Run11.csv"; u_pt.write_text(raw_pt, encoding="utf-8"); u_pk.write_text(raw_pk, encoding="utf-8")
+PN.forget(); l_u = sp.load_file(str(u_pt))[1]; it_u = sp.load_file(str(u_pk))[0][0]; it_u.build({})
+check("exports as they often are - headers '[°2Th.]', and a name with a comma written WITHOUT quotes ('Portlandite, syn'): the pattern list is still recognised and no pattern is lost",
+      "Portlandite, syn," in raw_pt and any("01-072-0156 = Portlandite" in l and "3 reference codes" in l for l in l_u) and labs_of(it_u)[:2] == ["Portlandite", "Quartz"] and not it_u.det["_pdf"]["unnamed"], (l_u[:1], labs_of(it_u)[:3]))
+check("... a text without a pattern list is not touched by that repair", PN.repair_text(a_txt) == a_txt and PN.repair_text(b_txt) == b_txt and PN.split_text(a_txt) is None)
+PN.forget(); PN.register(names_, "test"); PN.forget(); PN._LOADED[0] = False
+check("the names are remembered: a peak list read in a later session without its pattern list still gets them", PN.name_of("01-072-1652") == "Calcite" and os.path.isfile(os.path.join(os.environ["OPS_PRIVATE_DIR"], "pdf_names.json")))
+plain_ = sp.load_file(str(files[1]))[0][0]; plain_.build({})
+check("a peak list that names its phases in words is read as before (no codes, no pattern list needed)", plain_.det.get("_pdf") is None and len(plain_.results) >= 2 and not any("reference code" in r for r in plain_.record))
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

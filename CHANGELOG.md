@@ -2,6 +2,16 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.58.5
+
+XRD: a peak list whose patterns are named by PDF number, with its pattern list.
+
+* **New: the peaks are labelled with the mineral names, not the PDF numbers.** A peak list from a search-match names the pattern that explains a peak by its reference code (*Matched by*: `01-072-0156`). The names belong to those codes in the **pattern list** of the same analysis (*Ref. Code*, *Compound Name* / *Mineral Name*). Add both - as two files, as two sheets of one workbook, or one under the other in one CSV - and every matched peak carries the name of its mineral; a peak matched by two patterns carries both names. Before, all of them were drawn as one phase labelled "?".
+* It works on the **peak list drawn by itself** (sticks coloured by mineral, names on the peaks and in the legend, peaks no pattern explains in grey without a label) and on the **measured pattern** of the same sample, which takes its labels from the peak list.
+* The name is the one the file gives: the *Mineral Name* column when there is one, else the compound name. "syn" and "low" are left off (*Portlandite, syn* → Portlandite; *Quartz low* → Quartz), and a compound that is one mineral without doubt gets its mineral name (calcium hydroxide → Portlandite). The record of the graph lists which name stands for which number.
+* The pattern list can be added later: the graphs that were waiting are drawn again. The names are remembered, so the next peak list with the same patterns gets them without its pattern list.
+* Without any pattern list a code stays a code - the app does not guess a mineral from a number - and the record says which pattern list to add.
+
 ## 5.58.4
 
 FTIR and TGA graphs drawn after two reference pictures, and the merge shown where you look:

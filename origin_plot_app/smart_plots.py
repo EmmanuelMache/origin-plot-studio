@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.58.4"
+VERSION = "5.58.5"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -415,12 +415,26 @@ def read_tables(path):
     if dc is not None:
         xs.META.setdefault(path, {})["decimal_commas"] = dc[1]
         return [(stem, dc[0])]
-    try: sep = csv.Sniffer().sniff(sample, delimiters=",;\t|").delimiter
-    except Exception: sep = r"\s+"
-    dec = "," if sep == ";" and re.search(r"\d,\d", sample) else "."
-    try: df = pd.read_csv(io.StringIO(text), sep=sep, header=None, engine="python", decimal=dec)
-    except Exception:                                   # ragged lines (instrument headers): keep the lines that fit the data
-        df = pd.read_csv(io.StringIO(text), sep=sep, header=None, engine="python", decimal=dec, on_bad_lines="skip", skiprows=_header_lines(path, sep))
+    def one(text):
+        sample = text[:20000]
+        try: sep = csv.Sniffer().sniff(sample, delimiters=",;\t|").delimiter
+        except Exception: sep = r"\s+"
+        dec = "," if sep == ";" and re.search(r"\d,\d", sample) else "."
+        try: return pd.read_csv(io.StringIO(text), sep=sep, header=None, engine="python", decimal=dec)
+        except Exception:                                   # ragged lines (instrument headers): keep the lines that fit the data
+            return pd.read_csv(io.StringIO(text), sep=sep, header=None, engine="python", decimal=dec, on_bad_lines="skip", skiprows=_header_lines(path, sep))
+    try:                                                # a peak list and its pattern list in ONE text file, one table under the other: two tables
+        import pdf_names as _pn
+        text = _pn.repair_text(text)                    # 'Portlandite, syn' written without quotes: the row is kept
+        blocks = _pn.split_text(text)
+        if blocks:
+            out = []
+            for kind_, part in blocks:
+                try: out.append((stem if kind_ == "data" and not any(n_ == stem for n_, _ in out) else f"{stem} pattern list" if kind_ == "patterns" else f"{stem} ({len(out) + 1})", one(part)))
+                except Exception: pass
+            if len(out) >= 2: return out
+    except Exception: pass
+    df = one(text)
     sb_ = _split_side_by_side(df)
     if sb_: SIDE_BY_SIDE.add(path); return sb_
     return [(stem, df)]
@@ -973,6 +987,14 @@ def detect_xrd(name, df, nums, texts, n, units):
     return None
 
 def detect(name, df, units, min_rows=5):
+    try:                                             # the pattern list of a search-match (Ref. Code, Compound / Mineral Name): the names of the PDF numbers of the peak lists
+        import pdf_names as _pn
+        pl_ = _pn.table_names(df)
+        if pl_:
+            _pn.register(pl_, name)
+            return dict(kind="skip", name=name, pattern_list=pl_, why=f"pattern list: the names of {len(pl_)} reference codes (PDF numbers) - " + ", ".join(f"{c} = {e['name']}" for c, e in list(pl_.items())[:6])
+                        + (" ..." if len(pl_) > 6 else "") + ". Used to label the peaks of the peak lists with the mineral names, not drawn")
+    except Exception: pass
     nums = numeric_cols(df); texts = [c for c in df.columns if c not in nums]; n = {c: norm(c) + "|" + norm(units.get(c, "")) for c in df.columns}
     def find(keys, pool): return next((c for c in pool if any(k in n[c] for k in keys)), None)
     labcol = next((c for c in texts if n[c].split("|")[0] in ("label", "labels", "labeltext", "peaklabel")), None)
@@ -1448,8 +1470,26 @@ def peaklist_rows(d, lam):
     fw = nums[d["fwhm"]].values.astype(float) if d.get("fwhm") is not None else np.full(len(tt), np.nan)
     ph = np.array([re.sub(r"\s*_+\s*", " ", str(p_)).strip() for p_ in ph], dtype=object)          # HighScore writes 'Quartz_alpha', 'Zinc_oxide'
     if d.get("code") is None: cd = np.array([xs.code_for(p_) for p_ in ph])
+    k2 = d.get("_ka2"); d.pop("_pdf", None)
+    try:
+        import pdf_names as _pn
+        coded = d.get("phase") is not None and _pn.looks_coded(df[d["phase"]].values)
+    except Exception: coded = False
+    if coded:
+        # 'Matched by' holds reference codes (PDF numbers), one or several per peak. Every code becomes the NAME its pattern
+        # list gives it, and the name is the label: a peak matched by two patterns is a reflection of both. A code no
+        # pattern list names stays a code and is reported.
+        src, names_, named, unnamed = [], [], {}, []
+        for i, cell in enumerate(df[d["phase"]].astype(str).values):
+            for c_ in _pn.codes_in(cell):
+                nm_ = _pn.name_of(c_); src.append(i); names_.append(nm_ or c_)
+                if nm_: named[c_] = nm_
+                elif c_ not in unnamed: unnamed.append(c_)
+        src = np.array(src, int); k2 = np.asarray(k2, bool)[src] if k2 is not None and len(k2) == len(tt) else None
+        tt, h, fw = tt[src], h[src], fw[src]; ph = np.array(names_, dtype=object); cd = ph.copy()
+        d["_pdf"] = {"named": named, "unnamed": unnamed}
     r = pd.DataFrame({"Code": cd, "Phase": ph, "tt": tt, "d": xs.d_of(tt, lam), "height": h, "fwhm": fw})
-    k2 = d.get("_ka2"); nk2 = 0
+    nk2 = 0
     if k2 is None and d.get("phase") is not None: k2 = _ka2_partners(tt, h, ph, lam)
     if k2 is not None and len(k2) == len(r) and 0 < int(np.sum(k2)) < len(r):          # the same reflections seen with Kα2: one tick, one label and one stored line per reflection
         nk2 = int(np.sum(k2)); r = r[~np.asarray(k2, bool)]
@@ -1460,12 +1500,40 @@ def peaklist_rows(d, lam):
     r.attrs["ka2"] = nk2
     return r
 
+PDF_UNNAMED = ("{n} reference code(s) of the peak list have NO NAME yet: {codes}. Add the pattern list of the same analysis (the table with Ref. Code and "
+               "Compound Name / Mineral Name, as CSV or Excel) - the labels then show the mineral names instead of these numbers")
+
+def refresh_pdf_names(singles, opt=None):
+    """A pattern list was read after its peak list: the peak lists whose codes have a name now are built again, and the
+    patterns that take their labels from them. Returns the graphs built again."""
+    try: import pdf_names as _pn
+    except Exception: return []
+    opt = opt or {}; stale = [s for s in singles if s.kind == "XRD peak list" and (s.det.get("_pdf") or {}).get("unnamed") and any(_pn.name_of(c_) for c_ in s.det["_pdf"]["unnamed"])]
+    if not stale: return []
+    done = []
+    for s in stale:
+        try: s.det.pop("_rows", None); s.build(opt, getattr(s, "want_kind", None)); done.append(s)
+        except Exception: pass
+    targets = [s for s in singles if s.kind in ("XRD", "Fit (observed + calculated)") and s.det.get("_peaklist") is not None]
+    try: link_xrd(singles, opt)
+    except Exception: pass
+    for s in targets:
+        try: s.build(opt, getattr(s, "want_kind", None)); done.append(s)
+        except Exception: pass
+    if done: _LINK_NEWS.append(f"  the pattern list gave {len(stale)} peak list(s) the names of their reference codes: the peaks are labelled with the mineral names now ({len(done)} graph(s) drawn again)")
+    return done
+
 def build_peaklist(d, opt, given):
     lam = wavelength(opt, d); r = peaklist_rows(d, lam); rec = d.setdefault("_rec", [])
     known_lam = bool(d.get("lam_file")) or not str(opt.get("wavelength", "Automatic") or "Automatic").startswith("Automatic")
     rec.append(f"d-spacings of the peak list: d = λ / (2 sin θ) with λ = {lam:.5f} Å " + ("(read from the file)" if d.get("lam_file") and str(opt.get("wavelength", "Automatic")).startswith("Automatic") else "(from Analysis settings)" if known_lam
                else "(ASSUMED copper Kα1: the peak list does not give its wavelength. If the pattern was measured with another tube, choose it under Analysis settings > XRD)"))
     if r.attrs.get("ka2"): rec.append(f"{r.attrs['ka2']} rows of the peak list are the Kα2 partners of the other reflections (same d-spacing, the second wavelength of the tube); they are left out, so every reflection has one tick and one label")
+    pdf_ = d.get("_pdf")
+    if pdf_:
+        d["_learnt"] = True                           # matched measured peaks are not the reflections of a phase: nothing is stored in the phase library from them
+        if pdf_["named"]: rec.append("the peak list names its patterns by reference code (PDF number); the labels are the names your pattern list gives them: " + ", ".join(f"{c_} = {n_}" for c_, n_ in pdf_["named"].items()))
+        if pdf_["unnamed"]: rec.append(PDF_UNNAMED.format(n=len(pdf_["unnamed"]), codes=", ".join(pdf_["unnamed"][:8]) + (" ..." if len(pdf_["unnamed"]) > 8 else "")))
     if r.attrs.get("markers"):                        # positions without intensities: leave out the reflections the library knows to be very weak
         lib, _ = library(opt); keep = []; thinned = []
         for c in dict.fromkeys(r["Code"]):
@@ -1491,7 +1559,8 @@ def build_peaklist(d, opt, given):
     codes = list(dict.fromkeys(r["Code"])); cs = []; tab = []
     for i, c in enumerate(codes):
         g = r[r["Code"] == c]; tx = np.repeat(g["tt"].values, 3); ty = np.tile([0.0, 1.0, np.nan], len(g)) * np.repeat(g["height"].values, 3); tx[2::3] = np.nan; ty[2::3] = np.nan
-        cs.append(curve(f"{c} – {xs.CODE_NAMES.get(c, g['Phase'].iloc[0])}", tx, ty, TICKCOL[i % len(TICKCOL)]))
+        nm_ = xs.CODE_NAMES.get(c, g['Phase'].iloc[0])
+        cs.append(curve(str(nm_) if str(nm_).strip().lower() == str(c).strip().lower() else f"{c} – {nm_}", tx, ty, TICKCOL[i % len(TICKCOL)]))
         s = g.sort_values("height", ascending=False)
         tab.append({"Code": c, "Phase": g["Phase"].iloc[0], "Reflections": len(g), "Strongest at 2theta (deg)": "; ".join(f"{v:.3f}" for v in s["tt"].values[:3]), "Strongest d (A)": "; ".join(f"{v:.4f}" for v in s["d"].values[:3])})
     marks = bool(r.attrs.get("markers"))
@@ -1514,6 +1583,23 @@ def build_peaklist(d, opt, given):
         p["rows"] = [(len(codes) - 1 - i + 0.5, f"{c} – {r.loc[r['Code'] == c, 'Phase'].iloc[0]}", TICKCOL[i % len(TICKCOL)]) for i, c in enumerate(codes)]
         return dict(title=d["name"], xname="2θ (°)", panels=[p]), tab, []
     sp = dict(title=d["name"], xname="2θ (°)", panels=[panel(d["t"](d["height"]), cs, legend=True)])
+    if pdf_ and len(r):
+        # a peak list of a search-match, drawn by itself: every matched peak carries the name(s) of its mineral(s), the
+        # peaks no pattern explains are drawn grey without a label, and the first and last peak are not cut by the frame
+        try:
+            df_ = d.get("_df"); tt_all = d["nums"][d["x"]].values.astype(float); h_all = d["nums"][d["height"]].values.astype(float)
+            import pdf_names as _pn
+            free = np.array([not _pn.codes_in(v) for v in df_[d["phase"]].astype(str).values], bool) & np.isfinite(tt_all) & np.isfinite(h_all) & (h_all > 0)
+            if free.any():
+                tx = np.repeat(tt_all[free], 3); ty = np.tile([0.0, 1.0, np.nan], int(free.sum())) * np.repeat(h_all[free], 3); tx[2::3] = np.nan
+                sp["panels"][0]["curves"].append(curve("not matched", tx, ty, (150, 150, 150)))
+                rec.append(f"{int(free.sum())} peak(s) of the list are matched by no pattern: drawn grey, without a label")
+            labs_ = []
+            for pos_, g in r.groupby(r["tt"].round(4), sort=True):
+                labs_.append((float(pos_), "+".join(dict.fromkeys(str(v) for v in g["Phase"])), float(g["height"].max())))
+            sp["panels"][0]["labels"] = labs_; sp["panels"][0]["vertical"] = True
+            lo_, hi_ = float(np.nanmin(tt_all)), float(np.nanmax(tt_all)); pad_ = max(1.0, 0.04 * (hi_ - lo_)); sp["_xlim"] = (lo_ - pad_, hi_ + pad_)
+        except Exception: pass
     return sp, tab, []
 
 FTIR_AIR_CO2 = (2280.0, 2400.0)      # cm-1: the doublet of the CO2 of the air in the beam path - in almost every spectrum, never the sample
@@ -2836,7 +2922,7 @@ def _load_sheets(path):
     first = {re.split(r"[ _]", s_, 1)[0] for s_ in names if re.search(r"[ _]", s_)}
     prefix = first.pop() if len(names) >= 2 and len(first) == 1 and all(re.search(r"[ _]", s_) for s_ in names) else ""
     for d in dets:
-        if d["kind"] == "labels": continue
+        if d["kind"] == "labels" or d.get("pattern_list"): continue
         r = read_info(d["name"], d["_raw"], prefix)
         if r is None: continue
         k, payload = r
@@ -2848,7 +2934,7 @@ def _load_sheets(path):
     for L in labels: info["idmap"].update(L.get("idmap") or {})
     INFO[path] = info
     for d in dets:
-        if d["kind"] == "skip": lines.append(f"  {d['name']}: {'used as information' if d['why'].startswith(('sample information', 'phase table', 'label key')) else 'skipped'} ({d['why']})"); continue
+        if d["kind"] == "skip": lines.append(f"  {d['name']}: {'used as information' if d['why'].startswith(('sample information', 'phase table', 'label key', 'pattern list')) else 'skipped'} ({d['why']})"); continue
         if d["kind"] == "labels": lines.append(f"  {d['name']}: label table ({len(d['x'])} labels)"); continue
         got = []
         for L in labels:
@@ -2861,7 +2947,7 @@ def _load_sheets(path):
         it.auto = (d.get("hash") or {}).get("sample") or clean_name(it.file, "") if single else clean_name(d["name"], prefix)
         items.append(it)
         lines.append(f"  {d['name']}: {d['kind']}" + (f", {len(got)} labels from the label sheet" if got else "") + (f", wavelength {d['lam_file']} Å from the file" if d.get("lam_file") else ""))
-    if not items and (info["samples"] or info["phases"] or info["idmap"]): _INFO_ONLY.add(path); lines.append("  this file holds only information (names, Rwp, wt%); it is used for the graphs of the other files")
+    if not items and (info["samples"] or info["phases"] or info["idmap"] or any(d.get("pattern_list") for d in dets)): _INFO_ONLY.add(path); lines.append("  this file holds only information (names, Rwp, wt%); it is used for the graphs of the other files")
     else: _INFO_ONLY.discard(path)
     lines += split_notes
     if (xs.META.get(path) or {}).get("decimal_commas"): lines.insert(0, "  " + xs.META[path]["decimal_commas"])
@@ -2965,6 +3051,8 @@ def prepare(singles, fresh, opt=None, progress=None):
     """Add newly loaded graphs to the list, building each one only once: peak lists first, then names/amounts and
     the links between peak lists and patterns, then the patterns. Returns (number added, error lines)."""
     opt = opt or {}; errs = []; n0 = len(singles)
+    try: refresh_pdf_names(singles, opt)             # a pattern list read now gives the peak lists that were waiting for it their names
+    except Exception: pass
     pls = [s for s in fresh if s.kind == "XRD peak list"]; rest = [s for s in fresh if s.kind != "XRD peak list"]; tot = len(fresh); k = 0
     for s in pls:
         k += 1
