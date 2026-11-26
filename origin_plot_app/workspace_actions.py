@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
@@ -109,7 +110,8 @@ def install(w):
     sb.setToolTip("Save this graph, the view, the data or results table, the session, the chat (Ctrl+S saves the session)")
     m = QMenu(sb)
     for text, fn, key in (("This graph: PNG 600 dpi · TIFF · PDF · SVG", w.save_current, "Ctrl+E"), ("The view on screen as a picture…", w.save_view, "Ctrl+Shift+E"),
-                          ("Copy the view to the clipboard", w.copy_view, "Ctrl+Shift+C"), (None, None, None),
+                          ("Copy the view to the clipboard", w.copy_view, "Ctrl+Shift+C"),
+                          ("Send to PowerPoint: the graph as a picture on a slide", lambda: w.send_to_office("pptx"), ""), ("Send to Word: the graph as a high-definition picture (600 dpi)", lambda: w.send_to_office("docx"), ""), (None, None, None),
                           ("Data table as CSV or Excel…", lambda: w.save_table("data"), ""), ("Results table as CSV or Excel…", lambda: w.save_table("results"), ""),
                           (None, None, None), ("Session…", w.save_session, "Ctrl+S"), ("Open a session…", w.open_session, "Ctrl+Shift+O"),
                           ("The chat as a text file…", w.save_chat, ""), (None, None, None), ("Open the results folder", w.open_results, "")):
@@ -154,9 +156,10 @@ def remove_current(self, it=None):
     elif getattr(it, "mine", False):
         self.list.setCurrentRow(self.items.index(it))
         return self.ungroup()
-    else:
-        self.set_status("A ★ combined figure is made by the app: change the Group list (or remove its graphs) instead.")
-        return "auto"
+    else:                                                       # a ★ figure the app made: it leaves the list and is not made again (its graphs stay)
+        entry = (it.how, tuple(sp.key_of(m) for m in it.members))
+        if entry not in getattr(self, "hidden_groups", []): self.hidden_groups = list(getattr(self, "hidden_groups", [])) + [entry]
+        self.regroup()
     row = self.list.currentRow()
     self.refresh_list()
     if self.items:
@@ -208,6 +211,58 @@ def wheel_zoom(self, e):
 def copy_view(self):
     QApplication.clipboard().setPixmap(self.canvas.grab())
     self.set_status("The graph on screen is copied: paste it with Ctrl+V (Word, PowerPoint, e-mail).")
+
+
+def office_pictures(self, dpi):
+    """The graphs that go to PowerPoint or Word, each as (png, width in, height in, name): the ticked graphs when two or
+    more are ticked, else the one on show. A graph is drawn in its final form (the figure that 'Save this graph' writes);
+    one that has no such form (a page of panels, a template graph) is taken as it is on show."""
+    cur = self.current(); its = [i for i in self.ticked() if isinstance(i, (sp.Item, sp.Combined, sp.Board))]
+    if len(its) < 2: its = [cur] if cur is not None else []
+    import office_export as oe
+    st = self.style(); pw = self.pub_width(); journal = self.journal.currentText(); out = []; left = []
+    for it in its:
+        name = str(getattr(it, "title", "") or getattr(it, "name", "") or "graph").strip(); fig = None
+        if isinstance(it, (sp.Item, sp.Combined)) and getattr(it, "spec", None):
+            try:
+                ja, _c = sp.journal_args(it, journal) if journal else ({}, "")
+                if pw: ja["width_mm"] = pw
+                fig = sp.publication_figure(it, ja.pop("width_mm", None), st.curve, st.axis, **{k: v for k, v in ja.items() if k in ("fs", "max_h_mm")})
+            except Exception: fig = None
+        if fig is None and it is cur: fig = self.fig
+        if fig is None: left.append(name); continue
+        png, w_, h_ = oe.figure_png(fig, dpi); out.append((png, w_, h_, name))
+    return out, left
+
+
+def send_to_office(self, kind, path=None):
+    """The graph on show (or the ticked graphs, one each) as a picture in a new PowerPoint presentation (kind 'pptx': one
+    slide per graph, 300 dpi) or a new Word document (kind 'docx': 600 dpi, at the printed size of the figure). The file is
+    written to the results folder and opened."""
+    import office_export as oe
+    word = kind == "docx"; what = "Word document" if word else "PowerPoint presentation"
+    if self.current() is None and not self.ticked():
+        self.set_status("Click a graph first."); return None
+    QApplication.setOverrideCursor(Qt.WaitCursor)
+    try:
+        pics, left = office_pictures(self, 600 if word else 300)
+        if not pics:
+            self.set_status(f"No graph could be drawn for the {what}."); return None
+        if path is None:
+            folder = Path(self.run_folder()); folder.mkdir(parents=True, exist_ok=True)
+            base = re.sub(r'[\\/:*?"<>|]+', "_", pics[0][3])[:60].strip() or "graph"
+            if len(pics) > 1: base = f"{len(pics)}_graphs"
+            path = folder / f"{base}.{kind}"; k = 2
+            while path.exists(): path = folder / f"{base}_{k}.{kind}"; k += 1                    # an earlier file (perhaps open in Word or PowerPoint) is never written over
+        path = str(path); (oe.write_docx if word else oe.write_pptx)(path, pics)
+    except Exception as e:
+        self.set_status(f"The {what} could not be written: {e}"); return None
+    finally:
+        QApplication.restoreOverrideCursor()
+    self.last_folder = os.path.dirname(path)
+    self.set_status(f"{len(pics)} graph(s) as {'600 dpi pictures' if word else 'pictures, one slide each'} in {path}" + (f"  (left out, no final form: {', '.join(left[:3])})" if left else ""))
+    self.open_path(path)
+    return path
 
 
 def save_view(self, path=None):
@@ -279,6 +334,7 @@ def save_session(self, path=None):
     d = sp.session_dump(regular, self.boards, self.settings_now())
     if hasattr(self, 'workbench'): d.update(self.workbench.session_extras())
     d["modern_groups"] = [[how, list(keys)] for how, keys in self.user_groups]
+    d["modern_hidden_groups"] = [[how, list(keys)] for how, keys in getattr(self, "hidden_groups", [])]      # the ★ figures you removed stay removed when the session is opened again
     d["modern_ticked"] = [sp.key_of(i) for i in self.ticked() if isinstance(i, sp.Item)]
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(d, fh, indent=1, default=str)
@@ -302,6 +358,7 @@ def open_session(self, path=None):
     self.singles, self.boards = singles, boards
     if hasattr(self, 'workbench'): self.workbench.restore_session_extras(data)
     self.user_groups = [(g[0], [tuple(k) if isinstance(k, list) else k for k in g[1]]) for g in data.get("modern_groups", [])]
+    self.hidden_groups = [(g[0], tuple(tuple(k) if isinstance(k, list) else k for k in g[1])) for g in data.get("modern_hidden_groups", [])]
     self.regroup()
     self.refresh_list()
     want = {tuple(k) if isinstance(k, list) else k for k in data.get("modern_ticked", [])}
@@ -427,6 +484,8 @@ def menu_canvas(self, pos):
     m.addAction("Copy the picture (Ctrl+Shift+C)", self.copy_view)
     m.addAction("Save the view as a picture… (Ctrl+Shift+E)", self.save_view)
     m.addAction("Save this graph: PNG 600 dpi · TIFF · PDF · SVG (Ctrl+E)", self.save_current)
+    m.addAction("Send to PowerPoint (picture on a slide)", lambda: self.send_to_office("pptx"))
+    m.addAction("Send to Word (high-definition picture)", lambda: self.send_to_office("docx"))
     m.addAction("Draw in Origin", lambda: (self._tick_only([it]) if it else None, self.draw_origin("ticked")))
     return _show(self, m, self.canvas, pos)
 
@@ -476,6 +535,6 @@ def quick_tool(self, it, label):
     return self.tools.run_tool(label, page.settings(), page)
 
 
-METHODS = {f.__name__: f for f in (tick_all, toggle_tick, remove_current, remove_current_or_selected, reorder_from_list, wheel_zoom, copy_view, save_view, save_table, copy_table,
+METHODS = {f.__name__: f for f in (tick_all, toggle_tick, remove_current, remove_current_or_selected, reorder_from_list, wheel_zoom, copy_view, send_to_office, save_view, save_table, copy_table,
                                    save_session, open_session, save_chat, show_shortcuts, menu_graphs, menu_canvas, menu_table, menu_chat, rename_sample,
                                    quick_tool, arrange_workbook)}

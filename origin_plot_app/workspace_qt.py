@@ -366,6 +366,7 @@ class Workspace(QMainWindow):
         self.opt = options()
         self.singles, self.combined, self.boards, self.items = [], [], [], []
         self.user_groups = []                                  # [(how, [member keys])]: groups you made, kept when the graphs are grouped again
+        self.hidden_groups = []                                # [(how, (member keys))]: combined figures (★) the app made and you removed from the list: not made again until you pick from the Group list
         self.cfg = load_cfg()
         self.job_thread = None
         self.cancel = [False]
@@ -1136,7 +1137,8 @@ class Workspace(QMainWindow):
         self.groupmode.addItems(sp.MODES)
         self.groupmode.setCurrentText(self.cfg.get("mode", sp.MODES[0]) if self.cfg.get("mode") in sp.MODES else sp.MODES[0])
         self.groupmode.setToolTip("How graphs of the same kind are put together in combined figures (★), as 'Several files of the same kind' in the current window")
-        self.groupmode.activated.connect(lambda _i: (save_cfg({"mode": self.groupmode.currentText()}), self.regroup(), self.refresh_list()))
+        self.groupmode.activated.connect(lambda _i: (save_cfg({"mode": self.groupmode.currentText()}), setattr(self, "hidden_groups", []), self.regroup(), self.refresh_list()))   # picking here asks for the app's combined figures anew: those you removed come back
+        self.groupmode.setToolTip(self.groupmode.toolTip() + ". A ★ figure you removed with Delete stays away until you pick here again")
         gr.addWidget(self.groupmode, 1)
         lay.addLayout(gr)
         gb = QHBoxLayout()
@@ -1543,6 +1545,8 @@ class Workspace(QMainWindow):
         mode = self.groupmode.currentText() if hasattr(self, "groupmode") else "Decide for me"
         try:
             groups, _why = sp.make_groups(self.singles, mode, self.opt)
+            hidden = {(h, tuple(k)) for h, k in getattr(self, "hidden_groups", [])}
+            groups = [g for g in groups if (g.how, tuple(sp.key_of(m) for m in g.members)) not in hidden]       # the ones you removed from the list (Delete) stay away
             for g in groups:
                 g.fmt = getattr(self, "group_fmt", {}).get(tuple(sp.key_of(m) for m in g.members)) or {}      # your look of this figure stays
                 g.build(self.opt)

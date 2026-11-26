@@ -23,12 +23,13 @@ def _flag():
 
 # ------------------------------------------------------------------------------------------------ undo of removals
 def _snapshot(w, what):
-    w._session_undo.append({"what": what, "t": time.time(), "singles": list(w.singles), "combined": list(w.combined), "boards": list(w.boards), "groups": list(getattr(w, "user_groups", []))})
+    w._session_undo.append({"what": what, "t": time.time(), "singles": list(w.singles), "combined": list(w.combined), "boards": list(w.boards), "groups": list(getattr(w, "user_groups", [])), "hidden": list(getattr(w, "hidden_groups", []))})
     del w._session_undo[:-30]; w._session_redo.clear()
 
 
 def _restore(w, snap):
     w.singles, w.combined, w.boards, w.user_groups = list(snap["singles"]), list(snap["combined"]), list(snap["boards"]), list(snap["groups"])
+    w.hidden_groups = list(snap.get("hidden", []))
     w.refresh_list()
     if w.items: w.list.setCurrentRow(0)
     else: w.show_empty()
@@ -39,7 +40,7 @@ def undo_any(w):
     last_fmt = getattr(w.ribbon, "last_change", 0) if getattr(w, "ribbon", None) is not None else 0
     if w._session_undo and w._session_undo[-1]["t"] >= last_fmt:
         snap = w._session_undo.pop()
-        w._session_redo.append({"what": snap["what"], "t": time.time(), "singles": list(w.singles), "combined": list(w.combined), "boards": list(w.boards), "groups": list(getattr(w, "user_groups", []))})
+        w._session_redo.append({"what": snap["what"], "t": time.time(), "singles": list(w.singles), "combined": list(w.combined), "boards": list(w.boards), "groups": list(getattr(w, "user_groups", [])), "hidden": list(getattr(w, "hidden_groups", []))})
         _restore(w, snap); w.set_status(f"Undone: {snap['what']}. Redo: Ctrl+Y."); return "session"
     if getattr(w, "ribbon", None) is not None: w.ribbon.undo(); return "format"
     w.set_status("Nothing to undo."); return None
@@ -48,7 +49,7 @@ def undo_any(w):
 def redo_any(w):
     if w._session_redo:
         snap = w._session_redo.pop(); what = snap["what"]
-        w._session_undo.append({"what": what, "t": time.time(), "singles": list(w.singles), "combined": list(w.combined), "boards": list(w.boards), "groups": list(getattr(w, "user_groups", []))})
+        w._session_undo.append({"what": what, "t": time.time(), "singles": list(w.singles), "combined": list(w.combined), "boards": list(w.boards), "groups": list(getattr(w, "user_groups", [])), "hidden": list(getattr(w, "hidden_groups", []))})
         _restore(w, snap); w.set_status(f"Done again: {what}."); return "session"
     if getattr(w, "ribbon", None) is not None: w.ribbon.redo(); return "format"
     return None
@@ -74,7 +75,7 @@ def clear_all_graphs(w):
     n = len(w.singles) + len(w.boards)
     if not n: w.set_status("The list is empty already."); return None
     if not _ask(w, "Clear all graphs", f"Remove {n} graph(s) from {_files(w.singles)} file(s) from the list?"): return "kept"
-    _snapshot(w, f"clear all graphs ({n})"); w.singles, w.combined, w.boards, w.user_groups = [], [], [], []
+    _snapshot(w, f"clear all graphs ({n})"); w.singles, w.combined, w.boards, w.user_groups = [], [], [], []; w.hidden_groups = []
     w.refresh_list(); w.show_empty(); w.datamodel.set(None); w.resmodel.set(None); w.set_status(f"{n} graph(s) removed from the list. Undo: Ctrl+Z."); return "cleared"
 
 
@@ -88,12 +89,9 @@ def remove_selected(w):
 
 
 def _remove_selection(w, sel, adj, none_msg):
-    # a ★ combined figure the app made on its own (not one of your ◆ groups) isn't a thing to delete directly
-    autos = [i for i in sel if isinstance(i, sp.Combined) and not getattr(i, "mine", False)]
-    its = [i for i in sel if isinstance(i, (sp.Item, sp.Board)) or getattr(i, "mine", False)]
-    if not its:
-        w.set_status("A ★ combined figure is made by the app: change the Group list (or remove its graphs) instead." if autos else none_msg)
-        return "auto" if autos else None
+    # A ★ combined figure the app made on its own is removed like any other row: it leaves the list and is not made
+    # again (its graphs stay); picking from the Group list brings the app's combined figures back.
+    its = [i for i in sel if isinstance(i, (sp.Item, sp.Board, sp.Combined))]
     return _remove_items(w, its, adj, none_msg)
 
 
@@ -102,11 +100,17 @@ def _remove_items(w, its, adj, none_msg):
     if not _ask(w, f"Remove {adj} graphs", f"Remove {len(its)} {adj} graph(s) from {_files(its)} file(s) from the list?"): return "kept"
     _snapshot(w, f"remove {len(its)} graph(s)")
     mine_keys = {tuple(sp.key_of(m) for m in it.members) for it in its if getattr(it, "mine", False)}
-    ids = {id(i) for i in its if not getattr(i, "mine", False)}
+    autos = [it for it in its if isinstance(it, sp.Combined) and not getattr(it, "mine", False)]
+    ids = {id(i) for i in its if not isinstance(i, sp.Combined)}
+    row = w.list.currentRow()
     w.singles = [s for s in w.singles if id(s) not in ids]; w.boards = [b for b in w.boards if id(b) not in ids]
     if mine_keys: w.user_groups = [g for g in w.user_groups if tuple(g[1]) not in mine_keys]
+    for g in autos:                                              # a ★ figure of the app: remembered as removed, so that grouping again does not bring it back
+        entry = (g.how, tuple(sp.key_of(m) for m in g.members))
+        if entry not in getattr(w, "hidden_groups", []): w.hidden_groups = list(getattr(w, "hidden_groups", [])) + [entry]
     w.regroup(); w.refresh_list()
-    (w.list.setCurrentRow(0) if w.items else w.show_empty()); w.set_status(f"{len(its)} graph(s) removed from the list. Undo: Ctrl+Z."); return "removed"
+    (w.list.setCurrentRow(min(max(row, 0), len(w.items) - 1)) if w.items else w.show_empty())
+    w.set_status(f"{len(its)} graph(s) removed from the list. Undo: Ctrl+Z." + (" A ★ figure of the app stays away (its graphs stay); the Group list brings them back." if autos else "")); return "removed"
 
 
 def start_afresh(w, keep=None):
@@ -117,7 +121,7 @@ def start_afresh(w, keep=None):
         b1 = box.addButton("Keep settings and layout", QMessageBox.AcceptRole); b2 = box.addButton("Reset the layout too", QMessageBox.DestructiveRole); box.addButton(QMessageBox.Cancel); box.exec()
         if box.clickedButton() not in (b1, b2): return "kept"
         keep = box.clickedButton() is b1
-    w.autosave(); _snapshot(w, "start afresh"); w.singles, w.combined, w.boards, w.user_groups = [], [], [], []
+    w.autosave(); _snapshot(w, "start afresh"); w.singles, w.combined, w.boards, w.user_groups = [], [], [], []; w.hidden_groups = []
     w.refresh_list(); w.show_empty(); w.datamodel.set(None); w.resmodel.set(None); w.session_path = None
     if keep is False and hasattr(w, "reset_layout"): w.reset_layout()
     w.set_status("Empty session. Add your data files (Ctrl+O, or drop them on the window). Undo: Ctrl+Z."); return "new"
@@ -321,7 +325,7 @@ TIPS = {  # buttons that had no tooltip: name (shortcut) – what it does. Disab
     "What it has learned": "What it has learned – The notes the assistant keeps about your preferences; you can delete them",
     "+ Add data files": "Add data files (Ctrl+O) – Excel, CSV, text and instrument files; they are only read, never changed. You can also drop them on the window",
     "Apply": "Apply – Use the settings of this panel for the graph on show",
-    "Export ▾": "Export (Ctrl+E) – Save this graph as PNG 600 dpi, TIFF, PDF or SVG, or copy it as a picture. Disabled: no graph yet",
+    "Export ▾": "Export (Ctrl+E) – Save this graph as PNG 600 dpi, TIFF, PDF or SVG, copy it as a picture, or send it to PowerPoint (a slide) or Word (a 600 dpi picture). Disabled: no graph yet",
     "Pan": "Pan (P) – Drag the graph to move the view. Middle mouse button does the same in any mode",
     "Zoom": "Zoom (Z) – Drag a box on the graph to enlarge it; the wheel zooms around the cursor",
     "Select range": "Select range (S) – Drag over an x range for integration, mass loss or a zoom panel. Esc clears it",

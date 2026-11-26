@@ -105,5 +105,33 @@ check("Delete removes the graph from the list (not the file)", len(w.singles) ==
 w2 = W.Workspace([]); w2.show(); saved["path"] = str(TMP / "s1.json"); r = w2.open_session()
 check("Open a session (Ctrl+Shift+O): graphs, graph types and ticks come back", r == len(d["graphs"]) and len(w2.ticked()) == 1, r)
 names = [a.text() for a in w.save_btn.menu().actions() if a.text()]
-check("Save ▾ menu: graph, view, copy, data, results, session, open session, chat, results folder", len(names) == 9 and any("Ctrl+S" in x for x in names), names)
+check("Save ▾ menu: graph, view, copy, PowerPoint, Word, data, results, session, open session, chat, results folder", len(names) == 11 and any("Ctrl+S" in x for x in names) and any("PowerPoint" in x for x in names) and any("Word" in x for x in names), names)
+# ---------------------------------------------------------------- the graph as a picture in PowerPoint / Word
+import zipfile, struct, office_export as OE
+def png_size(b): return struct.unpack(">II", b[16:24])
+exp = [a.text() for a in w.export_btn.menu().actions() if a.text()]
+check("Export ▾ offers 'Send to PowerPoint' and 'Send to Word'", any("PowerPoint" in x for x in exp) and any("Word" in x and "600" in x for x in exp), exp)
+w.tick_all(False); w.list.setCurrentRow(i_x); app.processEvents()
+pp = w.send_to_office("pptx"); z = zipfile.ZipFile(pp) if pp else None
+check("Send to PowerPoint: a .pptx in the results folder with the graph on show as a picture on one slide", bool(pp) and pp.endswith(".pptx") and str(TMP / "results") in pp and sum(n.startswith("ppt/slides/slide") for n in z.namelist()) == 1 and z.read("ppt/media/image1.png")[:8] == b"\x89PNG\r\n\x1a\n", pp)
+pic = z.read("ppt/slides/slide1.xml").decode(); import re as _re
+m_ = _re.search(r'<a:off x="(\d+)" y="(\d+)"/><a:ext cx="(\d+)" cy="(\d+)"/>', pic); x_, y_, cx_, cy_ = [int(v) / 914400 for v in m_.groups()]; pw_, ph_ = png_size(z.read("ppt/media/image1.png"))
+check("... the picture keeps its proportions, fills the slide up to a margin and is centred", abs(cx_ / cy_ - pw_ / ph_) < 0.01 and x_ >= 0.3 and y_ >= 0.3 and abs(x_ * 2 + cx_ - 13.333) < 0.01 and abs(y_ * 2 + cy_ - 7.5) < 0.01 and (abs(cx_ - 12.633) < 0.01 or abs(cy_ - 6.8) < 0.01), (x_, y_, cx_, cy_))
+wd = w.send_to_office("docx"); zd = zipfile.ZipFile(wd) if wd else None
+dw, dh = png_size(zd.read("word/media/image1.png")); ext = _re.search(r'<wp:extent cx="(\d+)" cy="(\d+)"/>', zd.read("word/document.xml").decode()); ew = int(ext.group(1)) / 914400
+check("Send to Word: a .docx with the graph as a picture of 600 dots per inch at its printed size (at most the width of the text)", bool(wd) and wd.endswith(".docx") and ew <= 6.31 and dw / ew >= 599, (dw, dh, ew, dw / ew))
+pp2 = w.send_to_office("pptx")
+check("an earlier presentation is never written over (it may be open in PowerPoint): the next one gets a number", pp2 != pp and os.path.isfile(pp) and os.path.isfile(pp2), pp2)
+for r_ in range(w.list.count()):
+    if isinstance(w.items[r_], sp.Item) and sum(i.checkState() == Qt.Checked for i in [w.list.item(k) for k in range(w.list.count())]) < 3: w.list.item(r_).setCheckState(Qt.Checked)
+app.processEvents(); nt_ = len([i for i in w.ticked() if isinstance(i, (sp.Item, sp.Combined, sp.Board))])
+pp3 = w.send_to_office("pptx"); z3 = zipfile.ZipFile(pp3)
+check("with several graphs ticked: one slide for each", nt_ == 3 and sum(1 for n in z3.namelist() if _re.fullmatch(r"ppt/slides/slide\d+\.xml", n)) == 3 and z3.read("ppt/presentation.xml").decode().count("<p:sldId ") == 3 and z3.read("[Content_Types].xml").decode().count("presentationml.slide+xml") == 3, nt_)
+try:
+    from pptx import Presentation; from docx import Document
+    P_ = Presentation(pp3); D_ = Document(wd)
+    check("the files open as real Office files (read back with python-pptx and python-docx)", len(P_.slides) == 3 and all(len(s.shapes) == 1 and s.shapes[0].shape_type == 13 for s in P_.slides) and len(D_.inline_shapes) == 1)
+except ImportError:
+    print("SKIP  python-pptx / python-docx are not installed here: the files were checked as zip packages only")
+w.tick_all(False); app.processEvents()
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

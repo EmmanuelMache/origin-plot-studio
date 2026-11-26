@@ -899,7 +899,7 @@ class Ribbon(QWidget):
                     lambda: self.set_panel_fmt(key, show_diff=False if show_diff else None))
 
         show_ticks = sp.composed_panel_value(it, key, 'show_ticks', True)
-        m.addAction('Bragg rows: hide (this panel only)' if show_ticks else 'Bragg rows: show (this panel only)',
+        m.addAction('Phase tick rows (Bragg marks): hide (this panel only)' if show_ticks else 'Phase tick rows (Bragg marks): show (this panel only)',
                     lambda: self.set_panel_fmt(key, show_ticks=False if show_ticks else None))
 
     def set_panel_fmt(self, key, **changes):
@@ -965,7 +965,7 @@ class Ribbon(QWidget):
         curve as dots or a line, the difference row - without touching the others."""
         it = self.item(); w = self.w; keys = self.composed_panel_keys()
         show = len(keys) > 1
-        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff):
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
             wd.setVisible(show)
         if not show:
             return
@@ -981,6 +981,10 @@ class Ribbon(QWidget):
         w.panel_zoom_cb.blockSignals(True); w.panel_zoom_cb.setChecked(bool(has_zoom)); w.panel_zoom_cb.blockSignals(False)
         w.panel_dots.blockSignals(True); w.panel_dots.setChecked(sp.composed_panel_value(it, key, "obs_style", __import__("paper_figures").OBS_STYLE) != "line"); w.panel_dots.blockSignals(False)
         w.panel_diff.blockSignals(True); w.panel_diff.setChecked(bool(sp.composed_panel_value(it, key, "show_diff", True))); w.panel_diff.blockSignals(False)
+        has_ticks = bool(sp.composed_panel_value(it, key, "ticks", None))
+        w.panel_ticks.setEnabled(has_ticks)
+        w.panel_ticks.setToolTip("The rows of small vertical marks under the fit: one row per phase, a mark at each of its reflections (Bragg positions). Off: they are left out, for this panel only" if has_ticks else "This panel has no phase tick rows (reflection marks) to switch")
+        w.panel_ticks.blockSignals(True); w.panel_ticks.setChecked(has_ticks and bool(sp.composed_panel_value(it, key, "show_ticks", True))); w.panel_ticks.blockSignals(False)
 
     def sketch(self):
         import sketch_pad
@@ -1229,15 +1233,17 @@ def install(w):
     w.panel_dots.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), obs_style="dots" if on else "line"))
     w.panel_diff = QCheckBox("Difference row"); w.panel_diff.setToolTip("Off: the difference (observed - calculated) row is left out, for this panel only")
     w.panel_diff.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), show_diff=None if on else False))
+    w.panel_ticks = QCheckBox("Phase tick rows"); w.panel_ticks.setToolTip("The rows of small vertical marks under the fit: one row per phase, a mark at each of its reflections (Bragg positions). Off: they are left out, for this panel only")
+    w.panel_ticks.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), show_ticks=None if on else False))
     if gt is not None and host is not None:
         pr = _HB(); pr.setSpacing(6)
-        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff):
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
             pr.addWidget(wd)
         pr.addStretch(1)
         k2 = next((i for i in range(host.count()) if host.itemAt(i).layout() is xr), k + 1)
         host.insertLayout(k2 + 1, pr)
         w.panel_row = pr
-        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff):
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
             wd.setVisible(False)
     w.list.currentRowChanged.connect(lambda *_: (rb.show_state(), rb.xrd_bar(), rb.composed_bar()))
     rb.show_state(); rb.xrd_bar(); rb.composed_bar()

@@ -172,7 +172,9 @@ check("Origin: one layer per panel (main + zoom panel) at the same place on the 
 x0, x1 = fz.axes[1].get_xlim(); check("Origin: the same axis range in the zoom panel", f"layer.x.from={x0:.8g}; layer.x.to={x1:.8g};" in J)
 ncur = sum(len(L["curves"]) for L in R["layers"]); check("Origin: every curve goes in with its colour and width, data in worksheets (x, y)", J.count("layer -i200") >= ncur and "set " in J and len([f for f in os.listdir(os.path.join(od, "data_for_origin", "fileA_xrd_stack_with_zoom")) if f.endswith(".csv")]) >= ncur, ncur)
 check("Origin: shaded zone sent, drawn before the curves", any(L["zones"] for L in R["layers"]) and J.index("layer -i204") < J.index("layer -i200"))
-check("Origin: texts (sample names) and panel labels are sent with the point size of the style", 'text$="Sample A"' in J and "\\b(" in J and f".fsize={int(round(fz.axes[0].title.get_fontsize()))};" in J)
+k0 = O._scale(R["layers"][0])
+check("Origin: texts (sample names) and panel labels are sent, at the point size of the style times the layer's factor (Origin makes everything in a narrow layer smaller)",
+      'text$="Sample A"' in J and "\\b(" in J and f".fsize={max(4, int(round(fz.axes[0].title.get_fontsize() * k0)))};" in J and abs(k0 - 62.0 / R["layers"][0]["width"]) < 1e-9)
 check("Origin: export at the preset size and dpi is asked for", "tr.Width:=18.300" in J and "tr1.Resolution:=600" in J)
 def wrong_window(cmds, graph):
     """Commands that act on a graph (plot, layer, axis, legend, text position) sent while another window is Origin's active one."""
@@ -191,7 +193,39 @@ check("Origin: the complete script is written beside the project (.ogs)", os.pat
 fr, _ = api.draw("xrd_stacked_offset", sets["xy"], switches={"revx": True, "logy": True}); rr = O.draw_in_origin(mk, fr, "fileA", "rev", od); Jr = "\n".join(rr["commands"])
 a0, a1 = fr.axes[0].get_xlim(); check("Origin: reversed and log axes are sent as drawn", a0 > a1 and f"layer.x.from={a0:.8g}; layer.x.to={a1:.8g};" in Jr and "layer.y.type=2;" in Jr)
 fb, _ = api.draw("qpa_grouped_bar", sets["cat"]); rb = O.draw_in_origin(mk, fb, "fileC", "bars", od); Jb = "\n".join(rb["commands"])
-check("Origin: bars go in as columns, the legend with its entries", Jb.count("layer -i203") == 3 and "legend.text$" in Jb and "Phase 1" in Jb)
+check("Origin: bars go in as columns; every legend entry is a text with the key of its own columns (\\l(1) ...)", Jb.count("layer -i203") == 3 and 'text$="\\l(1) Phase 1' in Jb and "legend.text$" not in Jb, [c for c in rb["commands"] if "l(" in c][:4])
+# ---- what Origin 2018 showed on real figures: texts lost left of zero, "n" for a line break, an empty layer for a legend cell, columns over each other
+import matplotlib.pyplot as _plt, numpy as _np2
+fg = _plt.figure(figsize=(7.0, 3.5)); gs_ = fg.add_gridspec(1, 3)
+a1_ = fg.add_subplot(gs_[0]); a2_ = fg.add_subplot(gs_[1]); a3_ = fg.add_subplot(gs_[2])
+for q_, (lab_, col_, hat_) in enumerate([("Set one", "#555555", ""), ("Set two", "#E69F00", "//")]):
+    a1_.bar(_np2.arange(3) - 0.1 + 0.2 * q_, [3.0 + q_, 5.0, 4.0], 0.2, color=col_, hatch=hat_)
+a1_.plot(_np2.arange(3), [2.0, 2.5, 3.0], ls="none", marker="D", mfc="black", mec="white")
+a1_.set_xticks(_np2.arange(3)); a1_.set_xticklabels(["One\n(first)", "Two\n(second)", "Three\n(third)"]); a1_.set_xlim(-0.6, 2.6); a1_.set_ylim(0, 6); a1_.set_yticks([0, 2, 4, 6])
+a1_.set_title("(a) Columns", loc="left", fontweight="bold"); a1_.set_xlabel("Mix"); a1_.set_ylabel("Amount (wt.%)")
+a2_.plot([1400, 900], [10, 30], color="#0072B2", lw=1.1); a2_.plot([1400, 900], [40, 20], color="#D55E00", lw=1.1); a2_.set_xlim(1450, 900); a2_.set_ylim(0, 60); a2_.set_xlabel("Temperature (°C)"); a2_.set_ylabel("Content (wt.%)"); a2_.set_title("(b) Curves", loc="left")
+from matplotlib.lines import Line2D as _L2
+a3_.axis("off"); a3_.legend(handles=[_L2([], [], color="#0072B2", label="First curve"), _L2([], [], color="#D55E00", label="Second curve")], loc="center left", frameon=False)
+from matplotlib.patches import Patch as _Patch
+fg.legend(handles=[_Patch(facecolor="#555555", edgecolor="k", label="Set one"), _Patch(facecolor="#E69F00", edgecolor="k", hatch="//", label="Set two"), _L2([], [], ls="none", marker="D", mfc="black", mec="white", label="Measured")], loc="lower center", ncol=3, frameon=False)
+Rg = O.read_figure(fg); dg = mk(os.path.join(od, "real")); gg, _df = O.send(dg, fg, "real"); Cg = dg.org.cmds; Jg = "\n".join(Cg)
+check("Origin: a cell that only carries a legend makes no layer (Origin drew an empty one with axes 0-1 there)", len(Rg["layers"]) == 2 and Jg.count("layer -n;") == 1 and len(Rg["legends"]) == 2)
+check("Origin: no text is made at a negative position ('label -a -0.6 ...' lost the text: Origin read the number as an option)", not [c for c in Cg if c.startswith("label -a") and (" -0" in c.split("-n")[0][8:] or " -" in c.split("-n")[0][8:])], [c for c in Cg if c.startswith("label -a")][:3])
+check("Origin: ... the text is then moved to its place, left of zero too", any(".x=-0.6+" in c for c in Cg), [c for c in Cg if ".x=-" in c][:3])
+check("Origin: a text of several lines is sent line by line (Origin wrote the line break as the letter n)", 'text$="One"' in Jg and 'text$="(first)"' in Jg and "\\n" not in "".join(c for c in Cg if "text$" in c))
+check("Origin: the axis titles of every layer are sent as texts at their place (a layer added to the page has no title objects)", all(f'text$="{t_}"' in Jg for t_ in ("Mix", "Amount (wt.%)", "Temperature (°C)", "Content (wt.%)")) and "xb.text$" not in Jg)
+check("Origin: the legend of a legend cell is attached to the layer that has its curves, each entry with the key of its curve", 'text$="\\l(1) First curve"' in Jg and 'text$="\\l(2) Second curve"' in Jg)
+check("Origin: the legend of the whole figure: columns by colour and hatch, the points by their symbol", 'text$="\\l(1) Set one"' in Jg and 'text$="\\l(2) Set two"' in Jg and 'text$="\\l(3) Measured"' in Jg, [c for c in Cg if "l(" in c])
+check("Origin: points drawn on columns are plotted after them, in the colour of their fill", Jg.index("layer -i203") < Jg.index("layer -i201") and any(c.startswith("set ") and c.endswith("-c color(0,0,0);") for c in Cg[Jg[:Jg.index("layer -i201")].count("\n"):][:3]))
+bars_csv = sorted(f for f in os.listdir(dg.tmp) if f.startswith("D") and open(os.path.join(dg.tmp, f)).read().count("\n") == 4)
+check("Origin: columns standing in groups get the width of the figure (one more x value with no height at width / 0.8: Origin makes a column 80 % of the smallest x step)",
+      len(bars_csv) == 2 and all(abs(float(open(os.path.join(dg.tmp, f)).read().split()[3].split(",")[0]) - float(open(os.path.join(dg.tmp, f)).read().split()[2].split(",")[0]) - 0.25) < 1e-6 and float(open(os.path.join(dg.tmp, f)).read().split()[3].split(",")[1]) == 0 for f in bars_csv), bars_csv)
+kg = [O._scale(L_) for L_ in Rg["layers"]]
+check("Origin: letters, lines and symbols of a layer are sent larger by 62 / (its width in % of the page), so they come out at the size of the figure", all(abs(k_ - 62.0 / L_["width"]) < 1e-9 for k_, L_ in zip(kg, Rg["layers"])) and f"-w {int(round(1.1 * kg[1] * 500))};" in Jg and f"layer.x.label.pt={int(round(Rg['layers'][1]['tick_pt'] * kg[1]))};" in Jg, kg)
+check("Origin: the numbered ticks of the figure are kept (Origin chose its own steps)", "layer.y.inc=2;" in Jg and Rg["layers"][0]["yinc"] == 2.0)
+last_plot = max(i for i, c in enumerate(Cg) if c.startswith("layer -i")); again = [i for i, c in enumerate(Cg) if c.startswith("layer.x.showAxes=3")]
+check("Origin: the look of the axes is sent once more at the very end (a layer filled the second way gets Origin's standard axes back)", len(again) == 4 and again[-2] > last_plot and "T" not in "".join(c[:1] for c in Cg[again[-2]:]), again)
+_plt.close(fg)
 check("Origin: what differs is said in one line each", isinstance(rb["differences"], list) and all(isinstance(x, str) and len(x) < 260 for x in rb["differences"]), rb["differences"])
 ft, _ = api.draw("tga_dtg_single", sets["tg"]); Rt = O.read_figure(ft)
 dtg_layer = [L for L in Rt["layers"] if L["right_axis"]]; check("TG + DTG in one graph: DTG on the right axis at its natural sign (not reversed)", len(Rt["layers"]) == 2 and len(dtg_layer) == 1 and dtg_layer[0]["y"][0] < dtg_layer[0]["y"][1] and min(dtg_layer[0]["curves"][0]["y"]) < 0, [L["y"] for L in Rt["layers"]])

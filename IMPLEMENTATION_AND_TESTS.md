@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 35 test files: 1 086 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
+* All 35 test files: 1 115 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -193,6 +193,12 @@ Found by running it with real PySide6 and the whole existing test suite (the upd
 3. A large file clicked in the project list was read on the window's thread (`Workbench.ready` reads it in the background); closing the app while files were being read waited up to 30 s and could abort ("QThread: Destroyed while thread is still running").
 4. A file added without a project was shown only in a two-row list in the middle column; it is now a row of the project tree ("Files not in a project").
 5. By request: every graph of a fit draws the observed curve as a solid line and the calculated one dashed over it (dots on request); "Add folder…" brings in a folder of the disk with its sub-folders.
+
+### Found after 5.57.1 was installed, fixed in 5.57.2
+
+1. **A workbook figure in Origin did not look like the figure in the app.** With 5.57.1 the curves were there, but: texts were missing and one lay as a jumble at the top of the page, axis titles were missing on every panel after the first, letters and lines were a half to a third of their size, there was no legend and a sixth, empty panel, grouped columns covered each other. Causes and fixes are listed in `CHANGELOG.md` (5.57.2) and, for whoever changes the code next, in `CLAUDE_CODE_HANDOFF.md`. Tested through the driver's dry run on a figure built for the purpose (`tests/test_opstudio.py`, 12 new checks) and on the owner's two figures (privately). **Not run in Origin.** Two things could not be settled without Origin: whether it accepts the hatch command, and the frame of panels after the first.
+2. **Delete on a ★ figure of the app only showed a message** (the behaviour chosen in 5.55.3). It removes the figure now (`tests/test_session_basics.py`, 6 new checks).
+3. By request: "Phase tick rows" on the Panel bar (`tests/test_edit_graph.py`, 5 new checks); Export ▸ Send to PowerPoint / Word (`tests/test_workspace_actions.py`, 8 new checks; the written files are also read back with python-pptx / python-docx and were opened with LibreOffice).
 
 ## Interpretation details
 

@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.57.1** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.57.2** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -35,6 +35,17 @@ Read this file first. It says what exists in the code now, not what is intended.
 | `tools/audit_graph_operations.py` (new) | Tries every per-graph control on every template and workbook graph type; writes `docs/GRAPH_OPERATIONS_AUDIT.md` | run it after changing `graph_components.py` or a template |
 
 `workbook_cache.sheets(path)` (new, 5.57.1): one parse of an Excel workbook per version of the file, handed out as copies; used by `paper_figures.load_sheets`, `auto_recipe.load`, `TemplatePage._read_all` and `opstudio.data.read_tables`. Before it, every redraw of a composed figure re-read the workbook. `opstudio.origin.send` (5.57.1) writes its commands down and sends them in the driver's order (books, graph, layers, rest) and then calls `Driver.check` - sending them as they came left a workbook active when the plot commands ran, and the graph was empty in Origin. `Workbench.ready(path)` / `read_in_background`: large files are read off the window's thread. Files in no project are tree nodes `('session','','')` / `('file','',path)` in Start here.
+
+`opstudio/origin.py` (5.57.2) - what Origin 2018 really did with a workbook figure, read from the owner's screenshots, and what the sender does about it. Keep these when touching it:
+`label -a x y` with a negative number loses the text (the number is read as an option) -> texts are made at max(x, 0), max(y, 0) and then moved with `T.x=` / `T.y=` (the driver's own `text` does the same);
+a layer made with `layer -n` has no `xb` / `yl` objects -> axis titles are texts at the figure's own place (`xlabel_at`, `ylabel_at` of `read_figure`), `xb` / `yl` are hidden;
+Origin scales everything in a layer with the layer's width -> every size is multiplied by `_scale(L)` = 62 / width % (measured: 40.5 % wide -> 0.67, 23.4 % -> 0.37);
+a legend-only axes is no layer; legends (`read_figure()["legends"]`, of axes and of the figure) are texts `\l(n) name`, n matched by name, else colour (+ hatch / symbol), attached to the layer with most matches;
+a text of several lines is one text per line; grouped columns get one more x value at width / 0.8 with no height (column width = 80 % of the smallest x step); columns are plotted before curves;
+`send` replays the axis commands of every layer after `Driver.check` (`plotxy` refills reset the axes).
+Not confirmed in Origin: hatch (`set -pfv`), the frame of layers after the first (`showAxes=3`). `www.originlab.com` could not be reached from the session to read the LabTalk reference; the owner's `origin_commands_log.txt` is the evidence to ask for.
+`office_export.py` (5.57.2): `write_pptx` / `write_docx` fill `office/blank.pptx` / `blank.docx` (made once by `tools/build_office_templates.py` with python-pptx / python-docx; the app needs neither). `Workspace.send_to_office("pptx" | "docx")`.
+`ws.hidden_groups` (5.57.2): the ★ figures of the app the user removed, as `(how, member keys)`; filtered in `regroup`, saved as `modern_hidden_groups`, part of the session Undo snapshot, cleared by a choice in the Group list.
 
 Not done / to know: Windows and a live Origin were not available (PySide6 offscreen on Linux, Origin dry run; the Origin order was checked by following the active window through the commands). A big workbook still needs one header-less parse and one normal parse. The `figures-5.55.2`
 workbook-of-figures work is unchanged and its tests (`tests/test_figures_general.py`, 37) pass.

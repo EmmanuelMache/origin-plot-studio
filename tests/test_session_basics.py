@@ -15,9 +15,12 @@ import workspace_qt as W, workspace_session as WS, smart_plots as sp
 app.setStyle("Fusion"); app.setStyleSheet(W.STYLE)
 EX = ROOT / "origin_plot_app" / "examples_synthetic"
 def wait(w, n=4000):
-    for _ in range(n):
+    import time as _t                                    # by the clock, not by a number of turns: on a busy computer 4000 turns were over before the files were read
+    t0 = _t.time()
+    while _t.time() - t0 < 90:
         app.processEvents()
         if w.job_thread is None and getattr(w, "loader", None) is None: break
+        _t.sleep(0.002)
 for size in ((1366, 768), (1920, 1080)):
     w = W.Workspace([]); w.resize(*size); w.show(); app.processEvents(); tb = w.topbar_layout
     order = [tb.itemAt(i).widget() for i in range(tb.count()) if tb.itemAt(i).widget() is not None and tb.itemAt(i).widget().isVisible()]
@@ -70,12 +73,31 @@ r = w.remove_selected()
 check("Delete / 'Remove selected' removes the highlighted graph; Undo restores", r == "removed" and target not in w.singles and w.undo_any() == "session" and target in w.singles)
 w.list.clearSelection(); app.processEvents()
 check("with nothing highlighted, Remove selected says so and removes nothing", w.remove_selected() is None and len(w.singles) == n0)
+import numpy as _np, pandas as _pd, tempfile as _tmp
+_d = _tmp.mkdtemp(); _x = _np.linspace(5, 70, 600); _before = list(w.singles)       # two scans of the same kind: the app makes ★ combined figures of them
+for _k in (1, 2): _pd.DataFrame({"2theta (deg)": _x, "Intensity (counts)": 100 + 500 * _k * _np.exp(-(_x - 29) ** 2 / 0.4)}).to_csv(os.path.join(_d, f"scan_{_k}.csv"), index=False)
+w.load([os.path.join(_d, "scan_1.csv"), os.path.join(_d, "scan_2.csv")]); wait(w); app.processEvents(); n0 = len(w.singles)
 auto_row = next((i for i in range(w.list.count()) if isinstance(w.items[i], sp.Combined) and not getattr(w.items[i], "mine", False)), None)
+check("two scans of one kind give ★ combined figures made by the app", auto_row is not None)
 if auto_row is not None:
     w.list.item(auto_row).setSelected(True); app.processEvents()
-    check("a ★ combined figure the app made can't be deleted directly; a clear message says so (not a silent no-op)",
-          w.remove_selected() == "auto" and "change the Group list" in w.status.text() and len(w.singles) == n0)
+    star = w.items[auto_row]; star_key = (star.how, tuple(sp.key_of(m) for m in star.members)); n_star = sum(isinstance(i, sp.Combined) for i in w.items)
+    same = lambda: [i for i in w.items if isinstance(i, sp.Combined) and (i.how, tuple(sp.key_of(m) for m in i.members)) == star_key]
+    check("Delete on a ★ combined figure the app made removes it from the list; its graphs stay",
+          w.remove_selected() == "removed" and not same() and len(w.singles) == n0 and sum(isinstance(i, sp.Combined) for i in w.items) == n_star - 1, w.status.text())
+    w.regroup(); w.refresh_list(); app.processEvents()
+    check("... and it stays away when the graphs are grouped again (it used to come straight back, or not go at all)", not same())
+    check("... Undo brings it back", w.undo_any() == "session" and len(same()) == 1)
+    w.list.clearSelection(); w.list.item(w.items.index(same()[0])).setSelected(True); app.processEvents(); w.remove_selected()
+    import tempfile as _tf, json as _json
+    _recent0 = W.load_cfg().get("recent_sessions"); _path0 = w.session_path                    # this save is only to look at the file: the list of recent sessions is put back
+    _sess = os.path.join(_tf.mkdtemp(), "s.json"); w.save_session(_sess)
+    check("... a saved session remembers that it was removed", len(_json.load(open(_sess, encoding="utf-8")).get("modern_hidden_groups", [])) == 1)
+    W.save_cfg({"recent_sessions": _recent0 or []}); w.session_path = _path0
+    w.groupmode.activated.emit(w.groupmode.currentIndex()); app.processEvents()
+    check("... and picking from the Group list brings the app's combined figures back", len(same()) == 1)
     w.list.clearSelection(); app.processEvents()
+w.singles = _before; w.hidden_groups = []; w._session_undo.clear(); w._session_redo.clear(); w.regroup(); w.refresh_list(); app.processEvents(); n0 = len(w.singles)   # the two scans were only for this: no Undo step leads back to them
 del_act = next((a for a in w.list.actions() if a.shortcut().toString() == "Del"), None)
 check("Your graphs has one Delete action, removing the highlighted graph(s) (or the one on show)", del_act is not None)
 w.start_afresh(keep=True); check("Start afresh: an empty session, settings and layout kept", not w.singles and w.outdir is not None)

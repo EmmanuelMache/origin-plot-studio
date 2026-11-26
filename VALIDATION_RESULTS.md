@@ -1,6 +1,6 @@
-# Validation results — Origin Plot Studio 5.57.1
+# Validation results — Origin Plot Studio 5.57.2
 
-Date: 25 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
+Date: 26 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
 
 **Where:** a Linux container, Python 3.13, **PySide6 (the real toolkit of the app)** with `QT_QPA_PLATFORM=offscreen`,
 NumPy, pandas, SciPy, matplotlib, openpyxl. **Not Windows. No Origin.** Everything that needs Origin went through the
@@ -15,19 +15,19 @@ delivered update (228 checks, seven suites, on a Qt 5 stand-in) is prior evidenc
 |---|---:|---:|
 | Workbench core (detection, fit columns, merges, project archives) — `tests/test_workbench_core.py` | 46 | 0 |
 | Desktop workflow (real widgets) — `tests/test_workbench_ui.py` | 15 | 0 |
-| Template engine and Origin driver (dry run) — `tests/test_opstudio.py` | 66 | 0 |
+| Template engine and Origin driver (dry run) — `tests/test_opstudio.py` | 78 | 0 |
 | Composed figures (workbooks of figures) — `tests/test_figures_general.py` | 40 | 0 |
 | Analysis tools (all 44) — `tests/test_analysis_tools.py` | 17 | 0 |
 | HighScore / XRD workflows — `tests/test_highscore.py` | 27 | 0 |
 | Workbook graph types (26) — `tests/test_gallery_graphs.py` | 34 | 0 |
-| **Total** | **245** | **0** |
+| **Total** | **257** | **0** |
 
 The workbench core suite has 11 checks more than the delivered one (fit columns by name, peak lists, the wider list of
 data types, a file with no table, the template example cache, the one-parse workbook cache, the look of every fit graph).
 
 ## Every test file
 
-35 files, **1086 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
+35 files, **1115 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
 fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
 `TEST_REPORT.md`, section 2.
 
@@ -77,6 +77,28 @@ scan templates. The longest stop of the window while they were read was 0.8 s (1
   5.57.0, 224 plot, axis and legend commands of that figure were sent while a data workbook was the active window;
   now none (`tests/test_opstudio.py`, two checks, and the shipped scripts). **This is a check of the commands, not a
   run in Origin**: it has to be confirmed once in Origin on the owner's computer.
+
+## 5.57.2: the look of a workbook figure in Origin
+
+The owner's screenshots of Origin 2018 showed what 5.57.1 still got wrong. Each fault was traced to a command and
+changed; the dry run on the same two figures now gives:
+
+| | 5.57.1 | 5.57.2 |
+|---|---|---|
+| texts made at a negative position (lost in Origin) | 2 per bar-chart panel | 0 |
+| layers for the six-panel figure | 6 (one empty, axes 0-1) | 5 |
+| axis titles sent for panels after the first | through `xb` / `yl`, which those layers do not have | as texts, every panel |
+| legend entries | none (bar figure), one legend object on the empty layer | 5 and 8 texts with the key of their curve |
+| letter size sent for an 8.5 pt axis title | 9 | 13 (two panels), 23 (six panels): x 62 / layer width % |
+| line weight sent for a 1.1 pt curve | 1.1 pt | 2.9 pt in a layer 23 % wide (Origin draws it at 0.37) |
+| grouped columns | 0.8 wide over a step of 1 (covering each other) | the width of the figure (0.19) |
+
+The factor 62 / width comes from two measurements on those screenshots (a layer 40.5 % of the page wide drew letters at
+0.67 of their size, one 23.4 % wide at 0.37). It is an observation of Origin 2018 with its standard template, not a
+documented rule. **None of this was run in Origin here.**
+
+PowerPoint and Word: the files written by Export ▸ Send to PowerPoint / Word were read back with python-pptx and
+python-docx and converted to PDF by LibreOffice (2 slides, 2 pictures). Not opened in Microsoft Office here.
 
 ## Not verified
 
