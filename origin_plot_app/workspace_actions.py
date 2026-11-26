@@ -37,6 +37,7 @@ SHORTCUTS = [
     ("Ctrl+Shift+A", "Untick all graphs", lambda w: w.tick_all(False)),
     ("Space", "Tick / untick the graph on show (in Your graphs)", "toggle_tick"),
     ("Delete", "Remove the highlighted graph(s), or the graph on show, from the list (the file stays)", "remove_current_or_selected"),
+    ("Shift+Delete", "Remove the ticked graphs from the list (the files stay)", "remove_ticked"),
     ("Ctrl+F", "Find a graph by name", lambda w: (w.go(0), w.search.setFocus(), w.search.selectAll())),
     ("Ctrl+R", "Reset the axes of the graph", "reset_axes"),
     ("Z", "Zoom mode on the graph (drag a box)", lambda w: w.modes.button(0).click()),
@@ -61,7 +62,7 @@ def install(w):
     import types
     for name, fn in METHODS.items():
         setattr(w, name, types.MethodType(fn, w))
-    typing = {"Space", "Delete", "Z", "P", "S", "Ctrl+A", "Ctrl+Shift+A"}         # keys that are letters in a text box: only on the graph and the list
+    typing = {"Space", "Delete", "Shift+Delete", "Z", "P", "S", "Ctrl+A", "Ctrl+Shift+A"}         # keys that are letters in a text box: only on the graph and the list
     w.shortcut_actions = {}
     for key, what, target in SHORTCUTS:
         if target is None:
@@ -72,7 +73,7 @@ def install(w):
         a.triggered.connect(fn)
         if key in typing:
             a.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-            (w.list if key in ("Space", "Delete", "Ctrl+A", "Ctrl+Shift+A") else w.canvas).addAction(a)
+            (w.list if key in ("Space", "Delete", "Shift+Delete", "Ctrl+A", "Ctrl+Shift+A") else w.canvas).addAction(a)
             if key in ("Ctrl+A", "Ctrl+Shift+A"):
                 b = QAction(what, w)
                 b.setShortcut(QKeySequence(key))
@@ -89,6 +90,8 @@ def install(w):
         w.addAction(a)
     w.canvas.setFocusPolicy(Qt.ClickFocus)
     # right-click menus
+    try: w.list.customContextMenuRequested.disconnect(w._graphs_list_menu)      # the list has ONE menu (two opened one after the other: the window's own small one, then this)
+    except Exception: pass
     for widget, builder in ((w.list, w.menu_graphs), (w.canvas, w.menu_canvas), (w.dataview, lambda p: w.menu_table(p, w.dataview, "data")),
                             (w.resview, lambda p: w.menu_table(p, w.resview, "results")), (w.assistant.view, w.menu_chat)):
         widget.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -171,8 +174,13 @@ def remove_current(self, it=None):
 
 
 def remove_current_or_selected(self):
-    """The Delete key: the highlighted row(s) if any are highlighted (click, or Ctrl / Shift-click several), else the graph on show."""
-    return self.remove_selected() if self.selected() else self.remove_current()
+    """The Delete key: the highlighted row(s) if any are highlighted (click, or Ctrl / Shift-click several), else the graph on show.
+    When one graph went and several are ticked, the status line says how to remove several at once."""
+    sel = self.selected(); r = self.remove_selected() if sel else self.remove_current()
+    nt = len([i for i in self.ticked() if isinstance(i, (sp.Item, sp.Board, sp.Combined))])
+    if r == "removed" and len(sel) <= 1 and nt >= 2:
+        self.set_status(self.status.text().rstrip() + f"  Several at once: Ctrl / Shift-click them and press Delete - or Shift+Delete removes the {nt} ticked graphs.")
+    return r
 
 
 def reorder_from_list(self):
@@ -256,10 +264,16 @@ def send_to_office(self, kind, path=None):
             while path.exists(): path = folder / f"{base}_{k}.{kind}"; k += 1                    # an earlier file (perhaps open in Word or PowerPoint) is never written over
         path = str(path); (oe.write_docx if word else oe.write_pptx)(path, pics)
     except Exception as e:
-        self.set_status(f"The {what} could not be written: {e}"); return None
+        QApplication.restoreOverrideCursor()
+        self.set_status(f"The {what} could not be written: {e}")
+        if not os.environ.get("OPS_NO_OPEN"): QMessageBox.warning(self, f"Send to {'Word' if word else 'PowerPoint'}", f"The {what} could not be written:\n\n{e}")      # a line in the status bar alone looked like nothing had happened
+        return None
     finally:
         QApplication.restoreOverrideCursor()
     self.last_folder = os.path.dirname(path)
+    if not os.environ.get("OPS_NO_OPEN") and not getattr(self, "_office_told", False):          # said once: where the file is, in case the program does not come to the front
+        self._office_told = True
+        QMessageBox.information(self, f"Send to {'Word' if word else 'PowerPoint'}", f"The {what} is written and is being opened:\n\n{path}\n\nIf {'Word' if word else 'PowerPoint'} does not come to the front, open the file from there. (This note is shown once.)")
     self.set_status(f"{len(pics)} graph(s) as {'600 dpi pictures' if word else 'pictures, one slide each'} in {path}" + (f"  (left out, no final form: {', '.join(left[:3])})" if left else ""))
     self.open_path(path)
     return path
@@ -414,7 +428,8 @@ def menu_graphs(self, pos):
         return _show(self, m, self.list, pos)
     row = self.list.row(li)
     it = self.items[row]
-    self.list.setCurrentRow(row)
+    many = li.isSelected() and len(self.list.selectedItems()) > 1
+    if not many: self.list.setCurrentRow(row)                  # a right click on one of several highlighted rows leaves them highlighted (it used to drop all but one, so 'Remove' took one graph)
     single = isinstance(it, sp.Item) and it in self.singles
     if getattr(it, "spec", None) is not None and not isinstance(it, sp.Board) and hasattr(self, "ribbon"):
         ed = m.addAction("✎  Edit this graph…", lambda: self.ribbon.edit_dialog(it)); f_ = ed.font(); f_.setBold(True); ed.setFont(f_)
@@ -461,7 +476,13 @@ def menu_graphs(self, pos):
         m.addAction("Copy the file path", lambda: QApplication.clipboard().setText(str(it.path)))
         if sum(1 for s in self.singles if getattr(s, "path", "") == it.path) > 1:
             m.addAction("Arrange this workbook's figures…", lambda: self.arrange_workbook(it))
-    m.addAction("Remove from the list (Delete)", lambda: self.remove_current(it))
+    kinds = (sp.Item, sp.Board, sp.Combined)
+    sel = [i for i in self.selected() if isinstance(i, kinds)]; nt = len([i for i in self.ticked() if isinstance(i, kinds)])
+    nf = sum(1 for s in self.singles if getattr(it, "path", "") and getattr(s, "path", "") == it.path)
+    if many and len(sel) > 1: m.addAction(f"Remove the {len(sel)} highlighted graphs from the list (Delete)", self.remove_selected)
+    else: m.addAction("Remove from the list (Delete)", lambda: self.remove_current(it))
+    if nt >= 2: m.addAction(f"Remove the {nt} ticked graphs from the list (Shift+Delete)", self.remove_ticked)
+    if nf > 1: m.addAction(f"Remove all {nf} graphs of this file from the list", lambda: self.remove_file_graphs(it))
     return _show(self, m, self.list, pos)
 
 

@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.58.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.58.1** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -44,7 +44,7 @@ a legend-only axes is no layer; legends (`read_figure()["legends"]`, of axes and
 a text of several lines is one text per line; grouped columns get one more x value at width / 0.8 with no height (column width = 80 % of the smallest x step); columns are plotted before curves;
 `send` replays the axis commands of every layer after `Driver.check` (`plotxy` refills reset the axes).
 Not confirmed in Origin: hatch (`set -pfv`), the frame of layers after the first (`showAxes=3`). `www.originlab.com` could not be reached from the session to read the LabTalk reference; the owner's `origin_commands_log.txt` is the evidence to ask for.
-`office_export.py` (5.57.2): `write_pptx` / `write_docx` fill `office/blank.pptx` / `blank.docx` (made once by `tools/build_office_templates.py` with python-pptx / python-docx; the app needs neither). `Workspace.send_to_office("pptx" | "docx")`.
+`office_export.py` (5.57.2): `write_pptx` / `write_docx` fill `opstudio/office/blank.pptx` / `blank.docx` (moved there in 5.58.1) (made once by `tools/build_office_templates.py` with python-pptx / python-docx; the app needs neither). `Workspace.send_to_office("pptx" | "docx")`.
 `ws.hidden_groups` (5.57.2): the ★ figures of the app the user removed, as `(how, member keys)`; filtered in `regroup`, saved as `modern_hidden_groups`, part of the session Undo snapshot, cleared by a choice in the Group list.
 
 5.58.0 - series of files, worked-out columns, peaks:
@@ -54,6 +54,15 @@ Start here: `StartHerePage.series_of(paths, focus)`; `_mode_user` (your own choi
 Workbook: entries of the file list whose `Qt.UserRole` is not a string are the app's side-by-side tables (`('series', paths, label)`); `add_worked_columns`, `set_column_everywhere`, `columns_to_all`, `open_peaks`, `labels_toggled`. `Workbench.peak_frame / peak_names / set_peak_labels / apply_peak_names`; labels are stored as `sheet_settings[sheet]['peak_labels']` (`[[position, label]]`) and `'peak_names_on'`.
 Builders: `det['_peak_names']` (`[(position, label)]`) makes `build_tga` / `build_ftir` write the label beside the position; without it the labels are unchanged (the updater's regression, `self_update.check`, still gives the same Origin commands for 10 of 10 example files). Results rows get `May be` / `Other possibilities`.
 `smart_plots.read_tables`: a CSV whose headers are all `column [tag]` is returned as one table per tag (`_split_side_by_side`, path noted in `SIDE_BY_SIDE`); `TemplatePage._read_all` then gives one sheet per tag.
+
+5.58.1: `WorkingTableModel.clear_cells / delete_rows / delete_columns` change the working frame IN PLACE (the same object is held by `Workbench.working`) and push `('table', before, after)` on the undo list; `_put` restores a snapshot in place. `WorkbookPage.delete_in_table / delete_rows / delete_columns / hide_columns / table_menu / remove_files / files_menu / show_peaks / refresh_peak_column`.
+`Workbench.sync_selection(index)` runs from `page_changed` when the page before was Start here (6): `_drop_graphs` (one Workspace Undo step) for listed-but-unticked inputs, `select_inputs(ticked)`, and on page 0 `ws.load` for ticked loose files not read yet (`open_inputs` skips inputs without a project) / `open_inputs` for project files. `deselect_inputs(paths)` is the same from the Workbook. `StartHerePage.ticked_inputs / listed_inputs / untick_paths`; a file first listed while its graphs are in Workspace starts ticked (`_listed`).
+Your graphs: `menu_graphs` keeps a multi-row highlight; `remove_file_graphs`; Shift+Delete = `remove_ticked`; the older `_graphs_list_menu` is disconnected in `workspace_actions.install`.
+Drawing defaults changed on purpose (the updater reports different examples): `finish()` honours `spec['xround']` (TGA: 100); `build_tga` drops DTG peaks within max(15 °C, 2 %) of the start and uses `dplot` / `dun` in `split`; `ftir_bands()` leaves out `FTIR_AIR_CO2` and 25 cm-1 at both ends.
+`self_update.program_files` installs top-level files by extension and the folders in `PROGRAM_DIRS` only: a data file the program needs must live inside one of those folders (the Office files moved to `opstudio/office` for that reason; `tests/test_workspace_actions.py` checks it for every data file). The updater that copies the files is the one of the INSTALLED version, so adding a folder to `PROGRAM_DIRS` does not help the update that introduces it.
+Analysis: `TemplatePage.chosen(least)` = kept previews, else all previews on show; `_nothing(what, least)`; `to_workbook()`.
+Merge (side by side) writes `related.merged_workbook` (.xlsx: a sheet per file + `OVERVIEW_SHEET`); `smart_plots._without_overview` drops that overview sheet when the workbook has two or more other sheets (or splits it when it is alone), `TemplatePage._best_sheet` never picks it.
+A table with a column of words in every row is read by the Workspace loader as a label table, not as data - test files must not have one.
 
 Not done / to know: Windows and a live Origin were not available (PySide6 offscreen on Linux, Origin dry run; the Origin order was checked by following the active window through the commands). A big workbook still needs one header-less parse and one normal parse. The `figures-5.55.2`
 workbook-of-figures work is unchanged and its tests (`tests/test_figures_general.py`, 37) pass.

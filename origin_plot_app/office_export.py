@@ -4,11 +4,22 @@
     write_docx(path, pictures)    one centred picture per paragraph, at most the width of the text of an A4 page
 
 A picture is (png bytes, width in inches, height in inches, name). Nothing but the Python standard library is used:
-the two empty Office files in the folder 'office' (made once with tools/build_office_templates.py) are copied, and the
+the two empty Office files in the folder 'opstudio/office' (made once with tools/build_office_templates.py) are copied, and the
 picture, its size and the number of slides / paragraphs are written into the copy."""
 import os, re, zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# The two empty files are kept inside 'opstudio', a folder the app's updater installs whole. In a folder of their own
+# ('office', 5.57.2 - 5.58.0) an updated app did not get them, and Send to PowerPoint / Word could not write anything.
+TEMPLATES = os.path.join(HERE, "opstudio", "office")
+
+
+def template(name):
+    """The path of an empty Office file of the app - with a plain message when the installation does not have it."""
+    p = os.path.join(TEMPLATES, name)
+    if not os.path.isfile(p):
+        raise FileNotFoundError(f"the app's file '{name}' is missing from this installation ({p}). Update the app once more (Help > Check for updates and install), or run Setup again")
+    return p
 EMU = 914400                       # Office's unit: 914400 to the inch
 SLIDE = (13.333, 7.5)              # inches (16:9)
 TEXT_W, TEXT_H = 6.3, 9.3          # the text area of the A4 page of blank.docx (2.5 cm margins), a little less in height
@@ -32,7 +43,7 @@ def _copy(template, path, changed, added):
 def write_pptx(path, pictures, margin=0.35):
     """One slide per picture. The picture keeps its proportions and fills the slide up to a small margin."""
     if not pictures: raise ValueError("no picture to put on a slide")
-    tpl = os.path.join(HERE, "office", "blank.pptx")
+    tpl = template("blank.pptx")
     with zipfile.ZipFile(tpl) as z:
         slide = z.read("ppt/slides/slide1.xml").decode("utf-8"); srel = z.read("ppt/slides/_rels/slide1.xml.rels").decode("utf-8")
         pres = z.read("ppt/presentation.xml").decode("utf-8"); prel = z.read("ppt/_rels/presentation.xml.rels").decode("utf-8"); ct = z.read("[Content_Types].xml").decode("utf-8")
@@ -58,7 +69,7 @@ def write_docx(path, pictures, max_w=TEXT_W, max_h=TEXT_H):
     """One picture per paragraph, centred. A picture wider than the text of the page is made as wide as the text; a
     smaller one keeps its own size (the size of the figure), so a figure made for a journal column stays that wide."""
     if not pictures: raise ValueError("no picture to put in the document")
-    tpl = os.path.join(HERE, "office", "blank.docx")
+    tpl = template("blank.docx")
     with zipfile.ZipFile(tpl) as z:
         doc = z.read("word/document.xml").decode("utf-8"); rels = z.read("word/_rels/document.xml.rels").decode("utf-8")
     para = re.search(r"<w:p>(?:(?!</w:p>).)*<w:drawing>.*?</w:drawing>.*?</w:p>", doc, re.S).group(0); rid0 = re.search(r'r:embed="(rId\d+)"', para).group(1)

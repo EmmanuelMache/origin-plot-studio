@@ -231,10 +231,10 @@ class TemplatePage(QWidget):
         h.addWidget(self.b_recommend)
         self.b_draw = self._btn("Draw my data like this", "Draw your ticked files in every ticked template and style. No file ticked yet: it asks for your data files first. No template ticked: click a template picture first", self.draw_my_data, "primary")
         h.addWidget(self.b_draw)
-        self.b_open = self._btn("Open all in editor", "Open every kept graph in the editor: variants, parameters, texts, style. Disabled: no graph is kept (tick previews)", self.open_all)
-        self.b_origin = self._btn("Draw all in Origin like this", "Send every kept graph to Origin as the same graph: same layout, panels, ranges, colours, fonts; your data in worksheets; each saved as {sample}_{template}.opju. Disabled: no graph is kept", self.draw_all_in_origin, "origin", "Ctrl+Shift+O")
-        self.b_export = self._btn("Export all…", "Save every kept graph as PNG / TIFF / PDF / SVG / EPS at the journal size and dpi of its style. Disabled: no graph is kept", self.export_all, None, "Ctrl+Shift+E")
-        self.b_combine = self._btn("Combine into one figure…", "Put the kept graphs into one figure (1×2, 2×2, 2×3, stacked or your own grid) with panel labels (a), (b) … - in the app and in Origin. Disabled: fewer than two graphs are kept", self.combine, None, "Ctrl+Shift+G")
+        self.b_open = self._btn("Open all in editor", "Open the kept graphs in the editor (or, with none ticked 'keep', every preview on show): variants, parameters, texts, style. Disabled: there is no preview yet", self.open_all)
+        self.b_origin = self._btn("Draw all in Origin like this", "Send every kept graph to Origin as the same graph: same layout, panels, ranges, colours, fonts; your data in worksheets; each saved as {sample}_{template}.opju. The kept graphs, or every preview on show when none is ticked 'keep'. Disabled: there is no preview yet", self.draw_all_in_origin, "origin", "Ctrl+Shift+O")
+        self.b_export = self._btn("Export all…", "Save every kept graph as PNG / TIFF / PDF / SVG / EPS at the journal size and dpi of its style. The kept graphs, or every preview on show when none is ticked 'keep'. Disabled: there is no preview yet", self.export_all, None, "Ctrl+Shift+E")
+        self.b_combine = self._btn("Combine into one figure…", "Put the kept graphs - or, with fewer than two ticked 'keep', all previews on show - into one figure (1×2, 2×2, 2×3, stacked or your own grid) with panel labels (a), (b) …; it is shown at once, and can be sent to Origin or saved from there. Disabled: fewer than two previews are on show", self.combine, None, "Ctrl+Shift+G")
         more = QToolButton(); more.setText("More ▾"); more.setPopupMode(QToolButton.InstantPopup); more.setToolTip("Data of all to one Excel workbook, save as my template, import / export a template file, apply the style to all")
         m = QMenu(more)
         for text, tip, fn in (("Data and results of all → one Excel workbook…", "One sheet per file with its data, and a sheet that lists the kept graphs and the columns they use", self.export_workbook),
@@ -246,8 +246,17 @@ class TemplatePage(QWidget):
                               ("Change the Origin output folder…", "Draw in Origin like this / Draw all in Origin like this use this folder from now on without asking again; pick a different one here", self._pick_origin_folder)):
             a = QAction(text, m); a.setToolTip(tip); a.setStatusTip(tip); a.triggered.connect(fn); m.addAction(a)
         m.setToolTipsVisible(True); more.setMenu(m)
-        for b in (self.b_open, self.b_origin, self.b_export, self.b_combine, more): h.addWidget(b)
+        self.b_workbook = self._btn("Edit data in Workbook", "Open the ticked files in the Workbook: edit cells, delete or hide columns, choose X and Y, merge. The previews here follow what you change there", self.to_workbook)
+        for b in (self.b_open, self.b_origin, self.b_export, self.b_combine, self.b_workbook, more): h.addWidget(b)
         return h
+
+    def to_workbook(self):
+        """The ticked files of this page in the Workbook."""
+        paths = [self.files.item(i).data(Qt.UserRole) for i in range(self.files.count()) if self.files.item(i).checkState() == Qt.Checked]
+        ctrl = getattr(self.ws, "workbench", None)
+        if ctrl is None: return None
+        if not paths: self.ws.set_status("Tick the data files to edit first (the list on the left)."); return None
+        ctrl.workbook.set_paths(paths); self.ws.go(7); return paths
 
     def _files_panel(self):
         w = QWidget(); v = QVBoxLayout(w); v.setContentsMargins(8, 8, 8, 8)
@@ -573,8 +582,11 @@ class TemplatePage(QWidget):
         sheets (a recipe workbook, a guide sheet first, lookup tables …) would otherwise open on a sheet with no numbers in it."""
         names = list(sheets_dict)
         if len(names) <= 1: return names[0]
+        import smart_plots as sp_
         def score(nm):
-            try: t = self.ops.data.Table(nm, sheets_dict[nm])
+            try:
+                if sp_.side_by_side_columns(list(sheets_dict[nm].columns)): return (-1, 0)       # the overview of a merged workbook (all files side by side): its sheets per file are the ones to draw from
+                t = self.ops.data.Table(nm, sheets_dict[nm])
             except Exception: return (-1, 0)
             return (len(t.numeric), len(t.df))
         return max(names, key=score)
@@ -703,13 +715,28 @@ class TemplatePage(QWidget):
 
     def kept(self): return [t for t in self.tiles if t.keep.isChecked() and t.fig is not None]
 
+    def chosen(self, least=1):
+        """The previews an action of the bar works on: the kept ones (ticked 'keep') when there are at least 'least' of
+        them, else every preview on show. Nothing had to be ticked to see the previews, so nothing has to be ticked to
+        use them - the buttons stayed grey, and seemed to do nothing, until previews were ticked one by one."""
+        k = self.kept()
+        return k if len(k) >= least else [t for t in self.tiles if t.fig is not None]
+
+    def _nothing(self, what, least=1):
+        """Say plainly why an action has nothing to work on."""
+        msg = (f"{what} needs {'two or more previews' if least > 1 else 'a preview'}.\n\nTick your data files on the left and one or more templates in the gallery: "
+               "the previews appear on the right. " + ("Two files in one template, or one file in two templates, give two previews." if least > 1 else ""))
+        self.ws.set_status(msg.replace("\n\n", " "))
+        if not getattr(self, "silent", False) and not os.environ.get("OPS_NO_OPEN"): QMessageBox.information(self, what, msg)
+
     def update_count(self):
         nf, nt, ns = len(checked(self.files)), len([t for t in checked(self.grid) if not str(t).startswith("coming:")]), len(checked(self.styles))
         n = (1 if self.together.isChecked() and nf else (nf or 1)) * nt * max(ns, 1); k = len(self.kept())
         self.count.setText(f"{nf} file{'s' * (nf != 1)} · {nt} template{'s' * (nt != 1)} · {ns} style{'s' * (ns != 1)} selected  →  {n} preview{'s' * (n != 1)}" + (f"  ·  {k} kept" if self.tiles else ""))
         why = "Disabled: no graph is kept (tick previews)"
-        for b in (self.b_open, self.b_origin, self.b_export): b.setEnabled(k > 0)
-        self.b_combine.setEnabled(k > 1)
+        shown = len([t for t in self.tiles if t.fig is not None])
+        for b in (self.b_open, self.b_origin, self.b_export): b.setEnabled(shown > 0)       # they work on the kept previews, or on all that are on show
+        self.b_combine.setEnabled(shown > 1)
 
     # ------------------------------------------------------------------------------------------------ previews
     def schedule(self):
@@ -994,8 +1021,8 @@ class TemplatePage(QWidget):
         Editor(self, [tile]).exec(); self.update_count()
 
     def open_all(self):
-        k = self.kept()
-        if not k: self.ws.set_status("Tick the previews to open first."); return
+        k = self.chosen()
+        if not k: return self._nothing("Open all in editor")
         Editor(self, k).exec(); self.update_count()
 
     def redraw_tile(self, t):
@@ -1039,8 +1066,8 @@ class TemplatePage(QWidget):
 
     def draw_all_in_origin(self, tiles=None, ask_folder=False):
         from opstudio import origin as O
-        tiles = tiles or self.kept()
-        if not tiles: self.ws.set_status("Tick the previews to draw in Origin first (or right-click one)."); return []
+        tiles = tiles or self.chosen()
+        if not tiles: self._nothing("Draw all in Origin like this"); return []
         remembered = self._cfg().get("origin_dir")
         folder = remembered or self.out_folder("Origin")
         if not getattr(self, "silent", False) and (ask_folder or not remembered or not os.path.isdir(remembered)):
@@ -1074,8 +1101,8 @@ class TemplatePage(QWidget):
         return out
 
     def export_all(self, tiles=None):
-        tiles = tiles or self.kept()
-        if not tiles: self.ws.set_status("Tick the previews to export first."); return []
+        tiles = tiles or self.chosen()
+        if not tiles: self._nothing("Export all"); return []
         opt = getattr(self, "export_options", None)
         if opt is None:
             d = ExportDialog(self, tiles)
@@ -1125,8 +1152,8 @@ class TemplatePage(QWidget):
         self.ws.set_status(f"Workbook written: {path} (one sheet per file, {len(files)} file(s), and the sheet 'Graphs')."); return path
 
     def combine(self, layout=None, tiles=None):
-        tiles = tiles or self.kept()
-        if len(tiles) < 2: self.ws.set_status("Keep two or more previews to combine them into one figure."); return None
+        tiles = tiles or self.chosen(2)
+        if len(tiles) < 2: self._nothing("Combine into one figure", 2); return None
         if layout is None:
             d = CombineDialog(self, len(tiles))
             if d.exec() != QDialog.Accepted: return None

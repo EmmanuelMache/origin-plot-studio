@@ -58,6 +58,31 @@ check("the reference of infrared bands: ranges in cm-1, most central first, noth
 nm = R.names_of(ft)
 check("a label belongs to the peak of a graph that lies within the tolerance (8 cm-1, 15 °C), and to none further away", R.name_at(nm, 1428.0, "FTIR") == "ν₃ CO₃²⁻ ?" and R.name_at(nm, 1450.0, "FTIR") is None and R.name_at(R.names_of(pt), 460.0, "TGA") == "Ca(OH)₂ ?" and R.name_at([], 5, "TGA") is None)
 
+# ---------------------------------------------------------------- the look of thermal and infrared graphs
+import smart_plots as sp
+def tga_item(Tv, mv, name="run_a"):
+    f = TMP / (name + ".csv"); pd.DataFrame({"Temperature (°C)": Tv, "Time (min)": (Tv - Tv[0]) / 10.0, "Mass (%)": mv}).to_csv(f, index=False)
+    its, _l = sp.load_file(str(f)); it = next(i for i in its if i.kind == "TGA"); it.build({}); return it
+Ts = np.linspace(20.1, 998.7, 3000); settle = -1.5 / (1 + np.exp(-(Ts - 28.0) / 1.5))      # the balance settling in the first degrees: a sharp dip of the DTG just after the start
+ms_ = 100 + settle - settle[0] - 5 / (1 + np.exp(-(Ts - 450) / 12)) - 6 / (1 + np.exp(-(Ts - 720) / 18))
+it_t = tga_item(Ts, ms_); labs = [t_ for _a, t_, _b in it_t.spec["panels"][0]["y2"]["labels"]]; ev = [r_ for r_ in it_t.results.to_dict("records") if r_.get("Event") != "total"]
+check("a thermal graph: the temperature axis ends on round values (0 - 1000 °C), not on the first and last reading", tuple(it_t.spec["xlim"]) == (0.0, 1000.0), it_t.spec["xlim"])
+check("... the dip of the DTG in the first degrees (the balance settling) is no event: not labelled, not in the results - and the record says so", len(labs) == 2 and all(float(t_.split(" ")[0]) > 100 for t_ in labs) and len(ev) == 2
+      and any("balance settling" in r_ for r_ in it_t.record), (labs, [r_ for r_ in it_t.record if "settling" in r_]))
+sp2 = it_t.spec["split"]
+check("... drawn as two panels (several samples in one figure) the DTG has the same unit and curve as in the graph of one sample", sp2[1]["yname"] == it_t.spec["panels"][0]["y2"]["yname"] == "DTG (%/min)"
+      and np.allclose(np.nan_to_num(sp2[1]["curves"][0]["y"]), np.nan_to_num(it_t.spec["panels"][0]["y2"]["curves"][0]["y"])), (sp2[1]["yname"], it_t.spec["panels"][0]["y2"]["yname"]))
+it_u = tga_item(Ts, ms_ * 1.0, "run_b"); grp, _why = sp.make_groups([it_t, it_u], "overlay", {}); g0 = grp[0]
+if getattr(g0, "spec", None) is None: g0.build({})
+check("... a figure of several thermal runs has the round temperature axis too", tuple(g0.spec["xlim"]) == (0.0, 1000.0), g0.spec["xlim"])
+xi = np.linspace(400, 4000, 3601); yi = 0.02 + sum(a * np.exp(-(xi - c_) ** 2 / (2 * w_ ** 2)) for a, c_, w_ in [(0.9, 1425, 35), (0.6, 875, 6), (0.5, 2360, 6), (0.45, 2341, 5), (0.4, 409, 3)])
+kept, left = sp.ftir_bands(xi, yi, False, 15)
+check("an infrared graph does not label the CO2 of the air (2280-2400 cm-1) or bands at the very end of the range (detector cut-off), and says what it left out",
+      sorted(round(p["pos"]) for p in kept) == [875, 1425] and len(left) == 2 and "CO\u2082 of the air" in left[0] and "2360" in left[0] and "409" in left[1], ([round(p["pos"]) for p in kept], left))
+pt_ir = R.peak_table("FTIR", OD.Table("ir2", pd.DataFrame({"Wavenumber (cm-1)": xi, "Absorbance": yi})))
+check("... the table of peaks lists the same bands as the graph", sorted(round(v) for v in pt_ir["Band (cm⁻¹)"]) == [875, 1425], list(pt_ir["Band (cm⁻¹)"]))
+check("the table of peaks of a thermal run leaves the settling at the start out as well", [round(v) for v in R.peak_table("TGA", OD.Table("ts", pd.DataFrame({"Temperature (°C)": Ts, "Mass (%)": ms_})))["DTG peak (°C)"]] == [450, 720])
+
 # ---------------------------------------------------------------- files side by side
 other = OD.Table("o", pd.DataFrame({"Temperature (°C)": T[:900], "Mass (%)": run(1)[:900]}))
 sbs = R.side_by_side([("a/10-900-AB-Mix.csv", tga), ("a/20-990-AB-Mix.csv", other)], extra=lambda p, t: [R.dtg_column(t)[:2]] if R.dtg_column(t) else [])
@@ -66,7 +91,6 @@ check("files side by side: for each file its x and y columns, named 'column [fil
                             "Temperature (°C) [20-990-AB-Mix]", "Mass (%) [20-990-AB-Mix]", "DTG (%/°C) [20-990-AB-Mix]"], list(sbs.columns))
 check("... every file keeps its own x values (nothing is interpolated); the shorter file ends in empty cells", len(sbs) == len(T) and np.array_equal(sbs.iloc[:900, 5].to_numpy(), T[:900]) and sbs.iloc[900:, 5].isna().all() and np.array_equal(sbs.iloc[:, 0].to_numpy(), T))
 f_sbs = TMP / "AB_Mix_side.csv"; sbs.to_csv(f_sbs, index=False)
-import smart_plots as sp
 tabs = sp.read_tables(str(f_sbs))
 check("such a file is read back as one table per file, each with its own columns and without the empty cells", [n for n, _r in tabs] == ["10-900-AB-Mix", "20-990-AB-Mix"] and list(tabs[1][1].iloc[0]) == ["Temperature (°C)", "Mass (%)", "DTG (%/°C)"] and len(tabs[1][1]) == 901 and str(f_sbs) in sp.SIDE_BY_SIDE, [(n, r.shape) for n, r in tabs])
 plain = TMP / "plain.csv"; pd.DataFrame({"x [a]": [1, 2, 3], "y": [1, 2, 3]}).to_csv(plain, index=False)
@@ -116,15 +140,20 @@ check("Create graph makes ONE graph of the three runs (not one each, and without
 sh.open_workbook(); pump(timeout=1.0); wb = c.workbook
 rows = [wb.files.item(i).text() for i in range(wb.files.count())]
 check("Workbook: after the files, a table of the series side by side, made by the app", rows[:4] == [os.path.basename(p) for p in files] + ["pattern.csv"] and rows[-1] == "⧉ All of 'AB Mix' side by side · 3 files", rows)
-check("the working copy of a thermal run has its DTG curve as a last column", list(wb.model.df.columns) == ["Temperature (°C)", "Time (min)", "Mass (%)", "DSC (uV)", "DTG (%/°C)"] and abs(float(wb.model.df["Temperature (°C)"][wb.model.df["DTG (%/°C)"].idxmin()]) - 450) < 3)
+check("the working copy of a thermal run has its DTG curve as a column, by itself", list(wb.model.df.columns) == ["Temperature (°C)", "Time (min)", "Mass (%)", "DSC (uV)", "DTG (%/°C)", "Peak (may be)", "What it may be"] and abs(float(wb.model.df["Temperature (°C)"][wb.model.df["DTG (%/°C)"].idxmin()]) - 450) < 3)
 cols = [(wb.columns.item(i).text(), wb.columns.item(i).checkState() == Qt.Checked) for i in range(wb.columns.count())]
-check("... listed under Columns as worked out by the app, unticked: it is exported, but the graphs keep working out their own", cols[-1] == ("DTG (%/°C)  (worked out by the app)", False) and "DTG (%/°C)" not in c.table_for(files[0]).cols, cols)
+check("... listed under Columns as worked out by the app, unticked: it is exported, but the graphs keep working out their own", cols[-3] == ("DTG (%/°C)  (worked out by the app)", False) and "DTG (%/°C)" not in c.table_for(files[0]).cols, cols)
+pkc = wb.model.df["Peak (may be)"]; named = {round(float(wb.model.df["Temperature (°C)"][i])): v for i, v in pkc.items() if str(v).strip()}
+check("... and a column that names each step of mass loss in its own row (empty elsewhere): the names are seen beside the numbers and go into every export", named == {120: "C-S-H / AFt ?", 450: "Ca(OH)₂ ?", 720: "CaCO₃ ?"} and cols[-2] == ("Peak (may be)  (worked out by the app)", False), named)
+means = {round(float(wb.model.df["Temperature (°C)"][i])): v for i, v in wb.model.df["What it may be"].items() if str(v).strip()}
+check("... and beside it, in the same rows, what each peak means in full", means == {120: "C-S-H + ettringite (AFt) dehydration", 450: "Portlandite Ca(OH)2 dehydroxylation", 720: "Calcite decarbonation"}, means)
+check("a 'Peaks (3)…' button stands beside the Sheet list for such a file", wb.b_peaks.isVisibleTo(wb) and wb.b_peaks.text().startswith("Peaks (3)"), wb.b_peaks.text())
 check("the columns are listed in the order the graphs use them (X, then Y): a tick or a drag keeps X and Y", [n for n, _ in cols[:2]] == ["Temperature (°C)", "Mass (%)"] and wb.x.currentText() == "Temperature (°C)" and wb.y.currentText() == "Mass (%)")
 wb.files.setCurrentRow(wb.files.count() - 1); pump(timeout=.5)
-check("the side-by-side table: all three runs with their own X, their Y columns and DTG; looked at and exported, not edited", wb.model.df.shape == (len(T), 15) and wb.caption.text() == "All of 'AB Mix' side by side"
+check("the side-by-side table: all three runs with their own X, their Y columns and DTG; looked at and exported, not edited", wb.model.df.shape == (len(T), 21) and wb.caption.text() == "All of 'AB Mix' side by side"
       and not (wb.model.flags(wb.model.index(0, 0)) & Qt.ItemIsEditable) and "nothing is interpolated" in wb.info.text(), (wb.model.df.shape, wb.caption.text()))
 out_csv = TMP / "side.csv"; WB.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (str(out_csv), "")); r = wb.export_data()
-check("... Export data saves it as CSV", r == str(out_csv) and pd.read_csv(out_csv).shape == (len(T), 15))
+check("... Export data saves it as CSV", r == str(out_csv) and pd.read_csv(out_csv).shape == (len(T), 21))
 check("no project is needed to merge: files that are in no project are merged too", c.active_project is None or all(c.project_for(p) != c.active_project for p in files))
 wb.files.setCurrentRow(0); pump(timeout=.3); n0 = len(w.singles); merged = wb.merge_files(); idle(w); pump(timeout=1.5)
 rows = [wb.files.item(i).text() for i in range(wb.files.count())]
@@ -134,6 +163,14 @@ check("... the app proposed a name for it", asked and isinstance(asked[-1], str)
 new = w.singles[n0:]; kinds = sorted({i.kind for i in new})
 check("... and it is drawable: Workspace reads it as one graph per sample (not only the first sample)", len([i for i in new if i.kind == "TGA"]) >= 3, [(i.kind, i.title.strip()[:40]) for i in new])
 check("... the Workbook shows it with one sheet per sample", [wb.sheet.itemText(i) for i in range(wb.sheet.count())][:3] == [Path(p).stem for p in files[:3]], [wb.sheet.itemText(i) for i in range(wb.sheet.count())])
+book_m = pd.read_excel(merged, sheet_name=None); stems_ = [Path(p).stem for p in files] + ["pattern"]
+check("merging means ONE Excel workbook: a sheet for every file with its own X and Y columns ...", merged.endswith(".xlsx") and list(book_m)[:4] == stems_ and list(book_m[stems_[0]].columns)[:2] == ["Temperature (°C)", "Mass (%)"] and len(book_m[stems_[0]]) == len(T), list(book_m))
+wide_ = book_m[R.OVERVIEW_SHEET]
+check("... and a last sheet with all files side by side, every column labelled with its file", list(book_m)[-1] == R.OVERVIEW_SHEET and all(c.endswith("]") for c in wide_.columns) and f"Mass (%) [{stems_[1]}]" in wide_.columns and f"Intensity (counts) [pattern]" in wide_.columns and len(wide_) == len(T), list(wide_.columns)[:4])
+check("... the side-by-side sheet is the same data once more: Workspace does not draw it a second time, and the app opens the workbook on a sheet of one file", len([i for i in new if i.kind == "TGA"]) == 3 and wb.sheet.currentText() in stems_, (len(new), wb.sheet.currentText()))
+only = TMP / "only_wide.xlsx"; wide_.to_excel(only, index=False)
+check("a workbook that holds only such a side-by-side sheet is read as one table per file", [n_ for n_, _r in sp.read_tables(str(only))] == stems_)
+check("Excel sheet names: 31 characters, no forbidden signs, none twice", R.sheet_name("a/b[c]:d*e?f" + "x" * 40, []) == ("a_b_c__d_e_f" + "x" * 40)[:31] and R.sheet_name("Run", ["run"]) == "Run (2)")
 check("the table of the series is still offered (the merged file is not taken for a member of it)", any(t_.startswith("⧉ All of 'AB Mix'") and "3 files" in t_ for t_ in rows), rows)
 
 # ---- a column left out in all files
@@ -162,6 +199,9 @@ labels = lambda: [t_ for _a, t_, _b in (tg().spec["panels"][0].get("y2") or {}).
 before = labels()
 check("the graph of the file shows positions and losses only, as before", len(before) == 3 and all("?" not in t_ and "Ca(OH)" not in t_ for t_ in before), before)
 wb.model.setData(wb.model.index(1, list(pk.columns).index("Label")), "Portlandite", Qt.EditRole); pump(timeout=.4)
+data0 = c.raw_sheets(files[0])[""]; check("the label you type also stands in the peak column of the data", "Portlandite" in list(data0["Peak (may be)"]) and "Ca(OH)₂ ?" not in list(data0["Peak (may be)"]))
+wb.b_peaks.click(); pump(timeout=.4); on_data = wb.sheet.currentIndex() == 0; wb.b_peaks.click(); pump(timeout=.4)
+check("the Peaks button goes to the data and back to the peaks", on_data and wb.sheet.currentText() == R.PEAKS_SHEET)
 check("typing a label does not change the graph while 'Draw these labels on the graph' is off", labels() == before)
 wb.draw_labels.setChecked(True); pump(timeout=1.2); after = labels()
 check("switched on: the graph writes each label beside its position - yours where you typed one", len(after) == 3 and "Portlandite" in after[1] and after[1].startswith("450 °C") and "C-S-H / AFt ?" in after[0] and "CaCO₃ ?" in after[2], after)

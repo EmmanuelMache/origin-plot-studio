@@ -88,6 +88,13 @@ def remove_selected(w):
     return _remove_selection(w, w.selected(), "highlighted", "Click a graph (or Ctrl / Shift-click several) to remove it first.")
 
 
+def remove_file_graphs(w, it=None):
+    """Every graph of the file of this graph (the one on show) off the list at once - a workbook can give dozens."""
+    it = it or w.current(); path = getattr(it, "path", "") if it is not None else ""
+    its = [s for s in w.singles if path and getattr(s, "path", "") == path]
+    return _remove_items(w, its, "", "This graph does not come from a file of its own.", question=f"Remove all {len(its)} graph(s) of {os.path.basename(path)} from the list?")
+
+
 def _remove_selection(w, sel, adj, none_msg):
     # A ★ combined figure the app made on its own is removed like any other row: it leaves the list and is not made
     # again (its graphs stay); picking from the Group list brings the app's combined figures back.
@@ -95,9 +102,9 @@ def _remove_selection(w, sel, adj, none_msg):
     return _remove_items(w, its, adj, none_msg)
 
 
-def _remove_items(w, its, adj, none_msg):
+def _remove_items(w, its, adj, none_msg, question=None):
     if not its: w.set_status(none_msg); return None
-    if not _ask(w, f"Remove {adj} graphs", f"Remove {len(its)} {adj} graph(s) from {_files(its)} file(s) from the list?"): return "kept"
+    if not _ask(w, f"Remove {adj} graphs".replace("  ", " "), question or f"Remove {len(its)} {adj} graph(s) from {_files(its)} file(s) from the list?"): return "kept"
     _snapshot(w, f"remove {len(its)} graph(s)")
     mine_keys = {tuple(sp.key_of(m) for m in it.members) for it in its if getattr(it, "mine", False)}
     autos = [it for it in its if isinstance(it, sp.Combined) and not getattr(it, "mine", False)]
@@ -217,7 +224,7 @@ def install(w):
         if r != "removed": w._session_undo.pop()
         return r
     w.remove_current = remove_current
-    for name, fn in (("undo_any", undo_any), ("redo_any", redo_any), ("clear_graph", clear_graph), ("clear_all_graphs", clear_all_graphs), ("remove_ticked", remove_ticked), ("remove_selected", remove_selected), ("start_afresh", start_afresh),
+    for name, fn in (("undo_any", undo_any), ("redo_any", redo_any), ("clear_graph", clear_graph), ("clear_all_graphs", clear_all_graphs), ("remove_ticked", remove_ticked), ("remove_selected", remove_selected), ("remove_file_graphs", remove_file_graphs), ("start_afresh", start_afresh),
                      ("save", save), ("recover_last", recover_last), ("needs_recovery", needs_recovery), ("run_command", run_command), ("commands", commands)):
         setattr(w, name, types.MethodType(fn, w))
     # sessions: remember the file in use and the recent ones

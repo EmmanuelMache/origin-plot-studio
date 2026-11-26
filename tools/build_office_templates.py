@@ -1,13 +1,13 @@
 """Make the two empty Office files the app fills with pictures of graphs (Export > Send to PowerPoint / Word).
 
-    origin_plot_app/office/blank.pptx   a 16:9 presentation with one empty slide that holds one picture
-    origin_plot_app/office/blank.docx   an A4 document with one centred paragraph that holds one picture
+    origin_plot_app/opstudio/office/blank.pptx   a 16:9 presentation with one empty slide that holds one picture
+    origin_plot_app/opstudio/office/blank.docx   an A4 document with one centred paragraph that holds one picture
 
 They are written with python-pptx and python-docx (both MIT) so that PowerPoint and Word open them as their own files.
 The app itself needs neither package: office_export.py copies these files and replaces the picture, its size and the
 number of slides / paragraphs. Run again only to change the page or slide format:  python tools/build_office_templates.py"""
 import os, io, sys
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "origin_plot_app", "office")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); OUT = os.path.join(ROOT, "origin_plot_app", "opstudio", "office")
 
 
 def tiny_png():

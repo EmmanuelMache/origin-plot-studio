@@ -109,8 +109,9 @@ def side_by_side(inputs, extra=None):
         for name, values in own:
             key = f"{name} [{tag}]"; k = 2
             while key in cols: key = f"{name} [{tag}] ({k})"; k += 1
-            cols[key] = np.asarray(values, dtype=float); n = max(n, len(values))
-    return pd.DataFrame({k: np.concatenate([v, np.full(n - len(v), np.nan)]) for k, v in cols.items()})
+            v = np.asarray(values); cols[key] = v.astype(object) if v.dtype.kind in "OUS" else v.astype(float); n = max(n, len(v))      # a column of words (the names of the peaks) stays words
+    pad = lambda v: np.concatenate([v, np.full(n - len(v), "" if v.dtype == object else np.nan, dtype=v.dtype)])
+    return pd.DataFrame({k: pad(v) for k, v in cols.items()})
 
 
 # ----------------------------------------------------------------------------------------------- peaks and what they may be
@@ -179,9 +180,10 @@ def peak_table(kind, table):
         d = tga_core.dtg(grid, mg)["dtg_per_C"]
         try: zones = tga_core.suggest_zones(grid, d)
         except Exception: zones = []
+        first = float(grid[0]) + max(15.0, 0.02 * float(grid[-1] - grid[0]))
         for z in zones:
             loss = tga_core.stepwise_loss(grid, mg, z["T"][0], z["T"][1]); c = tga_candidates(z["T_peak"])
-            if loss < 0.05: continue                                       # no step of mass loss worth a name
+            if loss < 0.05 or z["T_peak"] <= first: continue               # no step worth a name; the first degrees are the balance settling
             rows.append({"DTG peak (°C)": round(z["T_peak"], 1), "From (°C)": round(z["T"][0], 1), "To (°C)": round(z["T"][1], 1), "Mass loss (%)": round(loss, 2),
                          "May be": c[0][0] if c else "", "Other possibilities": "; ".join(n for n, _s in c[1:]), "Label": (c[0][1] + " ?") if c else ""})
         return pd.DataFrame(rows, columns=["DTG peak (°C)", "From (°C)", "To (°C)", "Mass loss (%)", "May be", "Other possibilities", "Label"])
@@ -190,7 +192,7 @@ def peak_table(kind, table):
         ycol = table.ys[0]; x = table.arr(table.x); y = table.arr(ycol); ok = np.isfinite(x) & np.isfinite(y); x, y = x[ok], y[ok]; o = np.argsort(x); x, y = x[o], y[o]
         if len(x) < 20: return pd.DataFrame()
         n = normalise(ycol); trans = "transmit" in n or "%t" in str(ycol).lower() or ("absorb" not in n and np.median(y) > 0.6 * np.max(y) and np.min(y) >= 0)
-        pk = sp.find_peaks(x, -y if trans else y, max_n=15, min_rel=0.03, min_sep=8)          # the bands the graph labels
+        pk, _left = sp.ftir_bands(x, y, trans, 15)                                             # the bands the graph labels (not the CO2 of the air, not the ends of the range)
         for p in sorted(pk, key=lambda q: -q["pos"]):
             c = ftir_candidates(p["pos"])
             rows.append({"Band (cm⁻¹)": round(p["pos"], 1), str(ycol): round(float(np.interp(p["pos"], x, y)), 4), "Read as": "minimum (transmittance)" if trans else "maximum (absorbance)",
@@ -216,3 +218,67 @@ def name_at(names, position, kind):
     if not names: return None
     pos, lab = min(names, key=lambda n: abs(n[0] - position))
     return lab if abs(pos - position) <= TOLERANCE.get(kind, 0.0) else None
+
+
+PEAK_COLUMN = {"TGA": "Peak (may be)", "FTIR": "Band (may be)"}
+
+
+def peak_column(kind, table, peaks):
+    """(name, values) of a column for the data table itself: empty, except in the row of each peak, where its Label
+    stands - so the names are seen beside the numbers and go into every export. peaks: the table of peak_table."""
+    from opstudio.detection import normalise
+    name = PEAK_COLUMN.get(kind)
+    if not name or peaks is None or not len(peaks): return None
+    if kind == "TGA":
+        xcol = next((c for c in table.numeric if any(k in normalise(c) for k in ("temperature", "temp", "celsius", "degc"))), None)
+    else: xcol = table.x
+    if not xcol: return None
+    x = table.arr(xcol); out = np.full(len(x), "", dtype=object)
+    if not np.isfinite(x).any(): return None
+    for pos, lab in names_of(peaks):
+        out[int(np.nanargmin(np.abs(x - pos)))] = lab
+    return name, out
+
+
+MEANING_COLUMN = "What it may be"
+
+
+def meaning_column(kind, table, peaks):
+    """(name, values): beside the label of each peak, in the same row, what the peak may be in full - the usual event or
+    bond at that position - so the table itself says what a label stands for."""
+    from opstudio.detection import normalise
+    if peaks is None or not len(peaks) or "May be" not in peaks.columns: return None
+    xcol = next((c for c in table.numeric if any(k in normalise(c) for k in ("temperature", "temp", "celsius", "degc"))), None) if kind == "TGA" else table.x
+    if not xcol: return None
+    x = table.arr(xcol); out = np.full(len(x), "", dtype=object)
+    if not np.isfinite(x).any(): return None
+    for pos, what in zip(peaks.iloc[:, 0], peaks["May be"]):
+        try: out[int(np.nanargmin(np.abs(x - float(pos))))] = str(what or "")
+        except Exception: continue
+    return MEANING_COLUMN, out
+
+
+OVERVIEW_SHEET = "All side by side"
+
+
+def sheet_name(name, used):
+    """A name Excel accepts for a sheet (31 characters, none of []:*?/\\), not used yet."""
+    base = re.sub(r"[\[\]:*?/\\]", "_", str(name)).strip("'")[:31] or "Sheet"; out = base; k = 2
+    while out.lower() in {u.lower() for u in used}: tail = f" ({k})"; out = base[:31 - len(tail)] + tail; k += 1
+    used.append(out); return out
+
+
+def merged_workbook(path, inputs, extra=None):
+    """The files merged into ONE Excel workbook: a sheet per file - its X column, its Y columns and what the app worked
+    out for it (DTG, the names of its peaks), under their own column names - and a last sheet with all files side by
+    side, every column labelled 'column [file]'. The app draws from the sheets (one graph per file, and the figure of
+    all of them); the last sheet is the one to look at, copy or take into Origin. Returns the sheet names."""
+    if len(inputs) < 2: raise ValueError("Select at least two datasets")
+    wide = side_by_side(inputs, extra=extra); used = [OVERVIEW_SHEET]; names = []
+    with pd.ExcelWriter(path) as xw:
+        for p, table in inputs:
+            cols = [(table.x, table.arr(table.x))] + [(c, table.arr(c)) for c in table.ys] + list(extra(p, table) if extra else [])
+            n = max(len(v) for _c, v in cols); frame = pd.DataFrame({c: list(v) + [np.nan] * (n - len(v)) for c, v in cols})
+            nm = sheet_name(stem(p), used); names.append(nm); frame.to_excel(xw, index=False, sheet_name=nm)
+        wide.to_excel(xw, index=False, sheet_name=OVERVIEW_SHEET)
+    return names + [OVERVIEW_SHEET]

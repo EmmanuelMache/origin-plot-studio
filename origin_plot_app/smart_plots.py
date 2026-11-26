@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.58.0"
+VERSION = "5.58.1"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -407,7 +407,7 @@ def read_tables(path):
     with open(path, "rb") as fb_: head_ = fb_.read(4096)
     if ext not in (".xlsx", ".xlsm", ".xls") and (head_[:2] == b"PK" or head_[:4] == b"%PDF" or head_[:3] == b"\xff\xd8\xff" or head_[:8] == b"\x89PNG\r\n\x1a\n" or head_.count(b"\x00") > 40):
         raise ValueError("this file holds no readable table of numbers (it is a binary file, a picture, a PDF or a program's own project file). Export the data from its program as CSV, text or Excel and add that file")
-    if ext in (".xlsx", ".xlsm", ".xls"): return _excel_tables(path)
+    if ext in (".xlsx", ".xlsm", ".xls"): return _without_overview(path, _excel_tables(path))
     hx = _read_hash_export(path)
     if hx is not None: return hx
     text = _text(path); sample = text[:20000]; stem = os.path.splitext(os.path.basename(path))[0]
@@ -428,6 +428,27 @@ def read_tables(path):
 
 SIDE_BY_SIDE = set()          # files read as several tables because their columns are named 'column [file]' (the Workbook's merge, files side by side)
 _SIDE_RE = re.compile(r"^(.*\S)\s\[([^\[\]]+)\](?: \(\d+\))?$")
+
+
+def side_by_side_columns(cols):
+    """Are these the headers of a sheet with several files side by side ('column [file]' for two or more files)?"""
+    m = [_SIDE_RE.match(str(c)) for c in cols]
+    return len(m) >= 4 and all(m) and len({x.group(2) for x in m}) >= 2
+
+
+def _without_overview(path, tabs):
+    """A workbook the Workbook's merge wrote has a sheet per file and a last sheet with all of them side by side. That
+    last sheet is the same data once more: it is not drawn again. A workbook that has ONLY such a sheet is read as one
+    table per file."""
+    wide = [k for k, (_n, raw) in enumerate(tabs) if len(raw) and side_by_side_columns(list(raw.iloc[0]))]
+    if not wide: return tabs
+    if len(tabs) - len(wide) >= 2: return [t for k, t in enumerate(tabs) if k not in wide]
+    out = []
+    for k, (n, raw) in enumerate(tabs):
+        sb = _split_side_by_side(raw) if k in wide else None
+        if sb: SIDE_BY_SIDE.add(path); out += sb
+        else: out.append((n, raw))
+    return out
 
 
 def _split_side_by_side(df):
@@ -838,6 +859,9 @@ def finish(spec):
     if not spec.get("xlog") and any(c["kind"] != "line" for p in spec["panels"] for c in p["curves"]):      # symbols must not sit on the frame
         pad = 0.04 * ((hi - lo) or 1.0); lo, hi = lo - pad, hi + pad
     if spec.get("xlog") and any(c["kind"] != "line" for p in spec["panels"] for c in p["curves"]): lo, hi = lo / 1.12, hi * 1.12      # symbols must not sit on the frame
+    xr_ = spec.get("xround")
+    if xr_ and not spec.get("xlog") and (hi - lo) > 2.5 * xr_:        # a temperature axis ends on round values (0 - 1000 °C), not on the first and last reading (20.1 - 998.7)
+        lo, hi = math.floor(lo / xr_ + 1e-9) * xr_, math.ceil(hi / xr_ - 1e-9) * xr_
     spec["xlim"] = (hi, lo) if spec.get("xrev") else (lo, hi)
     cw_, ch_ = spec.get("cell", (1.0, 1.0)); fsc_ = spec.get("font_scale", 1.0)      # a graph that fills only part of a page: letters are relatively larger
     for p in spec["panels"]:
@@ -1492,13 +1516,29 @@ def build_peaklist(d, opt, given):
     sp = dict(title=d["name"], xname="2θ (°)", panels=[panel(d["t"](d["height"]), cs, legend=True)])
     return sp, tab, []
 
+FTIR_AIR_CO2 = (2280.0, 2400.0)      # cm-1: the doublet of the CO2 of the air in the beam path - in almost every spectrum, never the sample
+
+
+def ftir_bands(x, y, trans, max_n=15):
+    """The bands of an infrared spectrum that are labelled: (bands, what was left out and why).
+    Left out: the CO2 doublet of the air (2280-2400 cm-1) and anything within 25 cm-1 of an end of the range, where the
+    detector cuts off and noise looks like bands."""
+    pk = find_peaks(x, -y if trans else y, max_n=max_n, min_rel=0.03, min_sep=8); lo, hi = float(np.min(x)), float(np.max(x)); keep, why = [], []
+    air = [p for p in pk if FTIR_AIR_CO2[0] <= p["pos"] <= FTIR_AIR_CO2[1]]; edge = [p for p in pk if p not in air and not (lo + 25.0 <= p["pos"] <= hi - 25.0)]
+    keep = [p for p in pk if p not in air and p not in edge]
+    if air: why.append("the CO\u2082 of the air at " + ", ".join(f"{p['pos']:.0f}" for p in air) + " cm\u207b\u00b9 (not the sample)")
+    if edge: why.append("the end of the measured range at " + ", ".join(f"{p['pos']:.0f}" for p in edge) + " cm\u207b\u00b9 (detector cut-off)")
+    return keep, why
+
+
 def build_ftir(d, opt, given):
     nums = d["nums"]; ycol = d["ys"][0]; x, y = _clean(nums[d["x"]].values, nums[ycol].values); o = np.argsort(x); x, y = x[o], y[o]
     auto = "transmit" in d["n"][ycol] or "%t" in str(ycol).lower() or (not "absorb" in d["n"][ycol] and np.median(y) > 0.6 * np.max(y) and np.min(y) >= 0)
     sig = d.get("_ftir_signal") or opt.get("ftir_signal", "Automatic"); trans = auto if sig not in FTIR_SIGNAL[1:] else sig == "Transmittance"      # _ftir_signal: chosen for this graph alone
     d.setdefault("_rec", []).append("signal treated as " + ("transmittance, so bands are labelled at the minima" if trans else "absorbance, so bands are labelled at the maxima")
                                     + (" (my reading of the header and the values; change it under Analysis settings if wrong)" if sig not in FTIR_SIGNAL[1:] else " (your choice)"))
-    pk = find_peaks(x, -y if trans else y, max_n=opt.get("max_labels", 15), min_rel=0.03, min_sep=8)
+    pk, left_ = ftir_bands(x, y, trans, opt.get("max_labels", 15))
+    if left_: d.setdefault("_rec", []).append("not labelled: " + "; ".join(left_))
     lab = [(p["pos"], f"{p['pos']:.0f}", float(np.interp(p["pos"], x, y))) for p in pk]
     res = [{"Wavenumber (cm-1)": round(p["pos"], 1), d["t"](ycol): round(float(np.interp(p["pos"], x, y)), 4), "Band": "minimum (transmittance)" if trans else "maximum (absorbance)"} for p in pk]
     try:                                                # what each band may be (the usual bond there; a possibility, not a finding) and, if you asked for them, your labels on the graph
@@ -1555,6 +1595,9 @@ def build_tga(d, opt, given):
             dplot = savgol(np.nan_to_num(inst) * (1 if np.corrcoef(inst[okk], dplot[okk])[0, 1] > 0 else -1), w, 2); dun = unit_of(icol, d["units"]) or dun; src_ = f"the instrument's own DTG column '{icol}'"
     rec.append(f"DTG drawn as it is (mass loss is negative): {src_}; smoothed lightly for drawing. Peaks and step limits come from the derivative of the smoothed mass (Savitzky-Golay, window {w} points, 2nd order); the TG curve drawn is the measured one")
     pk = find_peaks(x, -dtg, max_n=opt.get("max_labels", 8), min_rel=0.04, k_noise=4, smooth=w, min_sep=(x.max() - x.min()) * 0.02)
+    if xcol == xt:                                          # the first degrees of a run are the balance settling (buoyancy, the furnace taking over): no event is read there
+        first_ = float(x.min()) + max(15.0, 0.02 * float(x.max() - x.min())); n_pk = len(pk); pk = [p_ for p_ in pk if p_["pos"] > first_]
+        if len(pk) < n_pk: rec.append(f"a DTG dip within {first_ - float(x.min()):.0f} °C of the start of the run is the balance settling: it is not counted as an event and not labelled")
     xu = unit_of(xcol, d["units"]) or ("°C" if xcol == xt else ""); res, lab = [], []
     bounds = [x[0]] + [float(x[pk[i]["index"] + int(np.argmin(-dtg[pk[i]["index"]:pk[i + 1]["index"] + 1]))]) for i in range(len(pk) - 1)] + [x[-1]]
     degc = xcol == xt and ok and "C" in xu; steps = []                 # steps: (x from, x to, loss, tag)
@@ -1615,7 +1658,7 @@ def build_tga(d, opt, given):
     ptg["corner_r"] = [(d["name"] if not mt.get("sample") else mt["sample"], True, (0, 0, 0))] + ([(info_, False, (0, 0, 0))] if info_ else []) + [("TG (left axis)", False, (0, 0, 0)), (f"DTG (right axis)", False, (200, 0, 0))]
     # the same two curves as two stacked panels (used when several TGA files are overlaid)
     split = [panel("Mass (%)", [curve("TG", x, mp, (0, 0, 0))], weight=1.4, legend=False, vlines=[(v, "") for v in sorted(set(vl))]),
-             panel(f"DTG (%/{unit_of(xcol, d['units']) or xu or 'unit'})", [curve("DTG", x, np.where(np.isfinite(dd), dtg, np.nan), (200, 0, 0))], weight=1.0, legend=False)]
+             panel(f"DTG ({dun})", [curve("DTG", x, dd, (200, 0, 0))], weight=1.0, legend=False)]      # the same DTG (unit and smoothing) as in the graph of one sample
     which = opt.get("tga_curves", TGA_CURVES[0]); name_ = d["name"] if not mt.get("sample") else mt["sample"]
     if which == TGA_CURVES[1]:                              # the mass curve alone: one y axis, the whole height for it
         ptg = panel("Mass (%)", [tgc], weight=1.0, legend=False, ylim=(mend - 0.08 * drop, max(float(np.nanmax(mp)), 100.0) + 0.04 * drop), vlines=[(v, "") for v in sorted(set(vl))])
@@ -1626,6 +1669,7 @@ def build_tga(d, opt, given):
         ptg["corner_r"] = [(name_, True, (0, 0, 0))] + ([(info_, False, (0, 0, 0))] if info_ else []); split = split[1:]
         rec.append("only the DTG curve is drawn, as chosen under Analysis settings > TGA > Curves; the mass losses of the steps are still in the results table")
     sp = dict(title=d["name"], xname=xn, panels=[ptg], split=split, no_title=True, page_in=(6.6, 5.4))
+    if xcol == xt: sp["xround"] = 100.0
     cont = [(r_["Assigned to"], r_["Content (% of start mass)"]) for r_ in res if r_.get("Assigned to") and r_["Assigned to"] != "total" and r_.get("Content (% of start mass)") is not None]
     foot = []
     tg_ = sorted({t_ for *_, t_ in steps if t_})
@@ -3056,7 +3100,7 @@ class Combined:
             fitn = list(dict.fromkeys(m.spec["note"].split("Calculated curve:")[-1].strip() for m in ms if "Calculated curve:" in m.spec.get("note", "")))
             if _key(allc): notes.append(_key(allc) + "." + (" " + KEY_NOTE if any(c_.endswith("?") for c_ in allc) else ""))
             notes += ["Calculated curve: " + f_ for f_ in fitn]
-        ttl = ", ".join(uniq); base = dict(title=f"{self.kind}: " + ttl if len(ttl) < 70 else f"{self.kind}: {len(uniq)} samples", xname=s0["xname"], xrev=s0.get("xrev"), xlog=s0.get("xlog"))
+        ttl = ", ".join(uniq); base = dict(title=f"{self.kind}: " + ttl if len(ttl) < 70 else f"{self.kind}: {len(uniq)} samples", xname=s0["xname"], xrev=s0.get("xrev"), xlog=s0.get("xlog"), **({"xround": s0["xround"]} if s0.get("xround") else {}))
         self.record = [f"{n} graphs of the kind {self.kind} drawn together, {self.why}", "graphs: " + "; ".join(f"{m.file} / {m.name}" for m in ms)]
         if self.how == "stack":
             cs, texts = [], []; lab_any = self.kind == "XRD" and any(_codelabs(m.spec["panels"][0]) for m in ms); nlab = max([len(_codelabs(m.spec["panels"][0]) or []) for m in ms] + [0]); lim = self.opt.get("stack_labels") or 10 ** 6

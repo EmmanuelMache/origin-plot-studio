@@ -133,5 +133,16 @@ try:
     check("the files open as real Office files (read back with python-pptx and python-docx)", len(P_.slides) == 3 and all(len(s.shapes) == 1 and s.shapes[0].shape_type == 13 for s in P_.slides) and len(D_.inline_shapes) == 1)
 except ImportError:
     print("SKIP  python-pptx / python-docx are not installed here: the files were checked as zip packages only")
+import self_update as SU_
+prog = [f.replace("\\", "/") for f in SU_.program_files(str(A))]
+check("the two empty Office files are among the files the app's updater installs (in a folder of their own an updated app did not get them, and the export wrote nothing)",
+      "opstudio/office/blank.pptx" in prog and "opstudio/office/blank.docx" in prog and os.path.isfile(OE.template("blank.pptx")) and os.path.isfile(OE.template("blank.docx")), [f for f in prog if "office" in f])
+import importlib, glob as _glob
+needed = [p for p in _glob.glob(str(A / "**" / "*"), recursive=True) if os.path.isfile(p) and "__pycache__" not in p and os.path.splitext(p)[1].lower() in (".pptx", ".docx", ".xlsx", ".csv", ".json", ".ogs", ".png")]
+outside = sorted(os.path.relpath(p, A).replace("\\", "/") for p in needed if os.path.relpath(p, A).replace("\\", "/") not in prog and os.path.basename(p) not in SU_.NEVER
+                 and not os.path.relpath(p, A).replace("\\", "/").startswith(("dry_out", "examples_synthetic/dry_out", "config/")))          # (config/ holds an example of a settings file of yours, not a part of the program)
+check("no data file of the program lies outside what the updater installs", outside == [], outside[:8])
+real_tpl = OE.TEMPLATES; OE.TEMPLATES = str(TMP / "nowhere"); bad = w.send_to_office("pptx"); OE.TEMPLATES = real_tpl
+check("an installation without the Office files says so plainly instead of doing nothing", bad is None and "missing from this installation" in w.status.text() and "Update the app once more" in w.status.text(), w.status.text()[:160])
 w.tick_all(False); app.processEvents()
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

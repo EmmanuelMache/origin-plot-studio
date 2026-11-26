@@ -115,8 +115,18 @@ class WorkingTableModel(QAbstractTableModel):
         if not index.isValid(): return None
         value=self.df.iat[index.row(),index.column()]
         if role in (Qt.DisplayRole,Qt.EditRole): return '' if pd.isna(value) else str(value)
+    roles={}                      # column name -> 'X' or 'Y': shown in the header
     def headerData(self,section,orientation,role=Qt.DisplayRole):
-        if role==Qt.DisplayRole: return str(self.df.columns[section]) if orientation==Qt.Horizontal else str(section+1)
+        if role==Qt.DisplayRole:
+            if orientation!=Qt.Horizontal: return str(section+1)
+            name=str(self.df.columns[section]); r=self.roles.get(name)
+            return f"{name}   [{r}]" if r else name
+    def move_column(self,c,delta):
+        """A column one place to the left (-1) or right (+1) in the working copy."""
+        t=c+delta
+        if self.locked() or not (0<=c<len(self.df.columns) and 0<=t<len(self.df.columns)): return False
+        order=list(range(len(self.df.columns))); order[c],order[t]=order[t],order[c]; snap=self.df.iloc[:,order].copy()
+        before=self.df.copy(); self._put(snap); self.undo.append(('table',before,self.df.copy())); del self.undo[:-40]; self.redo.clear(); self.changed(); return True
     read_only=False               # a table made by the app (files side by side): looked at and exported, not edited
     only=None                     # names of the only columns that can be edited (the Label column of a peak table)
     def flags(self,index): return super().flags(index)|(Qt.NoItemFlags if (self.read_only or (self.only is not None and str(self.df.columns[index.column()]) not in self.only)) else Qt.ItemIsEditable)
@@ -131,13 +141,47 @@ class WorkingTableModel(QAbstractTableModel):
         else: value=str(value)
         self.undo.append((r,c,before,value)); self.redo.clear(); self.df.iat[r,c]=value
         self.dataChanged.emit(index,index); self.changed(); return True
+    def locked(self): return self.read_only or self.only is not None
+    def _put(self,snap):
+        """The working copy takes the content of 'snap' - the same table object stays in use everywhere."""
+        self.beginResetModel()
+        self.df.drop(index=self.df.index,inplace=True); self.df.drop(columns=list(self.df.columns),inplace=True)
+        for k,c in enumerate(snap.columns): self.df.insert(k,c,snap.iloc[:,k].to_numpy())
+        self.endResetModel()
+    def _change(self,fn):
+        """A change of several cells, rows or columns as ONE step of Undo."""
+        before=self.df.copy(); self.beginResetModel(); fn(); self.endResetModel()
+        self.undo.append(('table',before,self.df.copy())); del self.undo[:-40]; self.redo.clear(); self.changed()
+    def clear_cells(self,cells):
+        """Empty these (row, column) cells."""
+        cells=[(r,c) for r,c in cells if 0<=r<len(self.df) and 0<=c<len(self.df.columns)]
+        if not cells or self.locked(): return 0
+        def go():
+            for c in sorted({c for _r,c in cells}):
+                rows=[r for r,cc in cells if cc==c]; name=self.df.columns[c]
+                if pd.api.types.is_integer_dtype(self.df.iloc[:,c]): self.df[name]=self.df.iloc[:,c].astype(float)
+                self.df.iloc[rows,c]=np.nan if pd.api.types.is_numeric_dtype(self.df.iloc[:,c]) else ''
+        self._change(go); return len(cells)
+    def delete_rows(self,rows):
+        rows=sorted({r for r in rows if 0<=r<len(self.df)})
+        if not rows or self.locked(): return 0
+        def go(): self.df.drop(index=self.df.index[rows],inplace=True); self.df.reset_index(drop=True,inplace=True)
+        self._change(go); return len(rows)
+    def delete_columns(self,cols):
+        names=[self.df.columns[c] for c in sorted({c for c in cols if 0<=c<len(self.df.columns)})]
+        if not names or self.locked() or len(names)>=len(self.df.columns): return []
+        self._change(lambda: self.df.drop(columns=names,inplace=True)); return [str(n) for n in names]
     def undo_edit(self):
         if not self.undo: return
-        r,c,old,new=self.undo.pop(); self.redo.append((r,c,old,new)); self.df.iat[r,c]=old
+        step=self.undo.pop(); self.redo.append(step)
+        if step[0]=='table': self._put(step[1]); self.changed(); return
+        r,c,old,new=step; self.df.iat[r,c]=old
         idx=self.index(r,c); self.dataChanged.emit(idx,idx); self.changed()
     def redo_edit(self):
         if not self.redo: return
-        r,c,old,new=self.redo.pop(); self.undo.append((r,c,old,new)); self.df.iat[r,c]=new
+        step=self.redo.pop(); self.undo.append(step)
+        if step[0]=='table': self._put(step[2]); self.changed(); return
+        r,c,old,new=step; self.df.iat[r,c]=new
         idx=self.index(r,c); self.dataChanged.emit(idx,idx); self.changed()
 
 
@@ -164,11 +208,11 @@ class WorkbookPage(QWidget):
         lv.addLayout(row)
         self.merge=QComboBox(); self.merge.addItems(['Append rows — matching columns','Join columns — matching X values','Side by side — each file keeps its own X'])
         self.merge.setCurrentIndex(2)
-        self.merge.setToolTip('How the ticked files are put into one table. Side by side: for every file its X column and its Y columns next to each other (and the DTG curve of a thermal run) - nothing is interpolated. '
+        self.merge.setToolTip('How the ticked files are put into one dataset. Side by side: ONE Excel workbook with a sheet for every file (its X, its Y columns, DTG and peak names) and a last sheet with all files next to each other, every column labelled with its file - nothing is interpolated; graphs are drawn from it file by file. '
                               'Append rows: the rows of all files under each other (the same columns in every file). Join columns: one X column for all (identical X values in the same order)')
         lv.addWidget(self.merge); b=QPushButton('Merge selected files…'); b.clicked.connect(self.merge_files); lv.addWidget(b)
         b.setToolTip('Make one table of the ticked files and add it as a dataset of its own: it is listed here and in Your graphs, and can be drawn and exported. The files themselves stay as they are')
-        note=QLabel('File order determines graph and export order. Each file keeps its own data and mapping. Files that belong together (the same kind of data, names built the same way) '
+        note=QLabel('Delete (or a right click) takes a file off this list - and out of Workspace. File order determines graph and export order. Each file keeps its own data and mapping. Files that belong together (the same kind of data, names built the same way) '
                     'also get a table of all of them side by side, made by the app: it is the last entry of the list.',objectName='soft')
         note.setWordWrap(True); lv.addWidget(note); split.addWidget(left)
         center=QFrame(objectName='card'); cv=QVBoxLayout(center); cv.setContentsMargins(16,16,16,16)
@@ -178,8 +222,26 @@ class WorkbookPage(QWidget):
         for name,fn in [('Undo edit',self.undo_edit),('Redo edit',self.redo_edit),('Export data…',self.export_data)]:
             b=QPushButton(name); b.clicked.connect(fn); row.addWidget(b)
         cv.addLayout(row)
+        self.b_peaks=QPushButton('Peaks…'); self.b_peaks.setVisible(False); self.b_peaks.clicked.connect(self.show_peaks); row.insertWidget(2,self.b_peaks)
+        self.b_peaks.setToolTip('The peaks the app found in this file and what each may be (steps of mass loss of a thermal run, bands of an infrared spectrum), with a Label column of your own. Press again for the data')
         self.table=QTableView(); self.table.setAlternatingRowColors(True); self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.horizontalHeader().setDefaultSectionSize(160); cv.addWidget(self.table,1)
+        # delete and hide, where you work: the Delete key and a right click on cells, rows, column headers, files and columns
+        from PySide6.QtGui import QShortcut, QKeySequence
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu); self.table.customContextMenuRequested.connect(lambda p: self.table_menu(self.table.viewport().mapToGlobal(p), self.table.indexAt(p).column()))
+        hh=self.table.horizontalHeader(); hh.setContextMenuPolicy(Qt.CustomContextMenu); hh.customContextMenuRequested.connect(lambda p: self.table_menu(hh.mapToGlobal(p), hh.logicalIndexAt(p), header=True))
+        vh=self.table.verticalHeader(); vh.setContextMenuPolicy(Qt.CustomContextMenu); vh.customContextMenuRequested.connect(lambda p: self.table_menu(vh.mapToGlobal(p), -1))
+        self.table.setToolTip('Right click a column header: use it as X or as Y, move it left or right, hide or delete it. Delete empties the selected cells; with whole rows or whole columns selected (click their headers) it deletes them. Right click for the same and for hiding a column. '
+                              'Only the working copy changes - the file on the disk never does. Undo edit takes it back')
+        for widget,fn in ((self.table,self.delete_in_table),(self.files,self.remove_files)):
+            sc=QShortcut(QKeySequence(Qt.Key_Delete),widget,activated=fn); sc.setContext(Qt.WidgetWithChildrenShortcut)
+        self.files.setContextMenuPolicy(Qt.CustomContextMenu); self.files.customContextMenuRequested.connect(self.files_menu)
+        self.files.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        srow=QHBoxLayout(); self.suggest=QLabel('',objectName='soft'); self.suggest.setWordWrap(True); srow.addWidget(self.suggest,1)
+        self.b_suggest=QPushButton('Create this graph \u2192'); self.b_suggest.setObjectName('primary'); self.b_suggest.setVisible(False); self.b_suggest.clicked.connect(self.create_suggested); srow.addWidget(self.b_suggest)
+        self.b_suggest.setToolTip('Draw the suggested graph from the columns as they are chosen here (X, Y, the columns left out). It opens in Workspace')
+        b=QPushButton('Other graphs\u2026'); b.clicked.connect(self.choose_graph); b.setToolTip('All graphs that fit this data, on Start here'); srow.addWidget(b); self.b_other=b
+        cv.addLayout(srow); self._suggested=None
         from PySide6.QtWidgets import QCheckBox
         self.draw_labels=QCheckBox('Draw these labels on the graph'); self.draw_labels.setVisible(False); self.draw_labels.toggled.connect(self.labels_toggled)
         self.draw_labels.setToolTip('On: the TGA / FTIR graphs of this file in Workspace write the Label of each peak beside its position. The labels are yours: type in the Label column, '
@@ -193,6 +255,8 @@ class WorkbookPage(QWidget):
         self.columns=QListWidget(); self.columns.setDragDropMode(QAbstractItemView.InternalMove)
         self.columns.itemChanged.connect(self.columns_changed); self.columns.model().rowsMoved.connect(self.columns_changed)
         self.columns.setContextMenuPolicy(Qt.CustomContextMenu); self.columns.customContextMenuRequested.connect(self.columns_menu)
+        from PySide6.QtGui import QShortcut as _QS, QKeySequence as _QK
+        sc=_QS(_QK(Qt.Key_Delete),self.columns,activated=lambda: self.hide_columns(False)); sc.setContext(Qt.WidgetWithChildrenShortcut)      # Delete on a column of this list: left out of the graphs
         self.columns.setToolTip('Untick a column to leave it out: it is not carried to Workspace, and the graphs offered and made no longer count on it. Right click: leave it out (or use it) in all files')
         rv.addWidget(self.columns,1)
         self.b_all=QPushButton('Use these column choices for all files'); self.b_all.clicked.connect(self.columns_to_all)
@@ -256,12 +320,175 @@ class WorkbookPage(QWidget):
                             "'Export data…' saves it; 'Merge selected files…' adds such a table as a dataset of its own")
             self.files.addItem(item)
 
-    def worked_columns(self,path,table):
-        """[(name, values)] the app works out for a file: the DTG curve of a thermal run."""
+    # ------------------------------------------------------------ delete, hide, remove
+    def _sel(self):
+        """(cells, whole rows, whole columns) selected in the table."""
+        sm=self.table.selectionModel()
+        if sm is None or self.model is None: return [],[],[]
+        return [(i.row(),i.column()) for i in sm.selectedIndexes()],[i.row() for i in sm.selectedRows()],[i.column() for i in sm.selectedColumns()]
+
+    def _locked(self):
+        if self.model is None: return True
+        if self.model.read_only: self.ws.set_status('This table is made by the app from the files of the series: change the files themselves (or leave columns out there).'); return True
+        if self.model.only is not None: self.ws.set_status("In the table of peaks only the Label column is yours: clear a Label to leave a peak unnamed."); return True
+        return False
+
+    def delete_in_table(self):
+        """The Delete key: whole columns selected -> they are deleted from the working copy; whole rows -> deleted; else the
+        selected cells are emptied. One Undo edit takes it back; the file on the disk is never changed."""
+        cells,rows,cols=self._sel()
+        if self.model is not None and self.model.only is not None:               # the table of peaks: a Label is cleared
+            lab=list(self.model.df.columns).index('Label'); n=0
+            for r in sorted({r for r,c in cells if c==lab}): n+=bool(self.model.setData(self.model.index(r,lab),'',Qt.EditRole))
+            self.ws.set_status(f'{n} label(s) cleared.' if n else "Select cells of the Label column to clear them."); return n
+        if self._locked(): return 0
+        if cols: return self.delete_columns(cols)
+        if rows: return self.delete_rows(rows)
+        n=self.model.clear_cells(cells)
+        self.ws.set_status(f'{n} cell(s) emptied in the working copy. Undo edit takes it back.' if n else 'Select cells first (click, drag, or Ctrl / Shift-click).'); return n
+
+    def delete_rows(self,rows=None):
+        if self._locked(): return 0
+        rows=rows if rows is not None else sorted({r for r,_c in self._sel()[0]})
+        n=self.model.delete_rows(rows)
+        if n: self.info.setText(f'{len(self.model.df):,} rows \u00b7 {len(self.model.df.columns)} columns \u00b7 Working copy; source file unchanged')
+        self.ws.set_status(f'{n} row(s) deleted from the working copy (the file is unchanged). Undo edit takes it back.' if n else 'Select the rows to delete first.'); return n
+
+    def delete_columns(self,cols=None):
+        if self._locked(): return 0
+        cols=cols if cols is not None else sorted({c for _r,c in self._sel()[0]})
+        names=self.model.delete_columns(cols)
+        if names:
+            self.info.setText(f'{len(self.model.df):,} rows \u00b7 {len(self.model.df.columns)} columns \u00b7 Working copy; source file unchanged'); self.refresh_columns()
+        self.ws.set_status((f"Deleted from the working copy: {', '.join(names)} (the file is unchanged). Undo edit takes it back." if names else 'Select a column to delete first (a table keeps at least one column).')); return len(names)
+
+    def hide_columns(self,use,names=None):
+        """Leave columns out of the graphs (use=False) or use them again: the ticks of the Columns list. The data stays in the table."""
+        if not self.path: return 0
+        if names is None: names=[(i.data(Qt.UserRole) or i.text()) for i in self.columns.selectedItems()]
+        n=0; self._loading=True
+        for i in range(self.columns.count()):
+            it=self.columns.item(i)
+            if (it.data(Qt.UserRole) or it.text()) in names and (it.checkState()==Qt.Checked)!=bool(use): it.setCheckState(Qt.Checked if use else Qt.Unchecked); n+=1
+        self._loading=False
+        if n: self.columns_changed()
+        self.ws.set_status((f"{'Used again' if use else 'Left out of the graphs'}: {', '.join(names)}." + ('' if use else ' It stays in the table and its export; it is not carried to Workspace.')) if n else 'Select a column in the list first.'); return n
+
+    def table_menu(self,where,col=-1,header=False):
+        from PySide6.QtWidgets import QMenu
+        if self.model is None: return
+        m=QMenu(self); cells,rows,cols=self._sel(); lock=self.model.locked(); name=str(self.model.df.columns[col]) if 0<=col<len(self.model.df.columns) else ''
+        if not header:
+            a=m.addAction(f'Empty the {len(cells)} selected cell(s)  (Delete)' if len(cells)!=1 else 'Empty this cell  (Delete)',lambda: self.model.clear_cells(cells) and self.ws.set_status(f'{len(cells)} cell(s) emptied. Undo edit takes it back.')); a.setEnabled(bool(cells) and not lock)
+            rr=sorted({r for r,_c in cells})
+            a=m.addAction(f'Delete the {len(rr)} selected row(s)' if len(rr)!=1 else f'Delete row {rr[0]+1}' if rr else 'Delete the selected rows',lambda: self.delete_rows(rr)); a.setEnabled(bool(rr) and not lock)
+        if name:
+            if not header: m.addSeparator()
+            if self.path and not lock:
+                m.addAction(f"Use '{name}' as X",lambda: self.set_role(name,'X')); m.addAction(f"Use '{name}' as Y",lambda: self.set_role(name,'Y'))
+                a=m.addAction('Move column left',lambda: self.move_column(col,-1)); a.setEnabled(col>0)
+                a=m.addAction('Move column right',lambda: self.move_column(col,1)); a.setEnabled(col<len(self.model.df.columns)-1)
+                m.addSeparator()
+            a=m.addAction(f"Delete column '{name}' from the working copy",lambda: self.delete_columns([col])); a.setEnabled(not lock)
+            if self.path and not lock:
+                off=name in (self.controller.mapping_for(self.path).get('off') or [])
+                m.addAction(f"Use '{name}' in the graphs again" if off else f"Hide '{name}': leave it out of the graphs",lambda: self.hide_columns(off,[name]))
+                m.addAction(f"Leave '{name}' out in all files",lambda: self.ws.set_status(f"'{name}' is left out in {self.set_column_everywhere(name,False)} file(s)."))
+        m.addSeparator(); m.addAction('Undo edit',self.undo_edit); m.addAction('Redo edit',self.redo_edit)
+        m.exec(where)
+
+    # ------------------------------------------------------------ X, Y and the graph that follows from them
+    def set_role(self,name,role):
+        """Make a column the X or the (first) Y of the file on show. The other one keeps its place; taking its column swaps them."""
+        if not self.path or self._locked(): return False
+        table=self.controller.table_of(self.path)[0]; x=table.x; y=table.ys[0] if table.ys else ''
+        if name not in table.numeric: self.ws.set_status(f"'{name}' holds no numbers: it cannot be X or Y. (Left out or hidden columns are ticked again under Columns.)"); return False
+        if role=='X': x,y=name,(x if y==name else y)
+        else: y,x=name,(y if x==name else x)
+        if not x or not y or x==y: self.ws.set_status('X and Y must be two different columns.'); return False
+        self.controller.set_mapping(self.path,x,y,self.sheet.currentIndex(),self.type.currentText()); self.refresh_columns()
+        self.ws.set_status(f"X = {x}, Y = {y}. The graphs of this file follow; the suggestion under the table too."); return True
+
+    def move_column(self,col,delta):
+        if self._locked() or self.model is None: return False
+        ok=self.model.move_column(col,delta)
+        if ok: self.refresh_columns(); self.ws.set_status('Column moved in the working copy. Undo edit takes it back.')
+        return ok
+
+    def update_suggestion(self):
+        """The graph the app would draw from the file on show as its columns are chosen now - for a file of a series,
+        the graph of the whole series - with the reason. 'Create this graph' draws it."""
+        self._suggested=None
+        try:
+            if not self.path or self.model is None or self.model.locked(): raise LookupError
+            group=next((ps for _l,ps,_w in self.series_groups() if self.path in ps),None)
+            rows=self.controller.recommendations(group,together=True,series=True) if group else self.controller.recommendations([self.path])
+            row=next((r for r in rows if r.get('compatible')),None)
+            if row is None: raise LookupError
+            self._suggested=(row['id'],list(group) if group else [self.path],bool(group))
+            self.suggest.setText(f"Suggested graph: {row['name']}" + (f" - the {len(group)} files of the series together" if group else '') + f". {row.get('reason','')}")
+            self.b_suggest.setVisible(True)
+        except Exception:
+            self.suggest.setText('' if (self.model is None or self.model.locked()) else 'No graph is suggested yet: choose X and Y (right click a column header), or set the measurement type on the right.')
+            self.b_suggest.setVisible(False)
+
+    def create_suggested(self):
+        if not self._suggested: return None
+        tid,paths,together=self._suggested
+        return self.controller.create_graphs(paths,tid,together)
+
+    def remove_files(self,paths=None):
+        """Take files off this list. A file that is not selected is nowhere in the app: it is unticked on Start here, and
+        its graphs leave Workspace (Undo there brings them back). The file on the disk is not touched."""
+        if paths is None: paths=[i.data(Qt.UserRole) for i in self.files.selectedItems() if isinstance(i.data(Qt.UserRole),str)]
+        if not paths: self.ws.set_status('Select one or more files of the list first (the tables made by the app go when their files go).'); return 0
+        left=[p for p in self.paths if p not in paths]
+        n=self.controller.deselect_inputs(paths); self.set_paths(left)
+        self.ws.set_status(f"{len(paths)} file(s) taken off the list: unticked on Start here, {n} graph(s) left Workspace. The files on the disk are not touched."); return len(paths)
+
+    def files_menu(self,pos):
+        from PySide6.QtWidgets import QMenu
+        it=self.files.itemAt(pos)
+        if it is None or not isinstance(it.data(Qt.UserRole),str): return
+        if not it.isSelected(): self.files.setCurrentItem(it)
+        sel=[i.data(Qt.UserRole) for i in self.files.selectedItems() if isinstance(i.data(Qt.UserRole),str)]
+        m=QMenu(self); m.addAction(f'Remove the {len(sel)} selected files from the list  (Delete)' if len(sel)>1 else 'Remove this file from the list  (Delete)',lambda: self.remove_files(sel))
+        m.addAction('Move up',lambda: self.move_file(-1)); m.addAction('Move down',lambda: self.move_file(1))
+        m.exec(self.files.mapToGlobal(pos))
+
+    def show_peaks(self):
+        """The Peaks button: the table of peaks of the file on show, and back to its data."""
         import related
-        try: d=related.dtg_column(table)
-        except Exception: d=None
-        return [(d[0],d[1])] if d else []
+        if self.sheet.currentText()==related.PEAKS_SHEET: self.sheet.setCurrentIndex(0)
+        elif self.sheet.findText(related.PEAKS_SHEET)>=0: self.sheet.setCurrentText(related.PEAKS_SHEET)
+
+    def worked_columns(self,path,table,sheet=None):
+        """[(name, values)] the app works out for a file: the DTG curve of a thermal run, and a column that names each
+        peak (step of mass loss, infrared band) in its own row."""
+        import related
+        out=[]
+        try:
+            d=related.dtg_column(table)
+            if d: out.append((d[0],d[1]))
+        except Exception: pass
+        try:
+            peaks,kind=self.controller.peak_frame(path,sheet=sheet); c=related.peak_column(kind,table,peaks) if peaks is not None else None
+            if c:
+                out.append(c); m=related.meaning_column(kind,table,peaks)
+                if m: out.append(m)
+        except Exception: pass
+        return out
+
+    def refresh_peak_column(self,path):
+        """Your labels changed: the peak column of the data shows them."""
+        import related
+        try:
+            slug=self.controller.project_for(path); table,sel=self.controller._table(path,slug)[:2]; frame=self.controller.raw_sheets(path,slug)[sel]
+            peaks,kind=self.controller.peak_frame(path); c=related.peak_column(kind,table,peaks) if peaks is not None else None
+            if c and c[0] in frame.columns and len(c[1])==len(frame):
+                frame[c[0]]=c[1]; m=self.models.get((slug,path,sel))
+                if m is not None: m.layoutChanged.emit()
+        except Exception: pass
 
     def open_series(self,data):
         import related
@@ -269,7 +496,7 @@ class WorkbookPage(QWidget):
         try:
             frame=related.side_by_side([(p,self.controller.table_for(p)) for p in ps],extra=self.worked_columns)
             self.model=WorkingTableModel(frame,lambda:None,self); self.model.read_only=True; self.table.setModel(self.model); self._series_label=label
-            self._loading=True; self.sheet.clear(); self.columns.clear(); self.x.clear(); self.y.clear(); self._loading=False
+            self._loading=True; self.sheet.clear(); self.columns.clear(); self.x.clear(); self.y.clear(); self._loading=False; self.b_peaks.setVisible(False); self.draw_labels.setVisible(False); self.update_suggestion()
             self.caption.setText(f"All of '{label}' side by side")
             self.info.setText(f'{len(frame):,} rows \u00b7 {len(frame.columns)} columns \u00b7 made by the app from {len(ps)} files; every file keeps its own X values, nothing is interpolated. Export data\u2026 saves it')
         except Exception as e: self.info.setText('The files could not be put side by side: '+str(e))
@@ -288,6 +515,10 @@ class WorkbookPage(QWidget):
                     self.sheet.addItem(related.PEAKS_SHEET); self.sheet.setItemData(self.sheet.count()-1,'The peaks the app found in this file (steps of mass loss of a thermal run, bands of an infrared spectrum), what each may be, and a Label column of your own',Qt.ToolTipRole)
             except Exception: pass
             self.sheet.setCurrentText(selected); self._loading=False
+            has=self.sheet.findText(related.PEAKS_SHEET)>=0; self.b_peaks.setVisible(has)
+            if has:
+                try: self.b_peaks.setText(f"Peaks ({len(self.controller.peak_frame(self.path)[0])})\u2026")
+                except Exception: self.b_peaks.setText('Peaks\u2026')
             self.open_sheet(selected)
         except Exception as e: self.info.setText('Could not open file: '+str(e)); self._loading=False
 
@@ -298,7 +529,7 @@ class WorkbookPage(QWidget):
         if frame is None: return
         path=self.path; key=(self.controller.project_for(path),path,related.PEAKS_SHEET)
         if key not in self.models or self.models[key].df is not frame:
-            self.models[key]=WorkingTableModel(frame,lambda p=path:self.controller.set_peak_labels(p),self); self.models[key].only=('Label',)
+            self.models[key]=WorkingTableModel(frame,lambda p=path:(self.controller.set_peak_labels(p),self.refresh_peak_column(p)),self); self.models[key].only=('Label',)
         self.model=self.models[key]; self.table.setModel(self.model); self.table.resizeColumnsToContents()
         self.caption.setText(os.path.basename(path)+' / peaks')
         what='steps of mass loss (minima of the DTG curve)' if kind=='TGA' else 'bands'
@@ -306,7 +537,7 @@ class WorkbookPage(QWidget):
                           "The Label column is yours to type in. Export data\u2026 saves this table.")
         slug=self.controller.project_for(path); sel=self.controller._table(path,slug)[1]
         on=bool(self.controller.settings_for(path,slug).get('sheet_settings',{}).get(sel,{}).get('peak_names_on'))
-        self._loading=True; self.draw_labels.setChecked(on); self.draw_labels.setVisible(True); self.columns.clear(); self._loading=False
+        self._loading=True; self.draw_labels.setChecked(on); self.draw_labels.setVisible(True); self.columns.clear(); self._loading=False; self.update_suggestion()
 
     def labels_toggled(self,on):
         if self._loading or not self.path: return
@@ -338,7 +569,7 @@ class WorkbookPage(QWidget):
             scoped=self.controller.settings_for(self.path,slug).setdefault('sheet_settings',{}).setdefault(name,{})
             if scoped.get('derived'): return
             table=self.controller._table(self.path,slug,name)[0]
-            for col,values in self.worked_columns(self.path,table):
+            for col,values in self.worked_columns(self.path,table,name):
                 if col in frame.columns or len(values)!=len(frame): continue
                 frame[col]=values; scoped.setdefault('derived',[]).append(col)
         except Exception: pass
@@ -374,6 +605,10 @@ class WorkbookPage(QWidget):
             box.clear(); box.addItems(table.numeric)
             if value: box.setCurrentText(value)
         self.type.setCurrentText(prefs.get('type') or 'Automatic'); self._loading=False
+        if self.model is not None and not self.model.locked():      # the headers say which column is X and which is the first Y
+            self.model.roles={table.x:'X',**({table.ys[0]:'Y'} if table.ys else {})} if table.x else {}
+            self.model.headerDataChanged.emit(Qt.Horizontal,0,max(0,self.model.columnCount()-1))
+        QTimer.singleShot(0,self.update_suggestion)
 
     def columns_changed(self,*_):
         if self._loading or not self.path: return
@@ -455,7 +690,7 @@ class WorkbookPage(QWidget):
             from workbook_data import merge_tables
             import related
             inputs=[(p,self.controller.table_for(p)) for p in paths]; mode=self.merge.currentIndex()
-            result=related.side_by_side(inputs,extra=self.worked_columns) if mode==2 else merge_tables(inputs,mode)
+            result=None if mode==2 else merge_tables(inputs,mode)
             name,ok=QInputDialog.getText(self,'Merged dataset','Dataset name:',text=(related.series_label(paths) if related.series(paths)['related'] else 'Merged data'))
             if not ok or not name.strip(): return None
             import workspace_projects as WP
@@ -464,15 +699,17 @@ class WorkbookPage(QWidget):
             # files that are in no project are merged too: the table is kept with the app's own data, as a file of this session
             folder=WQ.cfg_path().parent/'project_data'/(slug or '_session')/'derived'; folder.mkdir(parents=True,exist_ok=True)
             import re,uuid
-            base=re.sub(r'[^\w.-]+','_',name.strip()); path=folder/(base+'_'+uuid.uuid4().hex[:6]+'.csv')
-            result.to_csv(path,index=False)
+            base=re.sub(r'[^\w.-]+','_',name.strip()); path=folder/(base+'_'+uuid.uuid4().hex[:6]+('.xlsx' if mode==2 else '.csv'))
+            if mode==2: related.merged_workbook(str(path),inputs,extra=self.worked_columns)      # one Excel workbook: a sheet per file, and all files side by side with labelled columns on the last sheet
+            else: result.to_csv(path,index=False)
             if slug:
                 WP.add_files(slug,[str(path)])
                 self.ws.templates_page.add_files([str(path)],project=WP.get(slug)['name'],on_done=lambda items:[setattr(i,'project_id',slug) for i in items])
             else: self.ws.templates_page.add_files([str(path)])
             self.set_paths(self.paths+[str(path)]); self.files.setCurrentRow(self.paths.index(str(path)))
             self.controller.changed(str(path),slug)
-            self.ws.set_status(f"'{name.strip()}' is a dataset of its own now: the entry selected in this list, also in Your graphs and on Start here. The {len(paths)} files are unchanged.")
+            self.ws.set_status(f"'{name.strip()}' is a dataset of its own now" + (f": an Excel workbook with a sheet for each of the {len(paths)} files and all of them side by side on the last sheet '{related.OVERVIEW_SHEET}'" if mode==2 else '')
+                               + f". It is the entry selected in this list, also in Your graphs and on Start here. The {len(paths)} files are unchanged. {path}")
             return str(path)
         except Exception as e: self.ws.set_status('Merge could not be completed: '+str(e)); return None
 

@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 36 test files: 1 176 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
+* All 37 test files: 1 257 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -212,6 +212,18 @@ Tested in `tests/test_related.py` (61 checks: the functions on their own, then t
 What "may be" means: the reference events of `opstudio/tga_core.py` and the reference bands of `opstudio/ftir_core.py` whose range holds the position, the one it lies most centrally in first - for thermal events the four that nearly every cement paste and raw meal shows (water, C-S-H / ettringite, portlandite, calcite) before the others, so a step at 770 °C is offered as calcite before dolomite. Ranges overlap; a name is a possibility. Labels start with a question mark for that reason and are drawn only when switched on.
 
 Not done: a side-by-side dataset is drawn sample by sample in Workspace, but on Start here it is offered the graphs of its first sheet only (one table per file is a deep assumption of the template engine). The peak table is made for the selected sheet of a file.
+
+### By request, 5.58.1
+
+Tested in `tests/test_workbook_editing.py` (49 checks), `tests/test_related.py` (78), `tests/test_session_basics.py` (66). Also: X / Y and moving columns from the header menu, the suggested graph under the table, merging into one Excel workbook, the Workbook filled from the ticks of Start here.
+
+1. Workbook: delete / empty / hide for cells, rows, columns and files, each undoable; before, the table could only be typed in.
+2. The ticks of Start here are the selection of the whole app (Workbook, Analysis, Workspace).
+3. Your graphs: several graphs removed at once. Found while doing it: a right click collapsed a multi-row highlight to one row, and the list opened two context menus in a row.
+4. A peak-name column in the data and a Peaks button.
+5. Thermal and infrared graphs: round temperature axis, no event for the start-up dip, one DTG unit, no labels on air CO₂ or range ends. These change default drawings; the app's update check reports its thermal examples as different, as intended.
+
+Not done: the right axis of a TG + DTG graph still carries tick numbers above zero where no curve is (the two curves share the height by design); restricting them would make the preview differ from Origin, where the tick range cannot be limited by the commands known to work.
 
 ## Interpretation details
 

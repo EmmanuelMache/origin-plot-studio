@@ -25,6 +25,8 @@ was merged, not copied over: everything the app did before is still there, and w
   after the folder is made.
 * **Projects.** *New project* names one; add files to it, make folders (••• ▸ *New empty folder…*), move files into them, rename and reorder from the
   ••• menu or the right-click menu. Removing anything from a project never deletes a file on the disk.
+* **Ticked means in use (5.58.1).** What is not ticked here is not in Workbook, Analysis or Workspace: on leaving this
+  page the graphs of unticked files leave Workspace (Ctrl+Z brings them back) and ticked files not yet read are read.
 * **Tick, then open.** Click a project, folder or file to tick it; click again to untick (the small box works too). The line under the tree says what is ticked, and the highlighted file is the one shown in Inspect data. **Open selected**
   reads them and **shows them in Workspace** when they are read. **Open Workspace** does the same for what is ticked,
   and just opens Workspace when nothing is.
@@ -74,7 +76,9 @@ New in 5.58:
 * **Side by side** is a third way to merge, and the first choice: for every file its X column and its Y columns next to
   each other, named `column [file]`; every file keeps its own X values. For a series of files the app makes this table
   by itself - it is the last entry of *Selected files* - and *Export data…* saves it. *Merge selected files…* adds such
-  a table as a dataset of its own (no project is needed); Workspace reads it back as one graph per sample.
+  a table as a dataset of its own (no project is needed). Since 5.58.1 that dataset is **one Excel workbook**: a
+  sheet per file and a last sheet with all files side by side, every column labelled with its file; Workspace draws
+  one graph per file from it.
 * **DTG by itself.** The working copy of a thermal run has a column `DTG (%/°C)`; it is exported with the data and is
   used in graphs only if you tick it under Columns.
 * **A column left out in all files.** Untick a column and press *Use these column choices for all files*, or right
@@ -83,6 +87,12 @@ New in 5.58:
   band, what it **may be** (the usual event or bond at that position; a possibility to check, not a finding), the other
   possibilities, and a **Label** of your own. *Draw these labels on the graph* writes them on the TGA / FTIR graphs of
   that file; off, the graphs are as before. Excel export puts the peaks on a second sheet.
+* **Delete and hide (5.58.1).** Delete empties the selected cells, or deletes whole rows / columns when those are
+  selected; right click for the same, for hiding a column (it stays in the table, out of the graphs) and for Undo.
+  Delete on a file takes it off the list - and, because a file that is not selected is nowhere in the app, unticks it
+  on Start here and takes its graphs out of Workspace.
+* **Peak names in the data (5.58.1).** A column *Peak (may be)* / *Band (may be)* names each peak in its own row; the
+  **Peaks (n)…** button opens the table of peaks.
 * A thermal run exported as temperature, time, mass, DSC is shown as **mass against temperature** (X and Y by what the
   columns are, until you choose them).
 

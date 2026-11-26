@@ -216,6 +216,11 @@ class StartHerePage(QWidget):
         expanded = {tuple(i.data(0, Qt.UserRole)) for i in self._walk() if i.isExpanded()}
         self._building = True; self.projects.clear(); current_item = None
         loose = self.loose_files()                             # files of the session that are in no project: listed here like the rest, so a file you add is where you look for it
+        # a file whose graphs are in Workspace and that this list shows for the first time (added on another page, or a
+        # session opened) is in use: it starts ticked - what is not ticked here is nowhere else in the app
+        seen = getattr(self, '_listed', set()); loaded = {(getattr(i, 'project_id', None) or '', getattr(i, 'path', '')) for i in getattr(self.ws, 'singles', [])}
+        now = {('file', '', f) for f in loose} | {('file', slug, f) for slug, p in WP.list_projects() for f in p['files']}
+        checked |= {k for k in now - seen if (k[1], k[2]) in loaded}; self._listed = seen | now
         if loose:
             root = QTreeWidgetItem([f"Files not in a project\n{len(loose)} file{'s' if len(loose) != 1 else ''} · this session"])
             root.setToolTip(0, "Files you added without a project. They work like any other; 'New project' (or dragging them onto a project) keeps them, their edits and their graphs together")
@@ -310,6 +315,40 @@ class StartHerePage(QWidget):
         if not ordered:
             ordered = [tuple(i.data(0, Qt.UserRole)) for i in self.projects.selectedItems()]
         return ordered
+
+    def ticked_inputs(self):
+        """(project or None, file) of everything ticked - nothing else (no fall back to the highlighted row)."""
+        result = []
+        for i in self._walk():
+            if i.checkState(0) != Qt.Checked: continue
+            kind, slug, value = tuple(i.data(0, Qt.UserRole)); p = WP.get(slug) or {}
+            paths = [value] if kind == 'file' else self.loose_files() if kind == 'session' else WP.folder_files(slug, value) if kind == 'folder' else p.get('files', [])
+            for path in paths:
+                if (slug or None, path) not in result: result.append((slug or None, path))
+        return result
+
+    def listed_inputs(self):
+        """(project or None, file) of every file this page lists."""
+        return [((v[1] or None), v[2]) for v in (tuple(i.data(0, Qt.UserRole)) for i in self._walk()) if v[0] == 'file']
+
+    def untick_paths(self, paths):
+        """Untick these files (and the project, folder or 'Files not in a project' row above them, which would keep them in)."""
+        paths = set(paths); self._building = True
+        for i in self._walk():
+            v = tuple(i.data(0, Qt.UserRole))
+            if v[0] == 'file' and v[2] in paths and i.checkState(0) == Qt.Checked:
+                i.setCheckState(0, Qt.Unchecked); up = i.parent()
+                while up is not None:                                 # a ticked row above stands for all its files: it is unticked, the other files below it stay ticked themselves
+                    if up.checkState(0) == Qt.Checked:
+                        up.setCheckState(0, Qt.Unchecked)
+                        for n in range(up.childCount()):
+                            c = up.child(n)
+                            if tuple(c.data(0, Qt.UserRole))[0] == 'file' and tuple(c.data(0, Qt.UserRole))[2] not in paths: c.setCheckState(0, Qt.Checked)
+                    up = up.parent()
+        self._building = False
+        self._selection_order = [v for v in self._selection_order if not (v[0] == 'file' and v[2] in paths)]
+        try: self._sync_project_buttons()
+        except Exception: pass
 
     def selected_inputs(self):
         result = []

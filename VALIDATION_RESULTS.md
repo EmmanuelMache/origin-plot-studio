@@ -1,4 +1,4 @@
-# Validation results — Origin Plot Studio 5.58.0
+# Validation results — Origin Plot Studio 5.58.1
 
 Date: 26 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
 
@@ -27,7 +27,7 @@ data types, a file with no table, the template example cache, the one-parse work
 
 ## Every test file
 
-36 files, **1176 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
+37 files, **1257 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
 fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
 `TEST_REPORT.md`, section 2.
 
@@ -115,6 +115,19 @@ side-by-side table (9800 rows, 10 columns), three steps named, labels drawn and 
 The app's own update check still gives the same Origin commands for 10 of 10 example files: nothing that is drawn by
 default changed. **The names of peaks are possibilities by position; no assignment was checked against a reference
 measurement.**
+
+## 5.58.1: editing, selection, the look of thermal and infrared graphs
+
+New checks: Workbook editing and the Start here selection rule (38), removal of several graphs (12 more in the session
+tests), peak column / Peaks button / publication look (11 more in `tests/test_related.py`). Looked at on two real
+thermal files and one real infrared file of the owner (private): the thermal graph runs from 0 to 1000 °C without the
+label at 21 °C, the two-sample figure has its DTG in % per minute, the infrared graph labels 3524, 1409, 957, 872 and
+668 cm-1 and no longer 2360 / 2342 (air) or 418 / 406 (end of range).
+
+The app's own update check (5.58.1 against 5.58.0) gives the same Origin commands for 6 of 10 example files and reports
+the four thermal examples as different: the temperature axis from 0 instead of 30, and the places of labels that
+follow from it - the intended changes above. The update window therefore asks before installing. **Whether a figure meets a journal's standard is the author's judgement; nothing here was compared
+with a published figure.**
 
 ## Not verified
 

@@ -100,6 +100,53 @@ if auto_row is not None:
 w.singles = _before; w.hidden_groups = []; w._session_undo.clear(); w._session_redo.clear(); w.regroup(); w.refresh_list(); app.processEvents(); n0 = len(w.singles)   # the two scans were only for this: no Undo step leads back to them
 del_act = next((a for a in w.list.actions() if a.shortcut().toString() == "Del"), None)
 check("Your graphs has one Delete action, removing the highlighted graph(s) (or the one on show)", del_act is not None)
+# ---- several graphs at once
+import workspace_actions as WA_
+from PySide6.QtWidgets import QMenu as _QMenu
+from PySide6.QtCore import QItemSelectionModel as _Sel
+shift_del = next((a for a in w.list.actions() if a.shortcut().toString() == "Shift+Del"), None)
+check("Shift+Delete on Your graphs removes the ticked graphs", shift_del is not None and "ticked" in shift_del.text())
+rows_ = [i for i in range(w.list.count()) if isinstance(w.items[i], sp.Item)][:2]; two = [w.items[i] for i in rows_]
+w.list.clearSelection(); w.list.setCurrentRow(rows_[0], _Sel.ClearAndSelect); w.list.item(rows_[1]).setSelected(True); app.processEvents()
+check("Ctrl / Shift-click highlights several graphs", len(w.selected()) == 2 and set(map(id, w.selected())) == set(map(id, two)))
+seen = {}
+def _fake_show(win, menu, widget, pos): seen["texts"] = [a.text() for a in menu.actions() if a.text()]; seen["sel"] = len(win.selected()); return None
+_real_show = WA_._show; WA_._show = _fake_show
+w.menu_graphs(w.list.visualItemRect(w.list.item(rows_[1])).center()); app.processEvents(); WA_._show = _real_show
+check("a right click on one of the highlighted graphs keeps all of them highlighted (it used to leave only the one under the mouse, so 'Remove' took one graph)", seen.get("sel") == 2, seen.get("sel"))
+check("... and the menu offers to remove the 2 highlighted graphs", any(t.startswith("Remove the 2 highlighted graphs") for t in seen.get("texts", [])), [t for t in seen.get("texts", []) if "Remove" in t])
+try: n_conn = w.list.receivers("2customContextMenuRequested(QPoint)")
+except Exception: n_conn = 1
+check("the list has one right-click menu (two used to open, one after the other)", n_conn == 1, n_conn)
+r = w.remove_current_or_selected()
+check("Delete removes all the highlighted graphs together; one Undo brings them all back", r == "removed" and len(w.singles) == n0 - 2 and not any(t_ in w.singles for t_ in two) and w.undo_any() == "session" and len(w.singles) == n0 and all(t_ in w.singles for t_ in two))
+w.tick_all(False); app.processEvents(); tick_rows = [i for i in range(w.list.count()) if isinstance(w.items[i], sp.Item)][:2]
+for i in tick_rows: w.list.item(i).setCheckState(Qt.Checked)
+app.processEvents(); ticked_ = [w.items[i] for i in tick_rows]
+w.list.clearSelection(); other_row = next(i for i in range(w.list.count()) if isinstance(w.items[i], sp.Item) and i not in tick_rows); other = w.items[other_row]
+w.list.setCurrentRow(other_row, _Sel.ClearAndSelect); app.processEvents(); WA_._show = _fake_show
+w.menu_graphs(w.list.visualItemRect(w.list.item(other_row)).center()); app.processEvents(); WA_._show = _real_show
+check("with two graphs ticked the menu offers 'Remove the 2 ticked graphs' (Shift+Delete)", any(t.startswith("Remove the 2 ticked graphs") for t in seen.get("texts", [])), [t for t in seen.get("texts", []) if "Remove" in t])
+r = w.remove_current_or_selected()
+check("Delete with one graph highlighted removes that one, not the ticked ones - and the status line says how to remove several", r == "removed" and other not in w.singles and all(t_ in w.singles for t_ in ticked_) and "Shift+Delete removes the 2 ticked" in w.status.text(), w.status.text()[-120:])
+w.undo_any(); shift_del.trigger(); app.processEvents()
+check("Shift+Delete removes the ticked graphs together; Undo brings them back", len(w.singles) == n0 - 2 and not any(t_ in w.singles for t_ in ticked_) and w.undo_any() == "session" and len(w.singles) == n0)
+by_file = {}
+for s_ in w.singles: by_file.setdefault(getattr(s_, "path", ""), []).append(s_)
+import pandas as _pd2, numpy as _np3, tempfile as _tf2
+_wbk = os.path.join(_tf2.mkdtemp(), "book.xlsx"); _xx = _np3.linspace(5, 70, 400)
+with _pd2.ExcelWriter(_wbk) as _xw:
+    for _k in (1, 2, 3): _pd2.DataFrame({"2theta (deg)": _xx, "Intensity (counts)": 50 + 400 * _k * _np3.exp(-(_xx - 20 - 5 * _k) ** 2 / 0.3)}).to_excel(_xw, sheet_name=f"S{_k}", index=False)
+_keep = list(w.singles); w.load([_wbk]); wait(w); app.processEvents(); of_book = [s_ for s_ in w.singles if getattr(s_, "path", "") == _wbk]
+check("a workbook with three sheets gives three graphs", len(of_book) == 3, len(of_book))
+if len(of_book) == 3:
+    row_b = w.items.index(of_book[0]); w.list.clearSelection(); w.list.setCurrentRow(row_b, _Sel.ClearAndSelect); app.processEvents(); WA_._show = _fake_show
+    w.menu_graphs(w.list.visualItemRect(w.list.item(row_b)).center()); app.processEvents(); WA_._show = _real_show
+    check("the menu of one of them offers 'Remove all 3 graphs of this file'", any(t.startswith("Remove all 3 graphs of this file") for t in seen.get("texts", [])), [t for t in seen.get("texts", []) if "Remove" in t])
+    r = w.remove_file_graphs(of_book[0])
+    check("... which takes all three off the list at once; the graphs of other files stay; Undo brings them back", r == "removed" and not any(getattr(s_, "path", "") == _wbk for s_ in w.singles) and len(w.singles) == len(_keep)
+          and w.undo_any() == "session" and sum(getattr(s_, "path", "") == _wbk for s_ in w.singles) == 3)
+w.singles = _keep; w.hidden_groups = []; w._session_undo.clear(); w._session_redo.clear(); w.tick_all(False); w.list.clearSelection(); w.regroup(); w.refresh_list(); app.processEvents(); n0 = len(w.singles)
 w.start_afresh(keep=True); check("Start afresh: an empty session, settings and layout kept", not w.singles and w.outdir is not None)
 w.undo_any(); check("Start afresh can be undone", len(w.singles) == n0)
 # ---- undo of a change of look still works through the same Undo

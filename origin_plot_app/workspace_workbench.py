@@ -687,7 +687,73 @@ class Workbench:
         self.ws.regroup(); self.ws.refresh_list(); self.tp.refresh_files()
         if not self.ws.items: self.ws.show_empty()
 
+    def _graphs_of(self, pairs):
+        """The graphs in Workspace that come from these (project or None, file) inputs - a graph made of several files
+        counts when any of them is among the inputs."""
+        pairs = set(pairs); paths = {p for _s, p in pairs}; out = []
+        for i in self.ws.singles:
+            files = (getattr(i, 'combo', {}) or {}).get('files') if isinstance(i, TemplateGraph) else None
+            if files: hit = any(f in paths for f in files)
+            else: hit = (getattr(i, 'project_id', None) or None, getattr(i, 'path', '')) in pairs
+            if hit: out.append(i)
+        return out
+
+    def _drop_graphs(self, graphs, why):
+        """Take graphs out of Workspace as one step of its Undo."""
+        if not graphs: return 0
+        import workspace_session as WS
+        try: WS._snapshot(self.ws, why)
+        except Exception: pass
+        ids = {id(g) for g in graphs}; self.ws.singles = [i for i in self.ws.singles if id(i) not in ids]
+        self.ws.regroup(); self.ws.refresh_list()
+        if not self.ws.items: self.ws.show_empty()
+        return len(graphs)
+
+    def deselect_inputs(self, paths):
+        """These files are not selected any more: unticked on Start here and in Analysis, their graphs out of Workspace.
+        Returns the number of graphs that left."""
+        paths = list(dict.fromkeys(paths)); sh = self.ws.pages.widget(6) if self.ws.pages.count() > 6 else None
+        if sh is not None and hasattr(sh, 'untick_paths'): sh.untick_paths(paths)
+        n = self._drop_graphs([g for g in self.ws.singles if getattr(g, 'path', '') in paths or any(f in paths for f in ((getattr(g, 'combo', {}) or {}).get('files') or []))], f'{len(paths)} file(s) deselected')
+        for i in range(self.tp.files.count()):
+            if self.tp.files.item(i).data(Qt.UserRole) in paths: self.tp.files.item(i).setCheckState(Qt.Unchecked)
+        return n
+
+    def sync_selection(self, index):
+        """What is ticked on Start here is what the app works on. On leaving that page: Analysis and Workbook list the
+        ticked files only, the graphs of files that are listed there but not ticked leave Workspace (one Undo brings them
+        back), and - going to Workspace - ticked files that are not read yet are read."""
+        sh = self.ws.pages.widget(6) if self.ws.pages.count() > 6 else None
+        if sh is None or not hasattr(sh, 'ticked_inputs'): return
+        listed = sh.listed_inputs()
+        if not listed: return
+        ticked = [(s, p) for s, p in sh.ticked_inputs() if os.path.isfile(p)]
+        if not ticked:                                             # nothing ticked, but a file is highlighted (the one shown under Inspect data): that file is the selection
+            cur = getattr(sh, '_current_path', None); ticked = [pair for pair in listed if pair[1] == cur and os.path.isfile(pair[1])][:1]
+        if self._opening or self.ws.thread is not None:            # files are being read: the lists follow the selection now, the graphs when the reading is done
+            if index == 7: self.workbook.set_paths([p for _s, p in ticked])
+            return
+        off = [pair for pair in listed if pair not in ticked]
+        loaded_off = self._graphs_of(off); keep_paths = {p for _s, p in ticked}
+        loaded_off = [g for g in loaded_off if not (isinstance(g, TemplateGraph) and all(f in keep_paths for f in (g.combo.get('files') or [])))]
+        n = self._drop_graphs(loaded_off, 'files unticked on Start here')
+        self.select_inputs([p for _s, p in ticked], project_inputs=ticked)
+        if index == 7: self.workbook.set_paths([p for _s, p in ticked])
+        if n: self.ws.set_status(f"{n} graph(s) of {len({getattr(g, 'path', '') for g in loaded_off})} file(s) that are not ticked on Start here left Workspace. Tick them there to bring them back; Undo: Ctrl+Z.")
+        if index == 0:
+            have = {(getattr(i, 'project_id', None) or None, getattr(i, 'path', '')) for i in self.ws.singles}
+            need = [pair for pair in ticked if pair not in have]; every = [p for _s, p in ticked]
+            loose = [p for s, p in need if s is None]; in_projects = [pair for pair in need if pair[0] is not None]
+            again = lambda *_: self.select_inputs(every, project_inputs=ticked)
+            if loose:                                              # a file of no project is read by Workspace itself; the files of projects go through 'open'
+                self.ws.load(loose, on_done=(lambda items: (again(), self.open_inputs(ticked, then_workspace=False))) if in_projects else again)
+            elif in_projects: self.open_inputs(ticked, then_workspace=False)
+
     def page_changed(self, index):
+        before, self._page = getattr(self, '_page', None), index
+        if before == 6 and index != 6:
+            try: self.sync_selection(index)
+            except Exception as e: self.ws.log('Selection could not be carried over from Start here: ' + str(e))
         if index==6:
             self.ws.set_status('Select projects, folders or files. Inspect data, then choose an Analysis template.')
         if index==7:
