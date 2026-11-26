@@ -18,6 +18,8 @@ from opstudio.detection import preferred_xy
 # ---------------------------------------------------------------- names that follow one pattern
 s = R.series(["10-900-AB-Mix.dat", "10-950-AB-Mix.dat", "20-990-AB-Mix.dat"])
 check("names built the same way with a part that changes are one series; what they share and what changes is said", s["related"] and s["shared"] == "AB Mix" and s["varies"] == ["10-900", "10-950", "20-990"] and "AB Mix" in s["why"], s)
+rp = R.series(["1450-40-AB-Mix.spa", "1450-15-AB-Mix.spa", "1350-40-AB-Mix-2.spa"])
+check("a repeat number at the end of one name ('...-2') does not take it out of its series", rp["related"] and rp["shared"] == "AB Mix" and rp["varies"] == ["1450-40", "1450-15", "1350-40 (repeat 2)"] and R.groups(["1450-40-AB-Mix.spa", "1450-15-AB-Mix.spa", "1350-40-AB-Mix-2.spa"]) and len(R.groups(["1450-40-AB-Mix.spa", "1450-15-AB-Mix.spa", "1350-40-AB-Mix-2.spa"])[0]) == 3, rp)
 check("replicates (rep1, rep2) and numbered names (S1, S2, S10) are series", R.series(["TGA_Ref_28d_rep1.txt", "TGA_Ref_28d_rep2.txt"])["related"] and R.series(["S1.csv", "S2.csv", "S10.csv"])["related"])
 check("files with nothing in common are not", not R.series(["xrd_raw.csv", "ftir.xlsx"])["related"] and not R.series(["a.csv", "b.csv"])["related"] and not R.series(["one.csv"])["related"] and not R.series(["scan_1.csv", "other_2.csv"])["related"])
 g = R.groups(["10-900-AB-Mix.dat", "notes.csv", "20-990-AB-Mix.dat", "S1.csv", "S2.csv", os.path.join("x", "derived", "AB_Mix_1a2b3c.csv")])
@@ -53,6 +55,11 @@ ir = OD.Table("ir", pd.DataFrame({"Wavenumber (cm-1)": x, "Absorbance": y})); ft
 check("the bands of an infrared spectrum are found (the ones the graph labels)", R.peak_kind(ir) == "FTIR" and sorted(round(v) for v in ft["Band (cm⁻¹)"]) == sorted(c for _a, c, _w in bands), list(ft["Band (cm⁻¹)"]))
 by = {round(b): l for b, l in zip(ft["Band (cm⁻¹)"], ft["Label"])}
 check("... each with what it may be: O–H of Ca(OH)₂, water, carbonate, sulfate, C-S-H", by[3643] == "O–H (Ca(OH)₂) ?" and by[3420] == "O–H (H₂O) ?" and by[1425] == "ν₃ CO₃²⁻ ?" and by[1115] == "ν₃ SO₄²⁻ ?" and by[970] == "Si–O (C-S-H) ?" and by[875] == "ν₂ CO₃²⁻ ?" and by[712] == "ν₄ CO₃²⁻ ?", by)
+from opstudio import api as _api
+from opstudio.detection import detect as _det, compatibility as _compat
+rk = _api.recommend([ir]); tpl_ = _api.resolve("ftir_stacked_bands")
+check("ONE infrared spectrum is offered the infrared graph (spectrum with band lines) before the plain line plot - it was offered the line plot only", rk and rk[0][0] == "ftir_stacked_bands" and _compat(tpl_[0], [ir], _det(ir), tpl_[4])[0], [(t_, s_) for t_, s_, _w in rk][:3])
+check("... and that graph draws one spectrum, wavenumber from high to low", len(_api.draw("ftir_stacked_bands", [ir])[0].axes[0].lines) >= 1 and _api.draw("ftir_stacked_bands", [ir])[0].axes[0].get_xlim()[0] > 3000)
 check("a transmittance spectrum is read at its minima", list(R.peak_table("FTIR", OD.Table("t", pd.DataFrame({"Wavenumber (cm-1)": x, "Transmittance (%)": 100 - 60 * y})))["Read as"])[0].startswith("minimum"))
 check("the reference of infrared bands: ranges in cm-1, most central first, nothing outside them", [b["short"] for b in ftir_core.suggest(875)][0] == "ν₂ CO₃²⁻" and ftir_core.suggest(2000) == [] and all(b["range"][0] < b["range"][1] for b in ftir_core.REFERENCE_BANDS))
 nm = R.names_of(ft)
@@ -140,20 +147,23 @@ check("Create graph makes ONE graph of the three runs (not one each, and without
 sh.open_workbook(); pump(timeout=1.0); wb = c.workbook
 rows = [wb.files.item(i).text() for i in range(wb.files.count())]
 check("Workbook: after the files, a table of the series side by side, made by the app", rows[:4] == [os.path.basename(p) for p in files] + ["pattern.csv"] and rows[-1] == "⧉ All of 'AB Mix' side by side · 3 files", rows)
-check("the working copy of a thermal run has its DTG curve as a column, by itself", list(wb.model.df.columns) == ["Temperature (°C)", "Time (min)", "Mass (%)", "DSC (uV)", "DTG (%/°C)", "Peak (may be)", "What it may be"] and abs(float(wb.model.df["Temperature (°C)"][wb.model.df["DTG (%/°C)"].idxmin()]) - 450) < 3)
+check("the working copy of a thermal run has its DTG curve as a column, by itself", list(wb.model.df.columns) == ["Temperature (°C)", "Time (min)", "Mass (%)", "DSC (uV)", "DTG (%/°C)", "Peak at (°C)", "Peak (may be)", "What it may be"] and abs(float(wb.model.df["Temperature (°C)"][wb.model.df["DTG (%/°C)"].idxmin()]) - 450) < 3)
 cols = [(wb.columns.item(i).text(), wb.columns.item(i).checkState() == Qt.Checked) for i in range(wb.columns.count())]
-check("... listed under Columns as worked out by the app, unticked: it is exported, but the graphs keep working out their own", cols[-3] == ("DTG (%/°C)  (worked out by the app)", False) and "DTG (%/°C)" not in c.table_for(files[0]).cols, cols)
-pkc = wb.model.df["Peak (may be)"]; named = {round(float(wb.model.df["Temperature (°C)"][i])): v for i, v in pkc.items() if str(v).strip()}
-check("... and a column that names each step of mass loss in its own row (empty elsewhere): the names are seen beside the numbers and go into every export", named == {120: "C-S-H / AFt ?", 450: "Ca(OH)₂ ?", 720: "CaCO₃ ?"} and cols[-2] == ("Peak (may be)  (worked out by the app)", False), named)
-means = {round(float(wb.model.df["Temperature (°C)"][i])): v for i, v in wb.model.df["What it may be"].items() if str(v).strip()}
-check("... and beside it, in the same rows, what each peak means in full", means == {120: "C-S-H + ettringite (AFt) dehydration", 450: "Portlandite Ca(OH)2 dehydroxylation", 720: "Calcite decarbonation"}, means)
+check("... listed under Columns as worked out by the app, unticked: it is exported, but the graphs keep working out their own", cols[-4] == ("DTG (%/°C)  (worked out by the app)", False) and "DTG (%/°C)" not in c.table_for(files[0]).cols, cols)
+top = wb.model.df.iloc[:4][["Peak at (°C)", "Peak (may be)", "What it may be"]]
+check("... and three columns that LIST the steps of mass loss from the first row down: where, the label, what it may be - seen at once beside the numbers (written into the row of each peak they were lost among thousands of rows)",
+      [round(v) for v in top["Peak at (°C)"].iloc[:3]] == [120, 450, 720] and list(top["Peak (may be)"].iloc[:3]) == ["C-S-H / AFt ?", "Ca(OH)₂ ?", "CaCO₃ ?"]
+      and list(top["What it may be"].iloc[:3]) == ["C-S-H + ettringite (AFt) dehydration", "Portlandite Ca(OH)2 dehydroxylation", "Calcite decarbonation"]
+      and np.isnan(top["Peak at (°C)"].iloc[3]) and not str(top["Peak (may be)"].iloc[3]).strip() and not wb.model.df["Peak (may be)"].iloc[3:].astype(str).str.strip().any(), top.to_dict("list"))
+check("... they are the app's own columns: listed as worked out, unticked, and no data for a graph", cols[-1] == ("What it may be  (worked out by the app)", False) and cols[-3] == ("Peak at (°C)  (worked out by the app)", False)
+      and not any(c_ in c.table_for(files[0]).cols for c_ in R.WORKED_NAMES), cols[-3:])
 check("a 'Peaks (3)…' button stands beside the Sheet list for such a file", wb.b_peaks.isVisibleTo(wb) and wb.b_peaks.text().startswith("Peaks (3)"), wb.b_peaks.text())
 check("the columns are listed in the order the graphs use them (X, then Y): a tick or a drag keeps X and Y", [n for n, _ in cols[:2]] == ["Temperature (°C)", "Mass (%)"] and wb.x.currentText() == "Temperature (°C)" and wb.y.currentText() == "Mass (%)")
 wb.files.setCurrentRow(wb.files.count() - 1); pump(timeout=.5)
-check("the side-by-side table: all three runs with their own X, their Y columns and DTG; looked at and exported, not edited", wb.model.df.shape == (len(T), 21) and wb.caption.text() == "All of 'AB Mix' side by side"
+check("the side-by-side table: all three runs with their own X, their Y columns and DTG; looked at and exported, not edited", wb.model.df.shape == (len(T), 15) and wb.caption.text() == "All of 'AB Mix' side by side"
       and not (wb.model.flags(wb.model.index(0, 0)) & Qt.ItemIsEditable) and "nothing is interpolated" in wb.info.text(), (wb.model.df.shape, wb.caption.text()))
 out_csv = TMP / "side.csv"; WB.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (str(out_csv), "")); r = wb.export_data()
-check("... Export data saves it as CSV", r == str(out_csv) and pd.read_csv(out_csv).shape == (len(T), 21))
+check("... Export data saves it as CSV", r == str(out_csv) and pd.read_csv(out_csv).shape == (len(T), 15))
 check("no project is needed to merge: files that are in no project are merged too", c.active_project is None or all(c.project_for(p) != c.active_project for p in files))
 wb.files.setCurrentRow(0); pump(timeout=.3); n0 = len(w.singles); merged = wb.merge_files(); idle(w); pump(timeout=1.5)
 rows = [wb.files.item(i).text() for i in range(wb.files.count())]
@@ -164,7 +174,9 @@ new = w.singles[n0:]; kinds = sorted({i.kind for i in new})
 check("... and it is drawable: Workspace reads it as one graph per sample (not only the first sample)", len([i for i in new if i.kind == "TGA"]) >= 3, [(i.kind, i.title.strip()[:40]) for i in new])
 check("... the Workbook shows it with one sheet per sample", [wb.sheet.itemText(i) for i in range(wb.sheet.count())][:3] == [Path(p).stem for p in files[:3]], [wb.sheet.itemText(i) for i in range(wb.sheet.count())])
 book_m = pd.read_excel(merged, sheet_name=None); stems_ = [Path(p).stem for p in files] + ["pattern"]
-check("merging means ONE Excel workbook: a sheet for every file with its own X and Y columns ...", merged.endswith(".xlsx") and list(book_m)[:4] == stems_ and list(book_m[stems_[0]].columns)[:2] == ["Temperature (°C)", "Mass (%)"] and len(book_m[stems_[0]]) == len(T), list(book_m))
+check("merging means ONE Excel workbook: a sheet for every file with its own X and Y columns and DTG - data only ...", merged.endswith(".xlsx") and list(book_m)[:4] == stems_ and list(book_m[stems_[0]].columns) == ["Temperature (°C)", "Mass (%)", "Time (min)", "DSC (uV)", "DTG (%/°C)"] and len(book_m[stems_[0]]) == len(T), (list(book_m), list(book_m[stems_[0]].columns)))
+pk_all = book_m.get(R.PEAKS_OVERVIEW)
+check("... a sheet with the peaks of all files (file, position, label, what it may be)", pk_all is not None and list(pk_all.columns)[:4] == ["File", "Position", "Label", "What it may be"] and sorted(set(pk_all["File"])) == sorted(stems_[:3]) and len(pk_all) == 9, None if pk_all is None else pk_all.head(3).to_dict("list"))
 wide_ = book_m[R.OVERVIEW_SHEET]
 check("... and a last sheet with all files side by side, every column labelled with its file", list(book_m)[-1] == R.OVERVIEW_SHEET and all(c.endswith("]") for c in wide_.columns) and f"Mass (%) [{stems_[1]}]" in wide_.columns and f"Intensity (counts) [pattern]" in wide_.columns and len(wide_) == len(T), list(wide_.columns)[:4])
 check("... the side-by-side sheet is the same data once more: Workspace does not draw it a second time, and the app opens the workbook on a sheet of one file", len([i for i in new if i.kind == "TGA"]) == 3 and wb.sheet.currentText() in stems_, (len(new), wb.sheet.currentText()))
@@ -199,7 +211,7 @@ labels = lambda: [t_ for _a, t_, _b in (tg().spec["panels"][0].get("y2") or {}).
 before = labels()
 check("the graph of the file shows positions and losses only, as before", len(before) == 3 and all("?" not in t_ and "Ca(OH)" not in t_ for t_ in before), before)
 wb.model.setData(wb.model.index(1, list(pk.columns).index("Label")), "Portlandite", Qt.EditRole); pump(timeout=.4)
-data0 = c.raw_sheets(files[0])[""]; check("the label you type also stands in the peak column of the data", "Portlandite" in list(data0["Peak (may be)"]) and "Ca(OH)₂ ?" not in list(data0["Peak (may be)"]))
+data0 = c.raw_sheets(files[0])[""]; check("the label you type also stands in the peak column of the data", list(data0["Peak (may be)"].iloc[:3]) == ["C-S-H / AFt ?", "Portlandite", "CaCO₃ ?"], list(data0["Peak (may be)"].iloc[:3]))
 wb.b_peaks.click(); pump(timeout=.4); on_data = wb.sheet.currentIndex() == 0; wb.b_peaks.click(); pump(timeout=.4)
 check("the Peaks button goes to the data and back to the peaks", on_data and wb.sheet.currentText() == R.PEAKS_SHEET)
 check("typing a label does not change the graph while 'Draw these labels on the graph' is off", labels() == before)

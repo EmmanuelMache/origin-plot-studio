@@ -2,6 +2,17 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.58.3
+
+Seen on a screenshot of the Workbook with a merged workbook of infrared spectra open:
+
+* **Fixed: the peak columns looked empty.** The name of a peak was written in the row of that peak - ten names among 7,468 rows, none of them in sight. The peaks are now **listed from the first row down** in three columns at the right of the data: where the peak is (*Band at (cm⁻¹)* / *Peak at (°C)*), its label, and what it may be. A label you type in the table of peaks shows there at once.
+* **Fixed: in a merged workbook the app's peak columns were taken for data** (ticked under Columns, and so carried to graphs). They are the app's own columns in every file now, also in workbooks merged or exported with an earlier version. A workbook merged from now on is kept clean: the sheet of each file holds its data (and DTG), the peaks of all files stand on a sheet of their own, *Peaks of all files*, and the last sheet has all files side by side.
+* **Fixed: one infrared spectrum was offered only the plain line plot.** The infrared graph (spectrum with its band lines) needed two spectra. It draws one as well and is now suggested first.
+* **Fixed: a repeat measurement was left out of its series.** `…-40-X` and `…-40-X-2` are built the same way but for the repeat number; the second was not counted in ("2 files" where there were three).
+* **Fixed: a column header cut off** at the left ("Navenumber"): every column is as wide as its header needs.
+* **New: sheets.** *Table ▾ ▸ Add a sheet…*, *Duplicate this sheet…*, *Remove this sheet* - in the working copy; the file on the disk keeps its sheets, and what you added or removed is remembered with the project.
+
 ## 5.58.2
 
 * **The Workbook table works like a spreadsheet.** A **Table ▾** button (and the right-click menu) holds: *Copy* (Ctrl+C), *Cut* (Ctrl+X), *Paste* (Ctrl+V) - a block copied in Excel goes in from the selected cell, and rows and columns are added when it is larger -, *Insert a row above / below*, *Insert a column…*, *Rename this column…* (or double click its header), *Sort by this column*, *Fill down* (Ctrl+D), and *Add a calculated column…* with a formula that uses the letters of the columns as in Excel (`C/C.max()*100`, `(B-A)/2`, `log10(C)`). Each is one step of *Undo edit*; the graphs of the file follow; the file on the disk is never changed. It is not all of Excel: no cell formulas that recalculate, no formats, no charts - for those, *Export data…* and open the file in Excel.

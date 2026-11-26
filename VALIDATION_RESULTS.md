@@ -1,4 +1,4 @@
-# Validation results — Origin Plot Studio 5.58.2
+# Validation results — Origin Plot Studio 5.58.3
 
 Date: 26 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
 
@@ -27,7 +27,7 @@ data types, a file with no table, the template example cache, the one-parse work
 
 ## Every test file
 
-37 files, **1294 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
+37 files, **1307 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
 fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
 `TEST_REPORT.md`, section 2.
 

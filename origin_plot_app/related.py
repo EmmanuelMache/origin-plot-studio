@@ -32,6 +32,14 @@ def series(names):
     stems = [stem(n) for n in names]; out = {"related": False, "shared": "", "varies": [], "why": ""}
     if len(stems) < 2 or len(set(stems)) < 2: return out
     toks = [[t for t in SPLIT.split(s) if t] for s in stems]
+    if all(toks) and len({len(t) for t in toks}) == 2:
+        # 'A-40-X' and 'A-40-X-2': the second is a repeat of the same kind of sample. A last part of one or two digits that
+        # only the longer names have is counted with the part before it, so the names are built the same way again.
+        short = min(len(t) for t in toks)
+        if all(len(t) == short or (len(t) == short + 1 and re.fullmatch(r"\d{1,2}", t[-1])) for t in toks):
+            toks = [t if len(t) == short else t[:-2] + [t[-2] + "-" + t[-1]] for t in toks]
+            if len({t[-1].lower().split("-")[0] for t in toks}) == 1:      # the part before the repeat number is the shared one: compare without the number
+                toks = [t[:-1] + [t[-1].split("-")[0]] for t in toks]; stems_rep = True
     if all(toks) and len({len(t) for t in toks}) == 1:
         n = len(toks[0]); same = [k for k in range(n) if len({t[k].lower() for t in toks}) == 1]; shapes_ok = all(len({_shape(t[k]) for t in toks}) == 1 for k in range(n))
         moving = [k for k in range(n) if k not in same]
@@ -39,6 +47,7 @@ def series(names):
             words = [k for k in same if re.search(r"[^\W\d_]", toks[0][k])]
             if words or (not same and n == 1) or len(same) >= 1:
                 out.update(related=True, shared=" ".join(toks[0][k] for k in same), varies=["-".join(t[k] for k in moving) for t in toks])
+                if locals().get("stems_rep"): out["varies"] = [v + ("" if len(SPLIT.split(s_)) == len(toks[0]) else " (repeat " + SPLIT.split(s_)[-1] + ")") for v, s_ in zip(out["varies"], [x for x in stems])]
                 out["why"] = (f"the names share '{out['shared']}' and differ in " if out["shared"] else "the names differ only in ") + ", ".join(out["varies"][:4]) + (" …" if len(stems) > 4 else "")
                 return out
     low = [s.lower() for s in stems]; pre = os.path.commonprefix(low); suf = os.path.commonprefix([s[::-1] for s in low])[::-1]
@@ -221,6 +230,26 @@ def name_at(names, position, kind):
 
 
 PEAK_COLUMN = {"TGA": "Peak (may be)", "FTIR": "Band (may be)"}
+PEAK_POSITION = {"TGA": "Peak at (°C)", "FTIR": "Band at (cm⁻¹)"}
+
+
+def peak_columns(kind, n_rows, peaks):
+    """[(name, values)]: three columns for the data table that LIST the peaks from the first row down - where each is,
+    its label, what it may be in full - and are empty below the list. In the table they are seen at once, beside the
+    numbers, and they go into every export. (Written into the row of each peak instead, ten names were lost among
+    thousands of rows.)"""
+    if kind not in PEAK_COLUMN or peaks is None or not len(peaks) or n_rows < 1: return []
+    k = min(len(peaks), n_rows); pos = np.full(n_rows, np.nan); lab = np.full(n_rows, "", dtype=object); what = np.full(n_rows, "", dtype=object)
+    for i in range(k):
+        try: pos[i] = float(peaks.iloc[i, 0])
+        except Exception: pass
+        v = peaks["Label"].iloc[i] if "Label" in peaks.columns else ""; lab[i] = "" if v is None or (isinstance(v, float) and np.isnan(v)) else str(v)
+        w = peaks["May be"].iloc[i] if "May be" in peaks.columns else ""; what[i] = "" if w is None or (isinstance(w, float) and np.isnan(w)) else str(w)
+    return [(PEAK_POSITION[kind], pos), (PEAK_COLUMN[kind], lab), (MEANING_COLUMN, what)]
+
+
+WORKED_NAMES = ("Peak (may be)", "Band (may be)", "What it may be", "Peak at (°C)", "Band at (cm⁻¹)")      # columns only the app makes: never data for a graph
+MEANING_COLUMN = "What it may be"
 
 
 def peak_column(kind, table, peaks):
@@ -268,7 +297,10 @@ def sheet_name(name, used):
     used.append(out); return out
 
 
-def merged_workbook(path, inputs, extra=None):
+PEAKS_OVERVIEW = "Peaks of all files"
+
+
+def merged_workbook(path, inputs, extra=None, peaks=None):
     """The files merged into ONE Excel workbook: a sheet per file - its X column, its Y columns and what the app worked
     out for it (DTG, the names of its peaks), under their own column names - and a last sheet with all files side by
     side, every column labelled 'column [file]'. The app draws from the sheets (one graph per file, and the figure of
@@ -280,5 +312,11 @@ def merged_workbook(path, inputs, extra=None):
             cols = [(table.x, table.arr(table.x))] + [(c, table.arr(c)) for c in table.ys] + list(extra(p, table) if extra else [])
             n = max(len(v) for _c, v in cols); frame = pd.DataFrame({c: list(v) + [np.nan] * (n - len(v)) for c, v in cols})
             nm = sheet_name(stem(p), used); names.append(nm); frame.to_excel(xw, index=False, sheet_name=nm)
+        rows = []
+        for (p, _table), nm in zip(inputs, names):                         # peaks(path) -> the table of peaks of that file, or None
+            pk = peaks(p) if peaks else None
+            if pk is not None and len(pk):
+                for _i, r in pk.iterrows(): rows.append({"File": nm, "Position": r.iloc[0], "Label": r.get("Label", ""), "What it may be": r.get("May be", ""), "Other possibilities": r.get("Other possibilities", "")})
+        if rows: pd.DataFrame(rows).to_excel(xw, index=False, sheet_name=PEAKS_OVERVIEW)
         wide.to_excel(xw, index=False, sheet_name=OVERVIEW_SHEET)
-    return names + [OVERVIEW_SHEET]
+    return names + ([PEAKS_OVERVIEW] if rows else []) + [OVERVIEW_SHEET]

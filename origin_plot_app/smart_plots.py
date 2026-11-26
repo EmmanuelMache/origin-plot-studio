@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.58.2"
+VERSION = "5.58.3"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -442,7 +442,7 @@ def _without_overview(path, tabs):
     table per file."""
     wide = [k for k, (_n, raw) in enumerate(tabs) if len(raw) and side_by_side_columns(list(raw.iloc[0]))]
     if not wide: return tabs
-    if len(tabs) - len(wide) >= 2: return [t for k, t in enumerate(tabs) if k not in wide]
+    if len(tabs) - len(wide) >= 2: return [t for k, t in enumerate(tabs) if k not in wide and str(t[0]) != "Peaks of all files"]      # (the list of peaks of all files is a table of words, not a curve)
     out = []
     for k, (n, raw) in enumerate(tabs):
         sb = _split_side_by_side(raw) if k in wide else None

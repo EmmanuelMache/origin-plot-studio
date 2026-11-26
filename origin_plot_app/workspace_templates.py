@@ -594,7 +594,7 @@ class TemplatePage(QWidget):
         import smart_plots as sp_
         def score(nm):
             try:
-                if sp_.side_by_side_columns(list(sheets_dict[nm].columns)): return (-1, 0)       # the overview of a merged workbook (all files side by side): its sheets per file are the ones to draw from
+                if sp_.side_by_side_columns(list(sheets_dict[nm].columns)) or str(nm) == "Peaks of all files": return (-1, 0)       # the overview of a merged workbook (all files side by side): its sheets per file are the ones to draw from
                 t = self.ops.data.Table(nm, sheets_dict[nm])
             except Exception: return (-1, 0)
             return (len(t.numeric), len(t.df))

@@ -124,6 +124,25 @@ ok_ = wb.rename_column(list(mdl.df.columns).index("Loss (%)"), "Mass loss (%)");
 check("renaming a column (or double click on its header)", ok_ and "Mass loss (%)" in mdl.df.columns and "Loss (%)" not in mdl.df.columns)
 wb.undo_edit(); wb.undo_edit(); pump(timeout=.5); check("... both undone with Undo edit", "Loss (%)" not in mdl.df.columns and "Mass loss (%)" not in mdl.df.columns)
 
+# ---- sheets: add, duplicate, remove
+check("the Table menu offers: add a sheet, duplicate this sheet, remove this sheet", all(any(k in t for t in tools) for k in ("Add a sheet", "Duplicate this sheet", "Remove this sheet")))
+n_cols0 = mdl.columnCount(); first_sheet = wb.sheet.currentText()
+nm = wb.add_sheet("Notes"); pump(timeout=.6)
+check("Add a sheet: a new, empty sheet of the working copy, shown at once", nm == "Notes" and wb.sheet.currentText() == "Notes" and "Notes" in c.raw_sheets(files[0]) and list(wb.model.df.columns) == ["X", "Y"] and wb.model.rowCount() == 20, (nm, wb.sheet.currentText()))
+wb.paste_cells("1\t10\n2\t20\n3\t30"); pump(timeout=.5)
+check("... data pasted into it is kept with the file's settings (saved with the project)", list(wb.model.df["Y"].iloc[:3]) == [10.0, 20.0, 30.0] and "Notes" in c.settings_for(files[0]).get("edited_sheets", {}))
+check("no second sheet of the same name", wb.add_sheet("Notes") is None and "not used yet" in w.status.text())
+wb.sheet.setCurrentText(first_sheet); pump(timeout=.5); dup = wb.add_sheet("Copy of data", copy=True); pump(timeout=.6)
+check("Duplicate this sheet: a copy of the sheet on show under a new name", dup == "Copy of data" and wb.sheet.currentText() == "Copy of data" and wb.model.rowCount() == n_rows and "Mass (%)" in wb.model.df.columns)
+ok_ = wb.remove_sheet("Copy of data"); pump(timeout=.6)
+check("Remove this sheet takes it out of the working copy; the file on the disk is not changed", ok_ and "Copy of data" not in c.raw_sheets(files[0]) and "Copy of data" not in wb.sheet_names() and "Copy of data" in c.settings_for(files[0]).get("removed_sheets", []) and os.path.isfile(files[0]))
+c.working.pop((c.project_for(files[0]), files[0]), None); again_ = c.raw_sheets(files[0])
+check("... what was added and removed is remembered when the file is read again", "Notes" in again_ and "Copy of data" not in again_, list(again_))
+wb.open_file(wb.files.currentRow()); pump(timeout=.5); wb.remove_sheet("Notes"); pump(timeout=.5); wb.sheet.setCurrentText(first_sheet); pump(timeout=.5); mdl = wb.model; sm = wb.table.selectionModel()
+check("the only sheet of a file is not removed (the file is taken off the list instead)", len(wb.sheet_names()) == 1 and wb.remove_sheet() is False and "only sheet" in w.status.text(), wb.sheet_names())
+hdr_w = wb.table.columnWidth(0); from PySide6.QtGui import QFontMetrics as _FM
+check("a column is as wide as its header needs (the first header was cut off)", hdr_w >= wb.table.horizontalHeader().fontMetrics().horizontalAdvance(str(mdl.headerData(0, Qt.Horizontal))) + 10, hdr_w)
+
 # ---- X and Y chosen in the table, and the graph that follows
 hdr = lambda: [mdl.headerData(i, Qt.Horizontal) for i in range(mdl.columnCount())]
 check("the column headers say which column is X and which is Y", "Temperature (°C)   [X]" in hdr() and "Mass (%)   [Y]" in hdr(), hdr())

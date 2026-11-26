@@ -189,6 +189,8 @@ class Workbench:
             settings = self.settings_for(path, slug)
             for name, frame in settings.get('edited_sheets', {}).items():
                 sheets[name] = pd.DataFrame(frame['data'], columns=frame['columns'])
+            for name in settings.get('removed_sheets', []):       # sheets you removed in the Workbook (the file still has them)
+                if len(sheets) > 1: sheets.pop(name, None)
             self.working[key] = sheets
             try: self._source_stamps[path] = os.stat(path).st_mtime_ns
             except OSError: pass
@@ -288,7 +290,8 @@ class Workbench:
                 if key in base: scoped[key] = copy.deepcopy(base[key])
         prefs = scoped
         df = sheets[selected].copy(); df.columns = [str(c) for c in df.columns]
-        worked = [c for c in prefs.get('derived', []) if c not in prefs.get('derived_on', []) and c in df.columns]
+        import related as _rl                                  # the app's own peak columns are never data, also in a file the app merged or exported earlier
+        worked = [c for c in df.columns if (c in prefs.get('derived', []) or c in _rl.WORKED_NAMES) and c not in prefs.get('derived_on', [])]
         if worked: df = df.drop(columns=worked)                # a column the app worked out (DTG): in the Workbook and its exports, in a graph only when you tick it
         order = prefs.get('order') or []
         off = prefs.get('off') or []

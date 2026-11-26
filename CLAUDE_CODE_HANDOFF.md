@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.58.2** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.58.3** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -69,6 +69,8 @@ A table with a column of words in every row is read by the Workspace loader as a
 `office_export.send_live(kind, files)` (pywin32: `GetActiveObject` / `Dispatch` of `PowerPoint.Application` / `Word.Application`), tried first on Windows by `send_to_office`, file route on any exception; tests replace `office_export._office` with stand-ins and set `w._office_live`.
 Workspace: `main_axes()`, `spans` (one SpanSelector per graph), `on_span(a, b, ax)` sets `sel_panel`, `curves(it)` reads that panel, `reset_axes()` returns 'one' / 'all' using `_home_limits` and `_last_ax` (set by `_note_graph` in `workspace_actions.install`).
 Analysis: `remove_files` uses `Workbench.deselect_inputs`; Delete shortcut on `TemplatePage.files`.
+
+5.58.3: peak columns are a LIST from row 0 (`related.peak_columns(kind, n_rows, peaks)` -> position, label, meaning); `related.WORKED_NAMES` are never data (`Workbench._table` drops them, `add_worked_columns` marks them `derived`, also the sparse ones of 5.58.1 / 5.58.2). `related.peak_column` / `meaning_column` (sparse form) are no longer used by the app. `merged_workbook(path, inputs, extra, peaks)`: per-file sheets = data + DTG, `PEAKS_OVERVIEW` sheet, `OVERVIEW_SHEET` last; both extra sheets are skipped by `smart_plots._without_overview` and `TemplatePage._best_sheet`. `detection.compatibility`: `ftir_stacked_bands` / `raman_stacked` accept one series; `api.recommend` adds 4 for them. `related.series`: a trailing 1-2 digit part that only some names have is a repeat number. Sheets: `WorkbookPage.add_sheet / remove_sheet / sheet_names`, `removed_sheets` in the file's settings (applied in `Workbench.raw_sheets`), new sheets live in `edited_sheets`.
 
 Not done / to know: Windows and a live Origin were not available (PySide6 offscreen on Linux, Origin dry run; the Origin order was checked by following the active window through the commands). A big workbook still needs one header-less parse and one normal parse. The `figures-5.55.2`
 workbook-of-figures work is unchanged and its tests (`tests/test_figures_general.py`, 37) pass.

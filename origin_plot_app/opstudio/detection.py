@@ -214,7 +214,8 @@ def compatibility(template, tables, detection=None, overrides=None):
         if template.category not in allowed:
             return False, 'Measurement type is unspecified; confirm it to see specialised templates'
     series_count = sum(len(t.ys) for t in tables)
-    if any(word in tid for word in ('stack', 'multi_panel', 'waterfall', 'heatmap_contour', 'rietveld_grid', 'pair_')) and series_count < 2:
+    one_ok = ('ftir_stacked_bands', 'raman_stacked')       # a single spectrum with its band lines is a figure as well: these draw one curve as well as several
+    if tid not in one_ok and any(word in tid for word in ('stack', 'multi_panel', 'waterfall', 'heatmap_contour', 'rietveld_grid', 'pair_')) and series_count < 2:
         return False, 'Select at least two scans or series'
     header = ' '.join(normalise(c) for t in tables for c in t.cols)
     if tid == 'tangent_method_demo' and not (overrides or {}).get('window'):

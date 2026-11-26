@@ -343,6 +343,9 @@ class WorkbookPage(QWidget):
                             ('Sort by this column, smallest first',lambda: self.sort_column(True),'All rows are reordered'),('Sort by this column, largest first',lambda: self.sort_column(False),'All rows are reordered'),
                             ('Fill down  (Ctrl+D)',self.fill_down,'The top selected cell of each column into the selected cells below it'),
                             ('Add a calculated column\u2026',self.add_calculated,'A new column from a formula with the letters of the columns, as in Excel:  C/C.max()*100'),(None,None,None),
+                            ('Add a sheet\u2026',self.add_sheet,'A new, empty sheet in the working copy of this file: type or paste data into it'),
+                            ('Duplicate this sheet\u2026',lambda: self.add_sheet(copy=True),'A copy of the sheet on show under a new name: change it and keep the original'),
+                            ('Remove this sheet',self.remove_sheet,'Take the sheet on show out of the working copy (its graphs leave Workspace). The file on the disk keeps it'),(None,None,None),
                             ('Delete the selected rows',lambda: self.delete_rows(),''),('Delete the selected columns',lambda: self.delete_columns(),''),('Empty the selected cells  (Delete)',self.delete_in_table,'')):
             if text is None: tm.addSeparator(); continue
             a=tm.addAction(text,fn); a.setToolTip(tip)
@@ -564,6 +567,49 @@ class WorkbookPage(QWidget):
         err=self.model.add_calculated(name,formula); self._after_table_change()
         self.ws.set_status(f"Column '{name}' = {formula} added as the last column." if not err else f'No column was added: {err}.'); return err
 
+    # ------------------------------------------------------------ sheets
+    def sheet_names(self):
+        import related
+        return [self.sheet.itemText(i) for i in range(self.sheet.count()) if self.sheet.itemText(i)!=related.PEAKS_SHEET]
+
+    def add_sheet(self,name=None,copy=False):
+        """A new sheet in the working copy of the file on show: empty (two columns to start with), or a copy of the
+        sheet on show. Kept with the project like any edit; the file on the disk is not changed."""
+        import related
+        if not self.path or self.model is None or self.sheet.currentText()==related.PEAKS_SHEET or self.model.read_only:
+            self.ws.set_status('Open the data of a file first (not a table made by the app).'); return None
+        slug=self.controller.project_for(self.path); sheets=self.controller.raw_sheets(self.path,slug); cur=self.sheet.currentText()
+        if name is None:
+            base=((cur or 'Data')+' copy') if copy else 'Sheet'; k=2; start=base
+            while start in sheets: start=f'{base} {k}'; k+=1
+            name,ok=QInputDialog.getText(self,'Duplicate this sheet' if copy else 'Add a sheet','Name of the new sheet:',text=start)
+            if not ok: return None
+        name=str(name).strip()
+        if not name or name in sheets or name==related.PEAKS_SHEET: self.ws.set_status('The sheet was not added: give it a name that is not used yet.'); return None
+        sheets[name]=sheets[cur].copy() if copy and cur in sheets else pd.DataFrame({'X':[np.nan]*20,'Y':[np.nan]*20})
+        prefs=self.controller.settings_for(self.path,slug); prefs['removed_sheets']=[n for n in prefs.get('removed_sheets',[]) if n!=name]
+        self.edited(self.path,slug,name)                              # written down with the file's settings
+        self._loading=True; self.sheet.insertItem(len(self.sheet_names()),name); self._loading=False; self.sheet.setCurrentText(name)
+        self.ws.set_status(f"Sheet '{name}' added to the working copy" + (' as a copy of ' + (cur or 'the data') if copy else ': type or paste your data (Table \u25be \u203a Paste), rename its columns with a double click on the header') + '.'); return name
+
+    def remove_sheet(self,name=None):
+        """Take a sheet out of the working copy. Its graphs leave Workspace; the file on the disk keeps the sheet."""
+        import related
+        if not self.path or self.model is None: return False
+        name=self.sheet.currentText() if name is None else name; names=self.sheet_names()
+        if name==related.PEAKS_SHEET or name not in names: self.ws.set_status('Show the sheet to remove first.'); return False
+        if len(names)<2: self.ws.set_status('This is the only sheet of the file: take the file off the list instead (Delete on the file).'); return False
+        if not os.environ.get('OPS_NO_OPEN') and QMessageBox.question(self,'Remove this sheet',f"Remove the sheet '{name}' from the working copy?\nIts graphs leave Workspace. The file on the disk keeps the sheet.")!=QMessageBox.Yes: return False
+        slug=self.controller.project_for(self.path); path=self.path; sheets=self.controller.raw_sheets(path,slug); sheets.pop(name,None)
+        prefs=self.controller.settings_for(path,slug); prefs.setdefault('removed_sheets',[]); prefs['removed_sheets']=[n for n in prefs['removed_sheets'] if n!=name]+[name]
+        prefs.get('edited_sheets',{}).pop(name,None); prefs.get('sheet_settings',{}).pop(name,None)
+        if prefs.get('sheet')==name: prefs.pop('sheet',None)
+        for k in [k for k in self.models if k[1]==path and k[2]==name]: self.models.pop(k,None)
+        for k in [k for k in self.controller._peak_frames if k[1]==path]: self.controller._peak_frames.pop(k,None)
+        n=self.controller._drop_graphs([g for g in self.ws.singles if getattr(g,'path','')==path and getattr(g,'det',{}).get('_source_sheet')==name],f"sheet '{name}' removed")
+        self.controller.changed(path,slug); self.ws.templates_page._sheet_pick_cache.clear(); self.open_file(self.files.currentRow())
+        self.ws.set_status(f"Sheet '{name}' removed from the working copy" + (f'; {n} graph(s) left Workspace' if n else '') + '. The file on the disk still has it.'); return True
+
     def table_menu(self,where,col=-1,header=False):
         from PySide6.QtWidgets import QMenu
         if self.model is None: return
@@ -660,21 +706,21 @@ class WorkbookPage(QWidget):
         if self.sheet.currentText()==related.PEAKS_SHEET: self.sheet.setCurrentIndex(0)
         elif self.sheet.findText(related.PEAKS_SHEET)>=0: self.sheet.setCurrentText(related.PEAKS_SHEET)
 
-    def worked_columns(self,path,table,sheet=None):
-        """[(name, values)] the app works out for a file: the DTG curve of a thermal run, and a column that names each
-        peak (step of mass loss, infrared band) in its own row."""
+    def worked_columns(self,path,table,sheet=None,peaks=True,n_rows=None):
+        """[(name, values)] the app works out for a file: the DTG curve of a thermal run and - peaks=True - three columns
+        that list its peaks from the first row down (where, label, what it may be). peaks=False for a merge: there the
+        sheets of the files hold data only and the peaks of all files stand on a sheet of their own."""
         import related
         out=[]
         try:
             d=related.dtg_column(table)
             if d: out.append((d[0],d[1]))
         except Exception: pass
-        try:
-            peaks,kind=self.controller.peak_frame(path,sheet=sheet); c=related.peak_column(kind,table,peaks) if peaks is not None and kind in ('TGA','FTIR') else None
-            if c:
-                out.append(c); m=related.meaning_column(kind,table,peaks)
-                if m: out.append(m)
-        except Exception: pass
+        if peaks:
+            try:
+                frame,kind=self.controller.peak_frame(path,sheet=sheet)
+                if frame is not None and kind in ('TGA','FTIR'): out+=related.peak_columns(kind,n_rows if n_rows is not None else len(table.df),frame)
+            except Exception: pass
         return out
 
     def refresh_peak_column(self,path):
@@ -682,17 +728,18 @@ class WorkbookPage(QWidget):
         import related
         try:
             slug=self.controller.project_for(path); table,sel=self.controller._table(path,slug)[:2]; frame=self.controller.raw_sheets(path,slug)[sel]
-            peaks,kind=self.controller.peak_frame(path); c=related.peak_column(kind,table,peaks) if peaks is not None else None
-            if c and c[0] in frame.columns and len(c[1])==len(frame):
-                frame[c[0]]=c[1]; m=self.models.get((slug,path,sel))
-                if m is not None: m.layoutChanged.emit()
+            peaks,kind=self.controller.peak_frame(path); changed=False
+            for name,values in (related.peak_columns(kind,len(frame),peaks) if peaks is not None and kind in ('TGA','FTIR') else []):
+                if name in frame.columns and len(values)==len(frame): frame[name]=values; changed=True
+            m=self.models.get((slug,path,sel))
+            if changed and m is not None: m.layoutChanged.emit()
         except Exception: pass
 
     def open_series(self,data):
         import related
         _kind,ps,label=data; self.path=None
         try:
-            frame=related.side_by_side([(p,self.controller.table_for(p)) for p in ps],extra=self.worked_columns)
+            frame=related.side_by_side([(p,self.controller.table_for(p)) for p in ps],extra=lambda p,t: self.worked_columns(p,t,peaks=False))
             self.model=WorkingTableModel(frame,lambda:None,self); self.model.read_only=True; self.table.setModel(self.model); self._series_label=label
             self._loading=True; self.sheet.clear(); self.columns.clear(); self.x.clear(); self.y.clear(); self._loading=False; self.b_peaks.setVisible(False); self.draw_labels.setVisible(False); self.update_suggestion()
             self.caption.setText(f"All of '{label}' side by side")
@@ -760,22 +807,39 @@ class WorkbookPage(QWidget):
             key=(slug,self.path,name)
             if key not in self.models or self.models[key].df is not frame:
                 self.models[key]=WorkingTableModel(frame,lambda p=self.path,s=slug,n=name:self.edited(p,s,n),self)
-            self.model=self.models[key]; self.table.setModel(self.model)
+            self.model=self.models[key]; self.table.setModel(self.model); self.fit_headers()
             self.caption.setText(os.path.basename(self.path)+' / '+(name or 'Data'))
             self.info.setText(f'{len(frame):,} rows · {len(frame.columns)} columns · Working copy; source file unchanged')
             self.refresh_columns()
         except Exception as e: self.info.setText('Could not open sheet: '+str(e))
 
+    def fit_headers(self):
+        """Every column as wide as its header and its numbers need (a header was cut off: 'Navenumber'), within limits."""
+        try:
+            hh=self.table.horizontalHeader(); fm=hh.fontMetrics()
+            for c in range(self.model.columnCount() if self.model is not None else 0):
+                w_=fm.horizontalAdvance(str(self.model.headerData(c,Qt.Horizontal)))+34; self.table.setColumnWidth(c,max(110,min(320,max(w_,150))))
+        except Exception: pass
+
     def add_worked_columns(self,frame,slug,name):
         """The DTG curve of a thermal run as a column of the working copy (once): there to be seen and exported. It is
         left out of the graphs - they work out their own - unless you tick it under Columns."""
+        import related
         try:
-            scoped=self.controller.settings_for(self.path,slug).setdefault('sheet_settings',{}).setdefault(name,{})
-            if scoped.get('derived'): return
+            scoped=self.controller.settings_for(self.path,slug).setdefault('sheet_settings',{}).setdefault(name,{}); derived=scoped.setdefault('derived',[])
+            old=[c for c in ('Peak (may be)','Band (may be)','What it may be') if c in frame.columns and not any(p in frame.columns for p in related.PEAK_POSITION.values())]
             table=self.controller._table(self.path,slug,name)[0]
-            for col,values in self.worked_columns(self.path,table,name):
-                if col in frame.columns or len(values)!=len(frame): continue
-                frame[col]=values; scoped.setdefault('derived',[]).append(col)
+            for col,values in self.worked_columns(self.path,table,name,n_rows=len(frame)):
+                if len(values)!=len(frame): continue
+                if col in frame.columns and col not in related.WORKED_NAMES: continue      # a DTG column that is there already (the file's own, or made before) stays
+                if col in frame.columns: frame[col]=values                                  # the app's own peak columns are written anew
+                else: frame[col]=values
+                if col not in derived: derived.append(col)
+            for col in old:                                                                 # the peak columns of 5.58.1 / 5.58.2 (a name in the row of its peak) with no list to replace them: emptied, not data
+                if col not in derived: derived.append(col)
+            for col in related.WORKED_NAMES:                                                # in a file the app merged or exported: its peak columns are the app's, not data
+                if col in frame.columns and col not in derived: derived.append(col)
+            if not derived: scoped.pop('derived',None)
         except Exception: pass
 
     def edited(self,path,slug,sheet):
@@ -811,7 +875,7 @@ class WorkbookPage(QWidget):
         self.type.setCurrentText(prefs.get('type') or 'Automatic'); self._loading=False
         if self.model is not None and not self.model.locked():      # the headers say which column is X and which is the first Y
             self.model.roles={table.x:'X',**({table.ys[0]:'Y'} if table.ys else {})} if table.x else {}
-            self.model.headerDataChanged.emit(Qt.Horizontal,0,max(0,self.model.columnCount()-1))
+            self.model.headerDataChanged.emit(Qt.Horizontal,0,max(0,self.model.columnCount()-1)); self.fit_headers()
         QTimer.singleShot(0,self.update_suggestion)
 
     def columns_changed(self,*_):
@@ -895,6 +959,9 @@ class WorkbookPage(QWidget):
             import related
             inputs=[(p,self.controller.table_for(p)) for p in paths]; mode=self.merge.currentIndex()
             result=None if mode==2 else merge_tables(inputs,mode)
+            data_only=lambda p,t: self.worked_columns(p,t,peaks=False)
+            def peaks_of(p):
+                fr,kd=self.controller.peak_frame(p); return fr if kd in ('TGA','FTIR') else None
             name,ok=QInputDialog.getText(self,'Merged dataset','Dataset name:',text=(related.series_label(paths) if related.series(paths)['related'] else 'Merged data'))
             if not ok or not name.strip(): return None
             import workspace_projects as WP
@@ -904,7 +971,7 @@ class WorkbookPage(QWidget):
             folder=WQ.cfg_path().parent/'project_data'/(slug or '_session')/'derived'; folder.mkdir(parents=True,exist_ok=True)
             import re,uuid
             base=re.sub(r'[^\w.-]+','_',name.strip()); path=folder/(base+'_'+uuid.uuid4().hex[:6]+('.xlsx' if mode==2 else '.csv'))
-            if mode==2: related.merged_workbook(str(path),inputs,extra=self.worked_columns)      # one Excel workbook: a sheet per file, and all files side by side with labelled columns on the last sheet
+            if mode==2: related.merged_workbook(str(path),inputs,extra=data_only,peaks=peaks_of)      # one Excel workbook: a sheet per file, and all files side by side with labelled columns on the last sheet
             else: result.to_csv(path,index=False)
             if slug:
                 WP.add_files(slug,[str(path)])
