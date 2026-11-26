@@ -173,6 +173,32 @@ check("exports as they often are - headers '[°2Th.]', and a name with a comma w
 check("... a text without a pattern list is not touched by that repair", PN.repair_text(a_txt) == a_txt and PN.repair_text(b_txt) == b_txt and PN.split_text(a_txt) is None)
 PN.forget(); PN.register(names_, "test"); PN.forget(); PN._LOADED[0] = False
 check("the names are remembered: a peak list read in a later session without its pattern list still gets them", PN.name_of("01-072-1652") == "Calcite" and os.path.isfile(os.path.join(os.environ["OPS_PRIVATE_DIR"], "pdf_names.json")))
+# ---- XRD graphs are stacked in every case: several peak lists without their measured patterns too
+PN.forget(); PN.register(names_, "test"); stack_files = []
+for k_, nm_ in enumerate(("Blend-10", "Blend-20", "Blend-30")):
+    d_ = peaks_df.copy(); d_["Height [cts]"] = [h_ * (1 + 0.5 * k_ if c_.startswith("01-072-0156") else 1 - 0.2 * k_) for h_, c_ in zip(d_["Height [cts]"], d_["Matched by"])]
+    f_ = PD / f"{nm_}_peaklist.csv"; d_.to_csv(f_, index=False); stack_files.append(f_)
+    pd.DataFrame({"Pos. [°2θ]": x_, "Iobs [cts]": 60 + sum(h_ * np.exp(-(x_ - p_) ** 2 / (2 * 0.06 ** 2)) for p_, h_ in zip(d_["Pos. [°2θ]"], d_["Height [cts]"])) + np.random.default_rng(k_).normal(0, 4, len(x_))}).to_csv(PD / f"{nm_}.csv", index=False)
+pls_ = []; sp.prepare(pls_, [i for f_ in stack_files for i in sp.load_file(str(f_))[0]], {})
+gr_, why_ = sp.make_groups(pls_, "Decide for me", {})
+st_ = gr_[0] if gr_ else None
+check("three peak lists (no measured patterns): the app stacks them - one figure, the samples one above the other", len(gr_) == 1 and st_.how == "stack" and st_.kind == "XRD peak list" and len(st_.members) == 3 and "stacked" in st_.title
+      and any("3 XRD peak lists -> stacked" in l for l in why_), ([g.title for g in gr_], why_[:1]))
+pst_ = st_.spec["panels"][0]; bases_ = sorted({round(float(c["y"][0]), 3) for c in pst_["curves"] if c["label"] == "_baseline"}); leg_ = [c["label"] for c in pst_["curves"] if not str(c["label"]).startswith("_")]
+check("... each sample on its own baseline, its sticks divided by its strongest peak; one colour per mineral, the same in every sample, named once in the legend ('not matched' last)",
+      len(bases_) == 3 and bases_[0] == 0 and abs((bases_[1] - bases_[0]) - (bases_[2] - bases_[1])) < 1e-9 and leg_ == ["Portlandite", "Quartz", "Calcite", "not matched"]
+      and len({tuple(c["colour"]) for c in pst_["curves"] if str(c["label"]).lstrip("_") == "Calcite"}) == 1 and max(float(np.nanmax(c["y"])) for c in pst_["curves"]) <= bases_[2] + 1.0 + 1e-9, (bases_, leg_))
+pl_texts = [t_[2] for t_ in pst_["placed"]]
+check("... every matched peak of every sample carries the name of its mineral, written upright; the names of the samples stand at the right; no y scale", len(pl_texts) == 39 and set(pl_texts) >= {"Portlandite", "Calcite", "Quartz", "Calcite+Quartz"} and pst_["vertical"] is True
+      and [t_[2] for t_ in pst_["texts"]] == ["Blend-10", "Blend-20", "Blend-30"] and pst_["yticks"] is False and not any(_re.search(r"\d{2}-\d{3}-\d{4}", t_) for t_ in pl_texts), pl_texts[:5])
+fig_st = sp.publication_figure(st_, None, 1.5, 1.5); rot_ = [t.get_rotation() for a_ in fig_st.axes for t in a_.texts if t.get_text() == "Portlandite"]
+check("... and it is drawn: the names stand upright on the figure, the first and last peak are not on the frame", len(rot_) >= 6 and all(r_ == 90 for r_ in rot_) and st_.spec["xlim"][0] < 17.5 and st_.spec["xlim"][1] > 61, (rot_[:3], st_.spec["xlim"]))
+check("'Keep them separate' makes no stack; 'Stack them' does", sp.make_groups(pls_, "Keep them separate", {})[0] == [] and len(sp.make_groups(pls_, "Stack them", {})[0]) == 1)
+both_ = []; sp.prepare(both_, [i for f_ in stack_files for i in sp.load_file(str(f_))[0]] + [i for nm_ in ("Blend-10", "Blend-20", "Blend-30") for i in sp.load_file(str(PD / f"{nm_}.csv"))[0]], {})
+gb_, _w = sp.make_groups(both_, "Decide for me", {}); xs_ = next(g for g in gb_ if g.kind == "XRD" and g.how == "stack")
+check("with the measured patterns of the same samples there is ONE stacked XRD figure - the patterns - and it comes first; the peak lists are not stacked a second time", gb_[0] is xs_ and not any(g.kind == "XRD peak list" for g in gb_), [g.title[:40] for g in gb_])
+pp_ = xs_.spec["panels"][0]
+check("... in the stacked patterns the mineral names stand upright on the peaks (side by side they ran into each other)", pp_["vertical"] is True and {t_[2] for t_ in pp_["placed"]} >= {"Portlandite", "Calcite", "Quartz"} and len(pp_["placed"]) >= 30, len(pp_["placed"]))
 plain_ = sp.load_file(str(files[1]))[0][0]; plain_.build({})
 check("a peak list that names its phases in words is read as before (no codes, no pattern list needed)", plain_.det.get("_pdf") is None and len(plain_.results) >= 2 and not any("reference code" in r for r in plain_.record))
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

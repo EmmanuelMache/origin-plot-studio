@@ -39,7 +39,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_edit_graph.py` | 44 | 0 |  |
 | `tests/test_figures_general.py` | 40 | 0 |  |
 | `tests/test_gallery_graphs.py` | 34 | 0 |  |
-| `tests/test_highscore.py` | 43 | 0 |  |
+| `tests/test_highscore.py` | 50 | 0 |  |
 | `tests/test_look_progress.py` | 14 | 0 |  |
 | `tests/test_opstudio.py` | 93 | 0 |  |
 | `tests/test_peak_correct_tab.py` | 18 | 0 |  |
@@ -68,7 +68,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **1342** | **1** | 37 files |
+| **Total** | **1349** | **1** | 37 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.56.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.58.5** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.58.6** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -69,6 +69,8 @@ A table with a column of words in every row is read by the Workspace loader as a
 `office_export.send_live(kind, files)` (pywin32: `GetActiveObject` / `Dispatch` of `PowerPoint.Application` / `Word.Application`), tried first on Windows by `send_to_office`, file route on any exception; tests replace `office_export._office` with stand-ins and set `w._office_live`.
 Workspace: `main_axes()`, `spans` (one SpanSelector per graph), `on_span(a, b, ax)` sets `sel_panel`, `curves(it)` reads that panel, `reset_axes()` returns 'one' / 'all' using `_home_limits` and `_last_ax` (set by `_note_graph` in `workspace_actions.install`).
 Analysis: `remove_files` uses `Workbench.deselect_inputs`; Delete shortcut on `TemplatePage.files`.
+
+5.58.6: XRD is stacked in every case. `make_groups` also stacks peak lists that no pattern in the list uses (`Combined(..., "stack", ..., "_peaks")`, kind "XRD peak list"); `Combined.build` has its own branch for that kind (baseline per sample, sticks divided by the sample's strongest peak, colour per curve label across samples, labels placed upright with `place_labels(..., vertical=True)`, sample names in `texts`). In the stack of measured patterns labels that are whole names (`upright`: any label part longer than 5 letters) are placed upright with step 1.6; letter codes are placed as before.
 
 5.58.5: `pdf_names.py` (new): `table_names(df)` recognises a pattern list (a column of reference codes + Compound / Mineral Name, no position column), `register` keeps code -> name (also in `pdf_names.json` of the private folder), `name_of`, `codes_in`, `looks_coded`, `clean`, `mineral`, `split_text` (a peak list and a pattern list in one text file). `smart_plots.detect` returns such a table as `kind="skip"` with `pattern_list`; `peaklist_rows` expands a 'Matched by' column of codes to one row per code with Phase = Code = the name (`d["_pdf"] = {"named", "unnamed"}`); `build_peaklist` labels the sticks, draws unmatched peaks grey, sets `_xlim`, stores nothing in the phase library; `refresh_pdf_names(singles, opt)` (called by `prepare`) rebuilds peak lists that were waiting for names and the patterns linked to them.
 

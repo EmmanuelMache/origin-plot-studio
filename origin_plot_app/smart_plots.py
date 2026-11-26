@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.58.5"
+VERSION = "5.58.6"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -3213,9 +3213,39 @@ class Combined:
             notes += ["Calculated curve: " + f_ for f_ in fitn]
         ttl = ", ".join(uniq); base = dict(title=f"{self.kind}: " + ttl if len(ttl) < 70 else f"{self.kind}: {len(uniq)} samples", xname=s0["xname"], xrev=s0.get("xrev"), xlog=s0.get("xlog"), **({"xround": s0["xround"]} if s0.get("xround") else {}))
         self.record = [f"{n} graphs of the kind {self.kind} drawn together, {self.why}", "graphs: " + "; ".join(f"{m.file} / {m.name}" for m in ms)]
-        if self.how == "stack":
+        if self.how == "stack" and self.kind == "XRD peak list":
+            # the peak lists of several samples one above the other: the sticks of each sample divided by its strongest peak,
+            # one colour per phase (the same in every sample), the names of the phases upright on the peaks, the sample's
+            # name at the right of its baseline
+            cs, texts, placed = [], [], []; step = 1.75; pcol = {}; lim = self.opt.get("stack_labels") or 10 ** 6
+            xa = np.concatenate([np.asarray(c["x"], float) for m in ms for c in m.spec["panels"][0]["curves"]]); xa = xa[np.isfinite(xa)]
+            lo_, hi_ = float(xa.min()), float(xa.max()); pad_ = max(1.0, 0.04 * (hi_ - lo_)); x0 = lo_ - pad_; x1 = hi_ + pad_ + (0.05 + 0.011 * max(len(t_) for t_ in tags)) * (hi_ - lo_)
+            grid = np.linspace(x0, x1, 4000)
+            for i, (m, nm) in enumerate(zip(ms, tags)):
+                cv = m.spec["panels"][0]["curves"]; top = max([float(np.nanmax(c["y"])) for c in cv if np.isfinite(np.asarray(c["y"], float)).any()] + [0.0]) or 1.0; b0 = i * step
+                cs.append(curve("_baseline", np.array([x0, x1]), np.array([b0, b0]), (0, 0, 0))); env = np.full(len(grid), b0)
+                for c in cv:
+                    lab_ = str(c["label"]); first = lab_ not in pcol
+                    if first: pcol[lab_] = (150, 150, 150) if lab_ == "not matched" else TICKCOL[len([k_ for k_ in pcol if k_ != "not matched"]) % len(TICKCOL)]
+                    xx = np.asarray(c["x"], float); yy = np.asarray(c["y"], float) / top + b0; cs.append(curve(lab_ if first else "_" + lab_, xx, yy, pcol[lab_]))
+                    ok_ = np.isfinite(xx) & np.isfinite(yy); np.maximum.at(env, np.clip(np.searchsorted(grid, xx[ok_]), 0, len(grid) - 1), yy[ok_])
+                lb = sorted(m.spec["panels"][0].get("labels") or [], key=lambda t_: -float(t_[2]))[:int(lim)]
+                lb = sorted((float(p_), str(t_), b0 + float(h_) / top) for p_, t_, h_ in lb)
+                if lb:
+                    pl_, _ = place_labels(lb, grid, env, x0, x1, b0, b0 + 1.0, True, (), 0.67, 0.67); placed += pl_
+                texts.append((hi_ + pad_ * 1.2, b0 + 0.06, nm, (0, 0, 0)))
+            cs.sort(key=lambda c_: str(c_["label"]) == "not matched")                 # 'not matched' last in the legend
+            p = panel("Intensity (a.u.)", cs, legend=True, ylim=(-0.05, (n - 1) * step + 1.55)); p["texts"] = texts; p["yticks"] = False
+            if placed: p["placed"] = placed; p["vertical"] = True; p["lab_pt"] = 10
+            base["panels"] = [p]; base.update(no_title=True, xname=s0["xname"], page_in=LANDSCAPE if landscape(self.opt) else (7.0, round(1.35 * len(ms) + 3.2, 2)))
+            notes.append("The peaks of each sample are divided by its strongest peak and shifted upwards, so compare positions and relative heights within a sample, not heights between samples.")
+            self.record.append("peak lists stacked: the sticks of each sample were divided by its strongest peak and shifted upwards by a fixed step; one colour per phase, the same in every sample; labels are the phase names of the peak lists")
+        elif self.how == "stack":
             cs, texts = [], []; lab_any = self.kind == "XRD" and any(_codelabs(m.spec["panels"][0]) for m in ms); nlab = max([len(_codelabs(m.spec["panels"][0]) or []) for m in ms] + [0]); lim = self.opt.get("stack_labels") or 10 ** 6
             many = min(nlab, lim) > 12; step = (1.6 if many else 1.36) if lab_any else 1.12; placed = []; used = []
+            # labels that are whole names (the minerals of a pattern list): written upright, as in the graph of one sample - side by side they ran into each other
+            upright = lab_any and any(len(k_) > 5 for m in ms for _, t_, _ in (_codelabs(m.spec["panels"][0]) or []) for k_ in str(t_).split("+"))
+            if upright: step = 1.6
             for i, (m, nm) in enumerate(zip(ms, tags)):
                 c = _observed(m.spec["panels"][0]["curves"]); y = c["y"]; lo, hi = float(np.nanmin(y)), float(np.nanmax(y)); yn = (y - lo) / ((hi - lo) or 1.0) + i * step
                 cl = col(names[i]); cs.append(curve(nm, c["x"], yn, cl))
@@ -3224,10 +3254,10 @@ class Combined:
                 if lab_any:
                     lb = sorted(_codelabs(m.spec["panels"][0]) or [], key=lambda t_: -float(np.interp(t_[0], c["x"], yn)))[:int(lim)]
                     lb = [(p_, t_, float(np.interp(p_, c["x"], yn))) for p_, t_, _ in lb if not re.match(r"^[\d.]+$", t_)]
-                    pl_, _ = place_labels(lb, c["x"], yn, x0, x1, i * step, i * step + 1.0, False, (), 0.67 if many else 1.0, 0.67 if many else 1.0); placed += pl_; used += [k_ for _, t_, _ in lb for k_ in t_.split("+")]
-            p = panel("Intensity (a.u.)" if self.kind == "XRD" else s0["panels"][0]["yname"].split("(")[0].strip() + " (offset)", cs, legend=False, ylim=(-0.05, (n - 1) * step + (1.5 if many else 1.32)))
+                    pl_, _ = place_labels(lb, c["x"], yn, x0, x1, i * step, i * step + 1.0, upright, (), 0.67 if many or upright else 1.0, 0.67 if many or upright else 1.0); placed += pl_; used += [k_ for _, t_, _ in lb for k_ in t_.split("+")]
+            p = panel("Intensity (a.u.)" if self.kind == "XRD" else s0["panels"][0]["yname"].split("(")[0].strip() + " (offset)", cs, legend=False, ylim=(-0.05, (n - 1) * step + (1.5 if many or upright else 1.32)))
             p["texts"] = texts; p["yticks"] = False; base["panels"] = [p]
-            if placed: p["placed"] = placed; p["vertical"] = False; p["lab_pt"] = 10 if many else 15
+            if placed: p["placed"] = placed; p["vertical"] = bool(upright); p["lab_pt"] = 10 if many or upright else 15
             if used and _key(used): notes.insert(0, _key(used) + "." + (" " + KEY_NOTE if any(u_.endswith("?") for u_ in used) else ""))
             if self.kind == "XRD":
                 kk = _key(used, {k_: v_ for m in ms for k_, v_ in (m.det.get("_idmap") or {}).items()}) if used else ""
@@ -3481,6 +3511,21 @@ def make_groups(singles, mode="Decide for me", opt=None):
                 except Exception as e: lines.append(f"!! could not combine the {g[0].kind} graphs: {e}"); continue
         nrep = (len(g) - len(set(display_names(g)))) if how != "panels" else 0
         lines.append(f"  {len(g)} {g[0].kind} graphs -> {why}" + (f" ({len(chunks)} figures, at most {mx_} in each)" if len(chunks) > 1 else "") + (f"; {nrep + len(set(n_ for n_ in display_names(g) if display_names(g).count(n_) > 1))} of them are replicates of the same sample" if nrep else ""))
+    if not pages_only and mode in ("Decide for me", "Stack them"):
+        # peak lists drawn by themselves (no measured pattern of theirs in the list): several of them are stacked too, like patterns
+        used_pl = {t.det.get("_peaklist_from") for t in singles if t.kind in ("XRD", "Fit (observed + calculated)") and t.det.get("_peaklist") is not None}
+        free = [it for it in singles if it.kind == "XRD peak list" and it.spec is not None and it.det.get("_rows") is not None and len(it.det["_rows"]) and not it.det["_rows"].attrs.get("markers") and it.title not in used_pl]
+        by_proj = {}
+        for it in free: by_proj.setdefault(getattr(it, "project_id", None) or getattr(it, "project", None), []).append(it)
+        for g in by_proj.values():
+            if len(g) < 2: continue
+            mx_ = MAXN["stack"]; chunks = [g[i:i + mx_] for i in range(0, len(g), mx_)]
+            if len(chunks) > 1 and len(chunks[-1]) == 1: last_ = chunks.pop(); chunks[-1] = chunks[-1] + last_
+            for k, ch in enumerate(chunks):
+                c = Combined(ch, "stack", "stacked with an offset: the peak lists of the samples one above the other, sticks coloured by phase", "_peaks" + (f"_{k + 1}" if len(chunks) > 1 else ""), cmap, opt)
+                try: c.build(); out.append(c)
+                except Exception as e: lines.append(f"!! could not stack the peak lists: {e}")
+            lines.append(f"  {len(g)} XRD peak lists -> stacked with an offset, one sample above the other, the peaks labelled with the names of their phases")
     fits = [it for it in ready if it.kind.startswith("Fit")] if (pages_only or mode == "Decide for me") else []
     if fits:                                       # one page per sample: its pattern with assigned peaks and its fit
         seen = {}; npg = 0; lays = set()

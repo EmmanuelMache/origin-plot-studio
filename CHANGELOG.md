@@ -2,6 +2,14 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.58.6
+
+XRD graphs are stacked in every case.
+
+* **New: several peak lists are stacked too.** Until now only measured patterns were put into one stacked figure; peak lists of several samples stayed single graphs. With two or more peak lists (and no measured pattern of theirs in the list) the app now makes a ★ stacked figure and puts it first: one sample above the other on its own baseline, the sticks of each sample divided by its strongest peak, **one colour per mineral - the same in every sample** - with the minerals in the legend, the mineral names on the peaks, and the sample names at the right.
+* **Stacked measured patterns: the mineral names stand upright on the peaks.** Whole names written side by side ran into each other and were joined to their peaks by long leader lines; they are written upright now, as in the graph of one sample. Letter codes (A, B, Q ...) are placed as before.
+* When the measured patterns of the same samples are in the list, there is one stacked figure - the patterns, labelled from their peak lists - and the peak lists are not stacked a second time. *Keep them separate* in the Group list still gives single graphs only.
+
 ## 5.58.5
 
 XRD: a peak list whose patterns are named by PDF number, with its pattern list.

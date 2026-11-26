@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 37 test files: 1 342 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
+* All 37 test files: 1 349 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -234,6 +234,14 @@ Tested in `tests/test_workbook_editing.py` (76 checks), `tests/test_workspace_ac
 3. Send to PowerPoint / Word through Windows automation into the open presentation or document, with the file route as fall-back. **Not run against PowerPoint or Word** - there is neither here; the calls are checked against stand-ins that record them.
 4. Each graph of a multi-graph figure for itself: Select range, the calculation on a selection, Reset axes. Zoom and Pan already acted on the graph under the mouse; graphs that share an x axis by design (stacked panels) still move together in x.
 5. Analysis: Delete on the file list; Remove carries through the app.
+
+### XRD stacked in every case, 5.58.6
+
+Tested in `tests/test_highscore.py` (50 checks, 7 of them new).
+
+1. Peak lists that no pattern of the list uses are stacked by `make_groups` like patterns; the figure is built from their stick graphs.
+2. Names on stacked patterns are placed upright when they are whole names.
+3. The stacked peak-list figure passes a dry run of the Origin driver (texts rotated, names sent); not checked in a running Origin.
 
 ### Peak lists with PDF numbers, 5.58.5
 
