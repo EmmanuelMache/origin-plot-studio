@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.57.2"
+VERSION = "5.58.0"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -421,7 +421,31 @@ def read_tables(path):
     try: df = pd.read_csv(io.StringIO(text), sep=sep, header=None, engine="python", decimal=dec)
     except Exception:                                   # ragged lines (instrument headers): keep the lines that fit the data
         df = pd.read_csv(io.StringIO(text), sep=sep, header=None, engine="python", decimal=dec, on_bad_lines="skip", skiprows=_header_lines(path, sep))
+    sb_ = _split_side_by_side(df)
+    if sb_: SIDE_BY_SIDE.add(path); return sb_
     return [(stem, df)]
+
+
+SIDE_BY_SIDE = set()          # files read as several tables because their columns are named 'column [file]' (the Workbook's merge, files side by side)
+_SIDE_RE = re.compile(r"^(.*\S)\s\[([^\[\]]+)\](?: \(\d+\))?$")
+
+
+def _split_side_by_side(df):
+    """A table written by the Workbook with several files side by side - every header is 'column [file]' - as one table
+    per file, each with its own x column and without the empty cells that filled it up to the longest file. None for
+    any other table."""
+    if len(df) < 3 or df.shape[1] < 4: return None
+    m = [_SIDE_RE.match(str(v)) for v in df.iloc[0]]
+    if not all(m): return None
+    tags = list(dict.fromkeys(x.group(2) for x in m))
+    if len(tags) < 2 or any(sum(x.group(2) == t for x in m) < 2 for t in tags): return None
+    out = []
+    for t in tags:
+        idx = [i for i, x in enumerate(m) if x.group(2) == t]; body = df.iloc[1:, idx]
+        keep = body.apply(lambda c: c.notna() & (c.astype(str).str.strip() != "")).any(axis=1)
+        head = pd.DataFrame([[m[i].group(1) for i in idx]], columns=body.columns)
+        sub = pd.concat([head, body[keep]], ignore_index=True); sub.columns = range(sub.shape[1]); out.append((t, sub))
+    return out
 
 def _text(path):
     """The text of a file whatever its encoding: UTF-8 (with or without mark), UTF-16, or the Windows western set that
@@ -1477,6 +1501,15 @@ def build_ftir(d, opt, given):
     pk = find_peaks(x, -y if trans else y, max_n=opt.get("max_labels", 15), min_rel=0.03, min_sep=8)
     lab = [(p["pos"], f"{p['pos']:.0f}", float(np.interp(p["pos"], x, y))) for p in pk]
     res = [{"Wavenumber (cm-1)": round(p["pos"], 1), d["t"](ycol): round(float(np.interp(p["pos"], x, y)), 4), "Band": "minimum (transmittance)" if trans else "maximum (absorbance)"} for p in pk]
+    try:                                                # what each band may be (the usual bond there; a possibility, not a finding) and, if you asked for them, your labels on the graph
+        import related as rl_
+        for r_ in res:
+            c_ = rl_.ftir_candidates(r_["Wavenumber (cm-1)"]); r_["May be"] = c_[0][0] if c_ else ""; r_["Other possibilities"] = "; ".join(n_ for n_, _s in c_[1:])
+        nm_ = d.get("_peak_names")
+        if nm_:
+            lab = [(a, (f"{a:.0f} {rl_.name_at(nm_, a, 'FTIR')}" if rl_.name_at(nm_, a, "FTIR") else t), b) for a, t, b in lab]
+            d.setdefault("_rec", []).append("band names on the labels: yours, from the Workbook (Peaks sheet of this file)")
+    except Exception: pass
     pn = panel(d["t"](ycol) if unit_of(ycol, d["units"]) else ("Transmittance (%)" if trans else "Absorbance (a.u.)"), [curve(ycol, x, y, PALETTE[0])])
     if trans:      # labels hang below the minima: mirror, place, mirror back
         sp0 = finish(dict(panels=[panel("", [curve("", x, -y, PALETTE[0])], labels=[(a, t, -b) for a, t, b in lab])]))
@@ -1532,6 +1565,13 @@ def build_tga(d, opt, given):
             tag = "CH" if 400 <= p["pos"] <= 570 else "CC" if 570 < p["pos"] <= 900 else ""
         lab.append((p["pos"], f"{p['pos']:.0f} {xu}".replace("  ", " ") + (f" {tag}" if tag else "") + (f" ({-loss:+.1f} %)".replace("-", "\u2212") if abs(loss) >= 0.3 else ""), float(np.interp(p["pos"], x, dplot))))
         row = {"Event": i + 1, f"DTG peak ({xu})": round(p["pos"], 1), f"From ({xu})": round(bounds[i], 1), f"To ({xu})": round(bounds[i + 1], 1), "Mass loss (%)": round(loss, 2)}
+        if degc:                                            # what the step may be (the usual event at that temperature; a possibility, not a finding) and, if you asked for them, your labels on the graph
+            try:
+                import related as rl_
+                c_ = rl_.tga_candidates(p["pos"]); row["May be"] = c_[0][0] if c_ else ""; row["Other possibilities"] = "; ".join(n_ for n_, _s in c_[1:])
+                own_ = rl_.name_at(d.get("_peak_names"), p["pos"], "TGA")
+                if own_: lab[-1] = (lab[-1][0], f"{p['pos']:.0f} {xu} {own_}".replace("  ", " ") + (f" ({-loss:+.1f} %)".replace("-", "\u2212") if abs(loss) >= 0.3 else ""), lab[-1][2])
+            except Exception: pass
         if tag and loss * TGA_TAGS[tag][1] > 100.0:           # more than the whole sample: this step cannot be that phase alone
             warn.append(f"the step at {p['pos']:.0f} {xu} loses {loss:.1f} %: as {TGA_TAGS[tag][0]} that would be {loss * TGA_TAGS[tag][1]:.0f} % of the sample, which is impossible. No assignment was made; is this a cementitious sample?"); tag = ""
             lab[-1] = (lab[-1][0], re.sub(r" (CH|CC)(?= |$)", "", lab[-1][1]), lab[-1][2])

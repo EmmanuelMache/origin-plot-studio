@@ -559,7 +559,11 @@ class TemplatePage(QWidget):
             out = {s: df for s, df in book.items() if df.shape[1] >= 1 and len(df)}
             if not out: raise ValueError("no sheet with data")
             return {"name": name, "sheets": out}
-        return {"name": name, "sheets": {"": D.read_tables(path)[0].df}}
+        tabs = D.read_tables(path)
+        import smart_plots as sp_
+        if len(tabs) > 1 and path in sp_.SIDE_BY_SIDE:            # files side by side (the Workbook's merge): one sheet per file
+            return {"name": name, "sheets": {t.name: t.df for t in tabs}}
+        return {"name": name, "sheets": {"": tabs[0].df}}
 
     def _pattern(self, cols): return "|".join(str(c) for c in cols)
 

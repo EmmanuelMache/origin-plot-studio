@@ -1,4 +1,4 @@
-# Origin Plot Studio 5.57 — the project workbench, merged into the app
+# Origin Plot Studio 5.57 / 5.58 — the project workbench, merged into the app
 
 5.57.0 is the app you had at 5.56.0 with the three-column **Start here** (Projects → Inspect data → Choose a graph), a
 **Workbook** section and a lighter header from the project-workbench update. The update was written against 5.55.7 and
@@ -50,8 +50,14 @@ A file is recognised from its contents — column names and units, never the fil
 
 **Choose a graph** lists the templates of Analysis that fit the file you are looking at — the same catalogue, your own
 templates included — each with its picture and the reason it fits or what is missing. With several files ticked, a
-graph is made for each ticked file the template fits; the others are named and left out. *Combine selected files in one
-graph* is a choice you make, never automatic. **Create graph** opens the result in Workspace.
+graph is made for each ticked file the template fits; the others are named and left out. **Create graph** opens the result in Workspace.
+
+**Samples that belong together (5.58).** When the ticked files are the same kind of measurement and their names are
+built the same way (`10-900-AB`, `10-950-AB`, `20-900-AB`; `Ref_rep1`, `Ref_rep2`; `S1`, `S2`), the app takes them
+for one series: *Combine selected files in one graph* is chosen for you, the graphs that show several samples come
+first (the stacked one before the others), and the line above the list says why. A ticked file of another kind is left
+out of that graph and named. *Separate graph for each file* is one click away and is kept for those files. Files that
+are not a series are never combined by the app.
 
 ## Workbook
 
@@ -62,6 +68,23 @@ the data type, arrange the files, export the prepared data. Two merges make a ne
 * **Join columns** needs identical X values in the same order. Nothing is interpolated, averaged or dropped silently.
 
 A choice of columns is remembered for other files with the same headers, as before, unless that file has its own.
+
+New in 5.58:
+
+* **Side by side** is a third way to merge, and the first choice: for every file its X column and its Y columns next to
+  each other, named `column [file]`; every file keeps its own X values. For a series of files the app makes this table
+  by itself - it is the last entry of *Selected files* - and *Export data…* saves it. *Merge selected files…* adds such
+  a table as a dataset of its own (no project is needed); Workspace reads it back as one graph per sample.
+* **DTG by itself.** The working copy of a thermal run has a column `DTG (%/°C)`; it is exported with the data and is
+  used in graphs only if you tick it under Columns.
+* **A column left out in all files.** Untick a column and press *Use these column choices for all files*, or right
+  click a column ▸ *Leave out in all files*. It is not carried to Workspace and no longer counts for the graphs offered.
+* **Peaks — found by the app.** The last sheet of a thermal run or an infrared spectrum: every step of mass loss or
+  band, what it **may be** (the usual event or bond at that position; a possibility to check, not a finding), the other
+  possibilities, and a **Label** of your own. *Draw these labels on the graph* writes them on the TGA / FTIR graphs of
+  that file; off, the graphs are as before. Excel export puts the peaks on a second sheet.
+* A thermal run exported as temperature, time, mass, DSC is shown as **mass against temperature** (X and Y by what the
+  columns are, until you choose them).
 
 ## Graph controls
 
@@ -94,9 +117,17 @@ every template's example). It is now about half a second; the files are read in 
 file as soon as it is read. A workbook with dozens of sheets still takes its time to read (about a minute for a 3 MB,
 50-sheet one), but the window stays usable meanwhile.
 
+## PowerPoint and Word (5.57.2)
+
+*Export ▸ Send to PowerPoint* puts the graph on show on a slide as a picture; *Send to Word* puts it into a document as
+a 600 dpi picture at its printed size. With two or more graphs ticked, each gets its own slide or picture. The file is
+written to the results folder and opened.
+
 ## Send to Origin
 
-Unchanged: *Draw in Origin* / *Send to Origin* use the same driver, with the same report of what differs. Saving a
+*Draw in Origin* / *Send to Origin* use the same driver, with the same report of what differs. Since 5.57.2 the figures
+of a workbook and "Draw in Origin like this" are sent so that Origin shows them as the app does (texts, legends, sizes,
+column widths, tick steps - see `CHANGELOG.md`). Saving a
 project, exporting a figure and sending to Origin are three separate commands.
 
 **Not verified here:** Windows itself and a live Origin. Everything was run with PySide6 on Linux without a screen;

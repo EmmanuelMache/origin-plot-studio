@@ -191,7 +191,11 @@ class StartHerePage(QWidget):
         self.recs.currentRowChanged.connect(lambda *_: self._sync_create())
         self.recs.itemDoubleClicked.connect(lambda *_: self.draw_recommended()); lay.addWidget(self.recs, 1)
         self.combine_mode = QComboBox(); self.combine_mode.addItems(['Separate graph for each file', 'Combine selected files in one graph'])
-        self.combine_mode.currentIndexChanged.connect(lambda *_: self.inspect_current()); lay.addWidget(self.combine_mode)
+        # a change made here is your own choice for these files: the app does not change it again (its own changes are made with the signals blocked)
+        self.combine_mode.currentIndexChanged.connect(lambda *_: (setattr(self, '_mode_user', True), self.inspect_current())); lay.addWidget(self.combine_mode)
+        self.combine_mode.setToolTip('One graph per ticked file, or the ticked files together in one graph. Files that look like one series '
+                                     '(the same kind of data, names built the same way) are put together by the app; choose here to have them apart')
+        self._mode_for = None; self._mode_user = False; self._auto_combined = False; self._rec_paths = []
         self.b_browse = self._button('Browse Analysis templates →', self.browse_templates); lay.addWidget(self.b_browse)
         self.b_auto = self._button('Create graph →', self.draw_recommended, 'primary'); lay.addWidget(self.b_auto)
         lab = QLabel('Opens in Workspace for editing. Send to Origin when ready.', objectName='soft'); lab.setWordWrap(True); lay.addWidget(lab)
@@ -723,15 +727,47 @@ class StartHerePage(QWidget):
         if not hasattr(self, '_detected'): return
         self.type_combo.setCurrentText(self._detected.kind); self.mapping_changed()
 
+    def series_of(self, paths, focus):
+        """The ticked files that belong together with the one being looked at: the same kind of measurement (recognised,
+        not guessed) and names built the same way. Returns (their paths in ticked order, why) - ([], '') when there is no
+        such set of two or more."""
+        ctrl = getattr(self.ws, 'workbench', None)
+        if ctrl is None or len(paths) < 2 or focus not in paths: return [], ''
+        import related
+        from opstudio.detection import detect
+        kinds = {}
+        for p in paths:
+            try:
+                if not ctrl.ready(p): continue
+                t = ctrl.table_for(p); d = detect(t, getattr(t, 'measurement_type', None))
+                if not d.needs_confirmation: kinds[p] = d.kind
+            except Exception: continue
+        if focus not in kinds: return [], ''
+        same = [p for p in paths if kinds.get(p) == kinds[focus]]
+        if len(same) < 2: return [], ''
+        for g in related.groups(same):                                      # not always all of them: the set the file being looked at belongs to
+            if focus in g: return g, related.series(g)['why']
+        return [], ''
+
     def refresh_recommendations(self):
         ctrl = getattr(self.ws, 'workbench', None)
         if ctrl is None: return
         paths = self.selected_paths(); current_tid = self.recs.currentItem().data(Qt.UserRole) if self.recs.currentItem() else None
         self.recs.clear()
         try:
-            together = self.combine_mode.currentIndex() == 1
             focus = self._current_path if self._current_path in paths else (paths[0] if paths else None)
-            rows = ctrl.recommendations(paths, together=together, focus=focus)
+            group, why = self.series_of(paths, focus)
+            if tuple(paths) != self._mode_for: self._mode_for = tuple(paths); self._mode_user = False      # other files ticked: the app decides again
+            if not self._mode_user:                                    # files of one series go into one graph, unless you chose otherwise for them
+                want = 1 if group else (0 if self._auto_combined else self.combine_mode.currentIndex())
+                if want != self.combine_mode.currentIndex():
+                    self.combine_mode.blockSignals(True); self.combine_mode.setCurrentIndex(want); self.combine_mode.blockSignals(False)
+                self._auto_combined = bool(group)
+            together = self.combine_mode.currentIndex() == 1
+            use = group if (together and group) else paths; self._rec_paths = list(use)
+            shown = (together, tuple(use) if together else ())
+            if shown != getattr(self, '_rec_shown', None): self._rec_shown = shown; current_tid = None      # other graphs are offered now (one of a series, or one per file): the recommended one is highlighted, not the one picked before
+            rows = ctrl.recommendations(use, together=together, focus=focus, series=bool(together and group))
             for row in rows[:16]:
                 title = row['name'] + ('\nRecommended' if row.get('recommended') else '') + '\n' + row['reason']
                 item = QListWidgetItem(title); item.setData(Qt.UserRole, row['id']); item.setToolTip(row['use'] + '\n' + row['reason'])
@@ -741,7 +777,10 @@ class StartHerePage(QWidget):
                 self.recs.addItem(item)
                 if row['id'] == current_tid: self.recs.setCurrentItem(item)
             name = os.path.basename(focus) if focus else ''
-            self.rec_caption.setText(f'From Analysis templates · {len(paths)} file(s) selected. ' + ('Combined output.' if together else
+            left_out = len(paths) - len(use)
+            self.rec_caption.setText(f'From Analysis templates · {len(paths)} file(s) selected. ' + (
+                (f'{len(use)} of them look like one series ({why}): graphs that show them together come first.' + ((' The other one is left out of it.' if left_out == 1 else f' The other {left_out} are left out of it.') if left_out else '')
+                 + " Choose 'Separate graph for each file' below for one graph each.") if (together and group) else 'Combined output.' if together else
                 (f'Templates that fit {name}; a graph is made for each selected file the template fits.' if len(paths) > 1 else 'Separate output for each file.')))
             if not rows: self.rec_caption.setText('No matching templates. Confirm the data type and column mapping, or browse Analysis.')
         except Exception as e: self.rec_caption.setText(f'Recommendations unavailable: {e}')
@@ -760,7 +799,9 @@ class StartHerePage(QWidget):
         item = self.recs.currentItem()
         if not item or not item.flags() & Qt.ItemIsEnabled: self.ws.set_status('Select a compatible graph template first.'); return
         ctrl = getattr(self.ws, 'workbench', None)
-        if ctrl: return ctrl.create_graphs(self.selected_paths(), item.data(Qt.UserRole), self.combine_mode.currentIndex() == 1)
+        together = self.combine_mode.currentIndex() == 1; paths = self.selected_paths()
+        if together and self._rec_paths and set(self._rec_paths) <= set(paths): paths = list(self._rec_paths)      # the series the graphs were offered for
+        if ctrl: return ctrl.create_graphs(paths, item.data(Qt.UserRole), together)
 
     def browse_templates(self):
         ctrl = getattr(self.ws, 'workbench', None)

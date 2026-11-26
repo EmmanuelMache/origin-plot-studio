@@ -142,6 +142,31 @@ def detect(table, override=None):
     return Detection('General XY', 'generic', ('Numeric X and Y columns; measurement type not established',))
 
 
+def preferred_xy(table):
+    """(x column, y column) this kind of measurement is drawn by, from the column names - None when the file's own first
+    two numeric columns already are those, or when the names do not say. A thermal run exported as temperature, time,
+    mass, DSC is a mass curve against temperature: not the time against the temperature, which the column order alone gave."""
+    cols = list(table.numeric)
+    if len(cols) < 3: return None
+    names = {c: normalise(c) for c in cols}
+    def find(*keys, skip=()):
+        return next((c for c in cols if c not in skip and any(k in names[c] for k in keys)), None)
+    d = detect(table, getattr(table, 'measurement_type', None))
+    if d.needs_confirmation: return None
+    x = y = None
+    if d.kind == 'TGA':
+        x = find('temperature', 'temp', 'celsius', 'degc') or find('time', 'hours', 'minutes', 'seconds', 'elapsed'); y = find('mass', 'weight', 'tgpercent', skip=(x,))
+    elif d.kind == 'DSC':
+        x = find('temperature', 'temp', 'celsius', 'degc'); y = find('heatflow', 'heatflux', 'dsc', 'thermalpower', 'power', skip=(x,))
+    elif d.kind == 'Calorimetry':
+        x = find('time', 'hours', 'minutes', 'seconds', 'elapsed'); y = find('normalizedheatflow', 'heatflow', 'heatflux', 'thermalpower', 'power', skip=(x,))
+    elif d.kind in ('FTIR', 'Raman'):
+        x = find('wavenumber', 'cm1', 'ramanshift'); y = find('absorbance', 'transmittance', 'transmission', 'intensity', 'counts', skip=(x,))
+    if not x or not y or x == y: return None
+    if table.x == x and table.ys and table.ys[0] == y: return None
+    return x, y
+
+
 FAMILIES = {
  'NMR': ('nmr',), 'Porosity and surface': ('mip', 'bet'),
  **{k: (v,) for k, v in CATEGORY_KINDS.items()},

@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.57.2** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.58.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -46,6 +46,14 @@ a text of several lines is one text per line; grouped columns get one more x val
 Not confirmed in Origin: hatch (`set -pfv`), the frame of layers after the first (`showAxes=3`). `www.originlab.com` could not be reached from the session to read the LabTalk reference; the owner's `origin_commands_log.txt` is the evidence to ask for.
 `office_export.py` (5.57.2): `write_pptx` / `write_docx` fill `office/blank.pptx` / `blank.docx` (made once by `tools/build_office_templates.py` with python-pptx / python-docx; the app needs neither). `Workspace.send_to_office("pptx" | "docx")`.
 `ws.hidden_groups` (5.57.2): the ★ figures of the app the user removed, as `(how, member keys)`; filtered in `regroup`, saved as `modern_hidden_groups`, part of the session Undo snapshot, cleared by a choice in the Group list.
+
+5.58.0 - series of files, worked-out columns, peaks:
+`related.py` (new): `series(names)` / `groups(names)` (names built the same way; a file in a `derived` folder belongs to no series), `side_by_side(inputs, extra)`, `dtg_column(table)`, `peak_table(kind, table)`, `names_of`, `name_at`, `TOLERANCE`, `PEAKS_SHEET`. `opstudio/ftir_core.py` (new): `REFERENCE_BANDS`, `suggest(position)`; thermal events stay in `opstudio/tga_core.REFERENCE_EVENTS`.
+Start here: `StartHerePage.series_of(paths, focus)`; `_mode_user` (your own choice of the combine box for the ticked files - set by `currentIndexChanged`; the app's own changes block the signal), `_rec_paths` (the files the offered graphs are for). `Workbench.recommendations(..., series=True)` adds 6 (7 for "stack") to templates whose id or name matches `SEVERAL`.
+`Workbench._table`: columns in `sheet_settings[sheet]['derived']` are dropped unless in `'derived_on'`; with no order chosen or remembered, X and Y come from `detection.preferred_xy(table)` (cached in `_xy_cache`).
+Workbook: entries of the file list whose `Qt.UserRole` is not a string are the app's side-by-side tables (`('series', paths, label)`); `add_worked_columns`, `set_column_everywhere`, `columns_to_all`, `open_peaks`, `labels_toggled`. `Workbench.peak_frame / peak_names / set_peak_labels / apply_peak_names`; labels are stored as `sheet_settings[sheet]['peak_labels']` (`[[position, label]]`) and `'peak_names_on'`.
+Builders: `det['_peak_names']` (`[(position, label)]`) makes `build_tga` / `build_ftir` write the label beside the position; without it the labels are unchanged (the updater's regression, `self_update.check`, still gives the same Origin commands for 10 of 10 example files). Results rows get `May be` / `Other possibilities`.
+`smart_plots.read_tables`: a CSV whose headers are all `column [tag]` is returned as one table per tag (`_split_side_by_side`, path noted in `SIDE_BY_SIDE`); `TemplatePage._read_all` then gives one sheet per tag.
 
 Not done / to know: Windows and a live Origin were not available (PySide6 offscreen on Linux, Origin dry run; the Origin order was checked by following the active window through the commands). A big workbook still needs one header-less parse and one normal parse. The `figures-5.55.2`
 workbook-of-figures work is unchanged and its tests (`tests/test_figures_general.py`, 37) pass.

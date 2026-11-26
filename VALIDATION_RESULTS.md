@@ -1,4 +1,4 @@
-# Validation results — Origin Plot Studio 5.57.2
+# Validation results — Origin Plot Studio 5.58.0
 
 Date: 26 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
 
@@ -27,7 +27,7 @@ data types, a file with no table, the template example cache, the one-parse work
 
 ## Every test file
 
-35 files, **1115 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
+36 files, **1176 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
 fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
 `TEST_REPORT.md`, section 2.
 
@@ -99,6 +99,22 @@ documented rule. **None of this was run in Origin here.**
 
 PowerPoint and Word: the files written by Export ▸ Send to PowerPoint / Word were read back with python-pptx and
 python-docx and converted to PDF by LibreOffice (2 slides, 2 pictures). Not opened in Microsoft Office here.
+
+## 5.58.0: series of files, the Workbook's own columns and tables, peaks
+
+`tests/test_related.py`, 61 checks: the name patterns, DTG against `tga_core.dtg` (identical), the steps of a thermal
+run built from three known steps (found at 120, 450 and 720 °C with 2.9, 4.9 and 5.9 % of the 3, 5 and 6 % put in), the
+bands of a spectrum built from eight known bands (all eight found and named), the side-by-side table and its reading
+back, and then the pages with real widgets: Start here combining a series and keeping your own choice, the Workbook's
+DTG column, side-by-side entry, merge without a project, column choices for all files, the Peaks sheet, its labels on
+the graph and off again.
+
+On two real thermal files of the owner (private, not in the repository): mass against temperature, a DTG column, the
+side-by-side table (9800 rows, 10 columns), three steps named, labels drawn and removed again without a difference.
+
+The app's own update check still gives the same Origin commands for 10 of 10 example files: nothing that is drawn by
+default changed. **The names of peaks are possibilities by position; no assignment was checked against a reference
+measurement.**
 
 ## Not verified
 

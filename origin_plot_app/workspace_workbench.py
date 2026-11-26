@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import threading
 from pathlib import Path
 import uuid
@@ -12,7 +13,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 import smart_plots as sp
 import workspace_projects as WP
 from opstudio import data as OD
-from opstudio.detection import detect, compatibility, family_matches, FAMILIES
+from opstudio.detection import detect, compatibility, family_matches, FAMILIES, preferred_xy
 
 
 class TemplateGraph(sp.Item):
@@ -131,6 +132,9 @@ class Workbench:
         self._save_timer = QTimer(ws); self._save_timer.setInterval(60000)
         self._save_timer.timeout.connect(self.save_open_projects); self._save_timer.start()
 
+    _xy_cache = {}       # (project, file, sheet, headers) -> (x, y) by the kind of measurement, or None
+    _peak_frames = {}    # (project, file, sheet) -> (the peak table of the file, its kind)
+
     def project_for(self, path):
         p = WP.get(self.active_project) if self.active_project else None
         if p and path in p['files']: return self.active_project
@@ -175,7 +179,7 @@ class Workbench:
         order / selection or a data type? If not, its graphs are exactly what reading the file gives."""
         st = self.settings_for(path, slug)
         if st.get('edited_sheets') or st.get('sheet') or any(st.get(k) for k in ('order', 'off', 'type')): return True
-        return any(v.get('order') or v.get('off') or v.get('type') for v in (st.get('sheet_settings') or {}).values())
+        return any(v.get('order') or v.get('off') or v.get('type') or v.get('peak_names_on') for v in (st.get('sheet_settings') or {}).values())
 
     def raw_sheets(self, path, slug=None):
         slug = slug or self.project_for(path); key = (slug, path)
@@ -203,6 +207,59 @@ class Workbench:
                     self.ws.log(os.path.basename(path) + ': source changed; saved working-copy edits have been retained.')
             self._source_stamps[path] = stamp
 
+    def peak_frame(self, path, slug=None, sheet=None):
+        """The peaks of a thermal run or a spectrum and what they may be (related.peak_table), with the labels you typed.
+        (frame, kind) - (None, None) when this file has none. Made once per file and sheet; the Label column is yours."""
+        import related
+        slug = slug or self.project_for(path); table, selected = self._table(path, slug, sheet)[:2]; key = (slug, path, selected)
+        if key not in self._peak_frames:
+            kind = related.peak_kind(table); frame = related.peak_table(kind, table) if kind else None
+            if frame is not None and len(frame):
+                own = self.settings_for(path, slug).setdefault('sheet_settings', {}).setdefault(selected, {}).get('peak_labels')
+                if own is not None:                                # your labels, by position (an empty one stays empty)
+                    for i, pos in enumerate(frame.iloc[:, 0]):
+                        hit = [l for q, l in own if abs(float(q) - float(pos)) <= related.TOLERANCE[kind] / 3.0]
+                        if hit: frame.at[frame.index[i], 'Label'] = hit[0]
+            self._peak_frames[key] = (frame if frame is not None and len(frame) else None, kind if frame is not None and len(frame) else None)
+        return self._peak_frames[key]
+
+    def peak_names(self, path, slug=None, sheet=None):
+        """[(position, label)] to draw on the graphs of this file - only when you switched 'Draw these labels on the graph' on."""
+        import related
+        slug = slug or self.project_for(path)
+        try:
+            selected = self._table(path, slug, sheet)[1]
+            if not self.settings_for(path, slug).get('sheet_settings', {}).get(selected, {}).get('peak_names_on'): return None
+            return related.names_of(self.peak_frame(path, slug, sheet)[0]) or None
+        except Exception: return None
+
+    def set_peak_labels(self, path, on=None, slug=None):
+        """Keep the Label column of the peak table (and whether it is drawn) with the file, and draw the graphs again."""
+        import related
+        slug = slug or self.project_for(path); selected = self._table(path, slug)[1]
+        scoped = self.settings_for(path, slug).setdefault('sheet_settings', {}).setdefault(selected, {})
+        frame = self.peak_frame(path, slug)[0]
+        if frame is not None:
+            scoped['peak_labels'] = [[float(p), '' if l is None or (isinstance(l, float) and l != l) else str(l)] for p, l in zip(frame.iloc[:, 0], frame['Label'])]
+        if on is not None: scoped['peak_names_on'] = bool(on)
+        self.changed(path, slug); self.apply_peak_names(path, slug)
+
+    def apply_peak_names(self, path, slug=None):
+        """Your labels on the TGA / FTIR graphs of this file in Workspace (or off again)."""
+        slug = slug or self.project_for(path); names = self.peak_names(path, slug); n = 0
+        for item in self.ws.singles:
+            if getattr(item, 'path', '') != path or isinstance(item, TemplateGraph) or getattr(item, 'kind', '') not in ('TGA', 'FTIR'): continue
+            if (item.det.get('_peak_names') or None) == names: continue
+            try:
+                if names: item.det['_peak_names'] = names
+                else: item.det.pop('_peak_names', None)
+                item.build(self.ws.opt, item.kind); n += 1
+            except Exception as e: self.ws.log('Could not draw the labels on '+os.path.basename(path)+': '+str(e))
+        if n:
+            self.ws.regroup(); self.ws.refresh_list()
+            if self.ws.current() is not None: self.ws.draw()
+        return n
+
     def table_for(self, path, slug=None):
         return self._table(path, slug)[0]
 
@@ -224,12 +281,20 @@ class Workbench:
                 if key in base: scoped[key] = copy.deepcopy(base[key])
         prefs = scoped
         df = sheets[selected].copy(); df.columns = [str(c) for c in df.columns]
+        worked = [c for c in prefs.get('derived', []) if c not in prefs.get('derived_on', []) and c in df.columns]
+        if worked: df = df.drop(columns=worked)                # a column the app worked out (DTG): in the Workbook and its exports, in a graph only when you tick it
         order = prefs.get('order') or []
         off = prefs.get('off') or []
         cols = list(df.columns)
         if 'order' not in prefs and 'off' not in prefs:        # no choice made for this file yet: the one remembered for files with the same headers
             remembered = (self.tp._cfg().get('mappings') or {}).get(self.tp._pattern(cols)) or {}
             order = remembered.get('order') or []; off = remembered.get('off') or []
+            if not order and not off:                          # nothing remembered either: x and y by what the columns are (mass against temperature, not time against temperature)
+                key = (slug, path, selected, tuple(cols))
+                if key not in self._xy_cache:
+                    try: self._xy_cache[key] = preferred_xy(OD.Table(Path(path).stem, df.copy()))
+                    except Exception: self._xy_cache[key] = None
+                if self._xy_cache[key]: order = list(self._xy_cache[key])
         selected_cols = [c for c in order if c in cols and c not in off]
         selected_cols += [c for c in cols if c not in selected_cols and c not in off]
         if selected_cols or off: df = df[selected_cols]
@@ -292,6 +357,8 @@ class Workbench:
                 if 'ys' in det:
                     prior = [c for c in item.det.get('ys', []) if c in table.ys]
                     det['ys'] = prior if getattr(item, 'nfile', 1) > 1 and prior else table.ys
+                names = self.peak_names(path, slug)
+                if names and det.get('kind') in ('TGA', 'FTIR'): det['_peak_names'] = names
                 item.det = det; item.build(self.ws.opt, det.get('kind'))
             except Exception as e: self.ws.log('Could not rebuild '+os.path.basename(path)+': '+str(e))
         self.ws.regroup(); self.ws.refresh_list()
@@ -338,10 +405,14 @@ class Workbench:
         row=next((r for r in self.tp.catalogue if r['id']==tid and r['available']),None)
         return [dict(row,compatible=True,reason=reason,score=12)] if row else []
 
-    def recommendations(self, paths, together=False, focus=None):
+    SEVERAL = re.compile(r'several|multi|stack|panel|overlay|waterfall|compar|group|series', re.I)
+
+    def recommendations(self, paths, together=False, focus=None, series=False):
         """focus: the file being looked at. With separate graphs (not combined) the templates are those that fit THAT
         file - a selection of mixed kinds (scans, thermal runs, a workbook) has no template that fits them all, and
-        would otherwise offer nothing but the plain plot. 'Create graph' then draws each selected file the template fits."""
+        would otherwise offer nothing but the plain plot. 'Create graph' then draws each selected file the template fits.
+        series: the files are one series (related.series): the graphs that show several samples together come first,
+        the stacked ones before the others."""
         if focus and not together and focus in paths: paths = [focus]
         # Refresh from the catalogue owned by Analysis, including private templates.
         self.tp.catalogue = self.tp._catalogue()
@@ -383,7 +454,11 @@ class Workbench:
                 ok = all(x[0] for x in checks)
                 reason = next((why for good,why in checks if not good), 'Required inputs available')
                 if ok and row['id'] not in scores: continue
-                rows.append(dict(row, compatible=ok, reason=reason, score=scores.get(row['id'],-100)))
+                score = scores.get(row['id'],-100)
+                if series and together and len(tables) > 1 and ok and self.SEVERAL.search(row['id']+' '+row['name']):
+                    score += 7 if 'stack' in (row['id']+' '+row['name']).lower() else 6
+                    reason = f'Shows the {len(tables)} files of the series together'
+                rows.append(dict(row, compatible=ok, reason=reason, score=score))
             except Exception: continue
         rows.sort(key=lambda r:(not r['compatible'],-r['score'],r['name']))
         good = next((r for r in rows if r['compatible']),None)

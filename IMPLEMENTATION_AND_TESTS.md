@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 35 test files: 1 115 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
+* All 36 test files: 1 176 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -199,6 +199,19 @@ Found by running it with real PySide6 and the whole existing test suite (the upd
 1. **A workbook figure in Origin did not look like the figure in the app.** With 5.57.1 the curves were there, but: texts were missing and one lay as a jumble at the top of the page, axis titles were missing on every panel after the first, letters and lines were a half to a third of their size, there was no legend and a sixth, empty panel, grouped columns covered each other. Causes and fixes are listed in `CHANGELOG.md` (5.57.2) and, for whoever changes the code next, in `CLAUDE_CODE_HANDOFF.md`. Tested through the driver's dry run on a figure built for the purpose (`tests/test_opstudio.py`, 12 new checks) and on the owner's two figures (privately). **Not run in Origin.** Two things could not be settled without Origin: whether it accepts the hatch command, and the frame of panels after the first.
 2. **Delete on a ★ figure of the app only showed a message** (the behaviour chosen in 5.55.3). It removes the figure now (`tests/test_session_basics.py`, 6 new checks).
 3. By request: "Phase tick rows" on the Panel bar (`tests/test_edit_graph.py`, 5 new checks); Export ▸ Send to PowerPoint / Word (`tests/test_workspace_actions.py`, 8 new checks; the written files are also read back with python-pptx / python-docx and were opened with LibreOffice).
+
+### By request, 5.58.0
+
+Tested in `tests/test_related.py` (61 checks: the functions on their own, then the pages with real widgets).
+
+1. Files of one series are combined by the app on Start here and the graphs of several samples come first; the choice of *Separate graph for each file* is kept. (Found while testing: the box switched back to *Combine* the moment it was changed - the page was drawn again before the change counted as the user's. Fixed.)
+2. X and Y by what the columns are (`detection.preferred_xy`), only where nothing was chosen or remembered.
+3. Workbook: DTG column, side-by-side table of a series, a third way to merge, merging without a project (it had refused after asking for a name), column choices for all files.
+4. Peaks of thermal runs and bands of infrared spectra with what they may be; labels drawn on request.
+
+What "may be" means: the reference events of `opstudio/tga_core.py` and the reference bands of `opstudio/ftir_core.py` whose range holds the position, the one it lies most centrally in first - for thermal events the four that nearly every cement paste and raw meal shows (water, C-S-H / ettringite, portlandite, calcite) before the others, so a step at 770 °C is offered as calcite before dolomite. Ranges overlap; a name is a possibility. Labels start with a question mark for that reason and are drawn only when switched on.
+
+Not done: a side-by-side dataset is drawn sample by sample in Workspace, but on Start here it is offered the graphs of its first sheet only (one table per file is a deep assumption of the template engine). The peak table is made for the selected sheet of a file.
 
 ## Interpretation details
 
