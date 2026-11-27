@@ -22,7 +22,7 @@ openpyxl==3.1.5
 PySide6==6.12.0
 certifi==2026.10.18
 # checks the signature of an update before anything of it is opened
-cryptography==50.0.1
+cryptography==50.0.2
 #
 # --- pinned on purpose, NOT the version of the main environment -------------------------------------------------------
 # Pillow reads photos (sketch pad) and writes pictures for matplotlib. The main environment has 12.3.0, for which the
