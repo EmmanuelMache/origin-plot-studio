@@ -880,7 +880,9 @@ class Workspace(QMainWindow):
             from PySide6.QtGui import QDesktopServices
             QDesktopServices.openUrl(QUrl(page))
 
-    # ------------------------------------------------------------------ the assistant's actions (only these; each confirmed by you)
+    # ------------------------------------------------------------------ the assistant's actions (only these). Reading steps (look, show,
+    # show_graph, show_table) run without asking; every step that changes something waits for 'Do it'. What a step RETURNS stays on this
+    # computer: workspace_assistant.filter_for_ai() decides, by the privacy level, what of it may go to the AI service.
     def load_sync(self, paths):
         """Read files now (for the assistant: the next action may need them)."""
         ld = Loader(list(paths), self.opt, self.singles)
@@ -920,28 +922,48 @@ class Workspace(QMainWindow):
             self.list.item(i).setCheckState(Qt.Checked if id(it) in ids else Qt.Unchecked)
         self.update_count()
 
+    def look_info(self, it, *, parts=False):
+        """What 'look' knows about one graph: name, kind, file, its columns with their ranges, the first rows of its result table, how
+        it was read. This is LOCAL information: nothing here is sent anywhere. With parts=True the same facts are sorted by the kind of
+        content (outbound_policy.KINDS: generic / labels / structure / measurements / results), so the assistant's outbound filter
+        (workspace_assistant.filter_for_ai) can pass on only what the privacy level permits."""
+        name, kind = it.title.strip(), getattr(it, "kind", "panel figure")
+        file = os.path.basename(str(getattr(it, "path", "") or ""))
+        df = self.table_of(it)
+        ranges, shape = {}, {}
+        if df is not None:
+            for c in list(df.columns)[:14]:
+                try:
+                    s_ = df[c].astype(float)
+                    ranges[str(c)] = f"{s_.min():.6g} to {s_.max():.6g} ({s_.notna().sum()} values)"
+                    shape[str(c)] = f"numbers ({s_.notna().sum()} values)"
+                except Exception:
+                    ranges[str(c)] = shape[str(c)] = "text"
+        res = getattr(it, "results", None)
+        res = res if (res is not None and hasattr(res, "head")) else None
+        record = (getattr(it, "record", None) or [])[:5]
+        if not parts:
+            info = {"name": name, "kind": kind, "file": file}
+            if df is not None:
+                info["columns"] = ranges
+            if res is not None:
+                info["results"] = res.head(8).to_string(index=False)
+            info["record"] = record
+            return info
+        return {"generic": {"kind": kind, "has_table": df is not None, "has_results": res is not None},
+                "labels": {"name": name, "file": file, "record": record},
+                "structure": {"columns": shape, "results_columns": [str(c) for c in list(getattr(res, "columns", []))[:20]], "results_rows": 0 if res is None else len(res)},
+                "measurements": {"columns": ranges},
+                "results": {"results": "" if res is None else res.head(8).to_string(index=False)}}
+
     def do_action(self, a, user_texts=()):
-        """One action of the assistant, after you pressed Do it. Returns a short line for the chat and for the AI."""
+        """One action of the assistant. The panel runs the reading steps (look, show, show_graph, show_table) at once and every other
+        step after you pressed Do it. Returns a short line for the chat. The line is local: before any of it goes to the AI service it
+        passes workspace_assistant.filter_for_ai(), which keeps back what the privacy level does not permit."""
         import assistant as ai
         d = a.get("do")
         if d == "look":
-            it = self._graphs(a.get("graph"))[0]
-            info = {"name": it.title.strip(), "kind": getattr(it, "kind", "panel figure"), "file": os.path.basename(str(getattr(it, "path", "") or ""))}
-            df = self.table_of(it)
-            if df is not None:
-                cols = {}
-                for c in list(df.columns)[:14]:
-                    try:
-                        s_ = df[c].astype(float)
-                        cols[str(c)] = f"{s_.min():.6g} to {s_.max():.6g} ({s_.notna().sum()} values)"
-                    except Exception:
-                        cols[str(c)] = "text"
-                info["columns"] = cols
-            res = getattr(it, "results", None)
-            if res is not None and hasattr(res, "head"):
-                info["results"] = res.head(8).to_string(index=False)
-            info["record"] = (getattr(it, "record", None) or [])[:5]
-            return json.dumps(info, ensure_ascii=False, default=str)[:3000]
+            return json.dumps(self.look_info(self._graphs(a.get("graph"))[0]), ensure_ascii=False, default=str)[:3000]
         if d == "show":
             it = self._graphs(a.get("graph"))[0]
             self.go(0)

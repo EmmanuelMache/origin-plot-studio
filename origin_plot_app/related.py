@@ -306,17 +306,18 @@ def merged_workbook(path, inputs, extra=None, peaks=None):
     side, every column labelled 'column [file]'. The app draws from the sheets (one graph per file, and the figure of
     all of them); the last sheet is the one to look at, copy or take into Origin. Returns the sheet names."""
     if len(inputs) < 2: raise ValueError("Select at least two datasets")
+    from safe_export import safe_frame                                   # column names and labels that would be read as formulas stay text; numbers are untouched
     wide = side_by_side(inputs, extra=extra); used = [OVERVIEW_SHEET]; names = []
     with pd.ExcelWriter(path) as xw:
         for p, table in inputs:
             cols = [(table.x, table.arr(table.x))] + [(c, table.arr(c)) for c in table.ys] + list(extra(p, table) if extra else [])
             n = max(len(v) for _c, v in cols); frame = pd.DataFrame({c: list(v) + [np.nan] * (n - len(v)) for c, v in cols})
-            nm = sheet_name(stem(p), used); names.append(nm); frame.to_excel(xw, index=False, sheet_name=nm)
+            nm = sheet_name(stem(p), used); names.append(nm); safe_frame(frame).to_excel(xw, index=False, sheet_name=nm)
         rows = []
         for (p, _table), nm in zip(inputs, names):                         # peaks(path) -> the table of peaks of that file, or None
             pk = peaks(p) if peaks else None
             if pk is not None and len(pk):
                 for _i, r in pk.iterrows(): rows.append({"File": nm, "Position": r.iloc[0], "Label": r.get("Label", ""), "What it may be": r.get("May be", ""), "Other possibilities": r.get("Other possibilities", "")})
-        if rows: pd.DataFrame(rows).to_excel(xw, index=False, sheet_name=PEAKS_OVERVIEW)
-        wide.to_excel(xw, index=False, sheet_name=OVERVIEW_SHEET)
+        if rows: safe_frame(pd.DataFrame(rows)).to_excel(xw, index=False, sheet_name=PEAKS_OVERVIEW)
+        safe_frame(wide).to_excel(xw, index=False, sheet_name=OVERVIEW_SHEET)
     return names + ([PEAKS_OVERVIEW] if rows else []) + [OVERVIEW_SHEET]

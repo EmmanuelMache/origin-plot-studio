@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QSize
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFileDialog, QFrame,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QFileDialog, QFrame,
  QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu,
  QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
  QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QHeaderView)
@@ -173,6 +173,13 @@ class StartHerePage(QWidget):
         row = QHBoxLayout(); self.x_combo = QComboBox(); self.y_combo = QComboBox()
         self.x_combo.activated.connect(self.mapping_changed); self.y_combo.activated.connect(self.mapping_changed)
         row.addWidget(QLabel('X')); row.addWidget(self.x_combo, 1); row.addWidget(QLabel('Y')); row.addWidget(self.y_combo, 1); lay.addLayout(row)
+        # personal learning: a saved mapping that fits this file (Apply / Dismiss), and - after YOU changed the type or
+        # the columns - what would be confirmed, with 'Remember this mapping'. Opening or refreshing a file records nothing.
+        self.learn_bar = None
+        try:
+            import workspace_learning as WL
+            self.learn_bar = WL.MappingBar(self.ws, lambda: self._current_path, self.inspect_current); lay.addWidget(self.learn_bar)
+        except Exception: self.learn_bar = None
         self.data_preview = QTableWidget(); self.data_preview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.data_preview.setMaximumHeight(125); self.data_preview.setAlternatingRowColors(True)
         self.data_preview.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); lay.addWidget(self.data_preview)
@@ -197,6 +204,8 @@ class StartHerePage(QWidget):
                                      '(the same kind of data, names built the same way) are put together by the app; choose here to have them apart')
         self._mode_for = None; self._mode_user = False; self._auto_combined = False; self._rec_paths = []
         self.b_browse = self._button('Browse Analysis templates →', self.browse_templates); lay.addWidget(self.b_browse)
+        self.prefer = QCheckBox('Prefer this graph for such data'); self.prefer.setToolTip('After the graph is made, remember this template as your preferred one for this kind of data. It only changes the order of the graphs that fit.')
+        lay.addWidget(self.prefer)
         self.b_auto = self._button('Create graph →', self.draw_recommended, 'primary'); lay.addWidget(self.b_auto)
         lab = QLabel('Opens in Workspace for editing. Send to Origin when ready.', objectName='soft'); lab.setWordWrap(True); lay.addWidget(lab)
         self.splitter.addWidget(card)
@@ -647,7 +656,9 @@ class StartHerePage(QWidget):
         try:
             if path.lower().endswith('.json'): self.ws.open_session(path); self.refresh(); return
             slug = WP.import_project(path); self.refresh_projects(); self._select_node(('project', slug, ''))
-            self.ws.set_status('Project imported. Select files or Open selected to resume.'); return slug
+            try: self._import_note = slug.summary() if hasattr(slug, 'summary') else ''          # what was imported and what a project may not carry (left out)
+            except Exception: self._import_note = ''
+            self.ws.set_status((self._import_note.replace('\n', ' ') + ' ' if self._import_note else 'Project imported. ') + 'Select files or Open selected to resume.'); return slug
         except Exception as e: self.ws.set_status(f'Project could not be opened: {e}')
 
     def _project_menu(self, pos):
@@ -751,7 +762,39 @@ class StartHerePage(QWidget):
             ax.set_xlabel(table.x, fontsize=9); ax.set_ylabel(table.ys[0], fontsize=9); ax.tick_params(labelsize=8)
             ax.spines[['top','right']].set_visible(False)
         self.preview.draw_idle(); self._building = False
+        self._learn_opened(path)
         self.refresh_recommendations()
+
+    def _learn(self):
+        try:
+            import workspace_learning as WL
+            return WL.controller(self.ws)
+        except Exception: return None
+
+    def _learn_opened(self, path):
+        """The file is on show (opened, refreshed or restored - not a correction by the user): its present type and
+        columns are the baseline a later change is compared with. An exact mapping of your own is applied by itself
+        only when you switched that on, and never twice for the same file."""
+        lc = self._learn()
+        if lc is None: return
+        try:
+            lc.baseline(path)
+            if getattr(self, '_user_change', False): return
+            done = self.__dict__.setdefault('_auto_applied', set())
+            for g in lc.suggestions(path):
+                if g.auto_apply_ok and (path, g.memory_id, g.revision) not in done:
+                    done.add((path, g.memory_id, g.revision)); ok, msg = lc.apply(path, g)
+                    if ok:
+                        self.ws.set_status(msg.replace('Saved mapping applied', 'Your saved mapping was applied automatically')); self._inspect_timer.start(); return
+            if self.learn_bar is not None: self.learn_bar.update_bar()
+        except Exception: pass
+
+    def hideEvent(self, event):
+        lc = self._learn()
+        if lc is not None and self._current_path:
+            try: lc.cancel(self._current_path)                  # a change that was not confirmed is not learned
+            except Exception: pass
+        super().hideEvent(event)
 
     def mapping_changed(self, *_):
         if self._building or not self._current_path: return
@@ -760,11 +803,20 @@ class StartHerePage(QWidget):
         x, y = self.x_combo.currentText(), self.y_combo.currentText()
         if x and x == y: self.ws.set_status('Choose different X and Y columns.'); return
         ctrl.set_mapping(self._current_path, x, y, self.sheet.currentIndex(), self.type_combo.currentText())
-        self.inspect_current()
+        self._user_change = True
+        try: self.inspect_current()
+        finally: self._user_change = False
+        lc = self._learn()                                     # YOU changed the type or the columns and the preview of it is on show: stage it for confirmation
+        if lc is not None:
+            try: lc.user_changed(self._current_path, type_only=bool(getattr(self, '_type_only', False)))
+            except Exception: pass
 
     def confirm_type(self):
+        """Confirms the TYPE the app recognised. It says nothing about the X and Y columns."""
         if not hasattr(self, '_detected'): return
-        self.type_combo.setCurrentText(self._detected.kind); self.mapping_changed()
+        self._type_only = True
+        try: self.type_combo.setCurrentText(self._detected.kind); self.mapping_changed()
+        finally: self._type_only = False
 
     def series_of(self, paths, focus):
         """The ticked files that belong together with the one being looked at: the same kind of measurement (recognised,
@@ -807,8 +859,12 @@ class StartHerePage(QWidget):
             shown = (together, tuple(use) if together else ())
             if shown != getattr(self, '_rec_shown', None): self._rec_shown = shown; current_tid = None      # other graphs are offered now (one of a series, or one per file): the recommended one is highlighted, not the one picked before
             rows = ctrl.recommendations(use, together=together, focus=focus, series=bool(together and group))
+            lc = self._learn()
+            if lc is not None and focus and not (together and group):       # your saved preference reorders the templates that FIT; it adds none
+                try: rows = lc.rank(rows, focus)
+                except Exception: pass
             for row in rows[:16]:
-                title = row['name'] + ('\nRecommended' if row.get('recommended') else '') + '\n' + row['reason']
+                title = row['name'] + ('\nYour saved preference' if row.get('preferred') else '\nRecommended' if row.get('recommended') else '') + '\n' + row['reason']
                 item = QListWidgetItem(title); item.setData(Qt.UserRole, row['id']); item.setToolTip(row['use'] + '\n' + row['reason'])
                 if row.get('preview') and os.path.isfile(row['preview']): item.setIcon(QIcon(row['preview']))
                 item.setSizeHint(QSize(310, 112))
@@ -840,7 +896,17 @@ class StartHerePage(QWidget):
         ctrl = getattr(self.ws, 'workbench', None)
         together = self.combine_mode.currentIndex() == 1; paths = self.selected_paths()
         if together and self._rec_paths and set(self._rec_paths) <= set(paths): paths = list(self._rec_paths)      # the series the graphs were offered for
-        if ctrl: return ctrl.create_graphs(paths, item.data(Qt.UserRole), together)
+        if not ctrl: return None
+        tid = item.data(Qt.UserRole); made = ctrl.create_graphs(paths, tid, together)
+        if made and getattr(self, 'prefer', None) is not None and self.prefer.isChecked():      # only after the graph was really generated
+            lc = self._learn(); focus = self._current_path if self._current_path in paths else paths[0]
+            if lc is not None:
+                try:
+                    _r, msg = lc.save_template_preference(focus, tid)
+                    if msg: self.ws.set_status(msg)
+                except Exception: pass
+            self.prefer.setChecked(False)
+        return made
 
     def browse_templates(self):
         ctrl = getattr(self.ws, 'workbench', None)

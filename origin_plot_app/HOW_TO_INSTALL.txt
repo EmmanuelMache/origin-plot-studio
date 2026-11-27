@@ -13,7 +13,7 @@ You can delete the unzipped folder; the program lives in
 An earlier version is already installed: Setup.bat sees it and offers "Update". Your settings are kept.
 Remove:      Windows Settings > Apps > Installed apps > Origin Plot Studio > Uninstall.
 
-Needs: Windows, Python 3.9 or newer (Setup.bat offers to install it if it is missing), OriginPro for drawing in Origin.
+Needs: Windows, Python 3.12 or newer (Setup.bat offers to install it if it is missing), OriginPro for drawing in Origin.
 No administrator rights are needed: everything is installed for your user only.
 
 Without installing: Origin_Plot_Studio.vbs (no black window) or Run_Origin_Plot_App.bat start the app from this folder.

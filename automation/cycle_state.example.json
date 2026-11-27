@@ -1,0 +1,24 @@
+{
+  "schema": "opstudio.cycle/1",
+  "timezone": "Europe/Stockholm",
+  "anchor": "2026-12-10",
+  "time": "06:00",
+  "interval_days": 14,
+  "next_due_at": "2026-12-24T06:00:00+01:00",
+  "last_cycle_id": "cycle-2026-12-10",
+  "evidence_watermark": "2026-12-09T21:40:00Z",
+  "cycles": {
+    "cycle-2026-12-10": {
+      "status": "no_change",
+      "attempts": 1,
+      "manual": false,
+      "reason": "due",
+      "scheduled_for": "2026-12-10T06:00:00+01:00",
+      "started_at": "2026-12-10T06:19:00+01:00",
+      "finished_at": "2026-12-10T06:24:00+01:00",
+      "evidence_watermark": "2026-12-09T21:40:00Z",
+      "pr_number": null,
+      "report": "reports/cycle-2026-12-10.md"
+    }
+  }
+}

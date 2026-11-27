@@ -52,6 +52,10 @@ class Mock(http.server.BaseHTTPRequestHandler):
         out = json.dumps({"message": {"content": Mock.reply}}).encode(); self.send_response(200); self.send_header("Content-Length", str(len(out))); self.end_headers(); self.wfile.write(out)
     def log_message(self, *a): pass
 srv = http.server.HTTPServer(("127.0.0.1", 0), Mock); threading.Thread(target=srv.serve_forever, daemon=True).start()
+# a model on this computer is reached with plain http only on a port approved in the privacy settings (outbound_policy): approve the
+# mock's port, in a private folder made for this test (port 9 too: 'not running' must still be a refused connection, not a refusal of the policy)
+os.environ["OPS_PRIVATE_DIR"] = tempfile.mkdtemp(); import outbound_policy
+json.dump({"level": "minimal", "loopback_http_ports": [srv.server_port, 9]}, open(os.path.join(os.environ["OPS_PRIVATE_DIR"], "outbound_policy.json"), "w")); outbound_policy.reload()
 cfg = {"ollama": {"address": f"http://127.0.0.1:{srv.server_port}", "model": "m"}}
 Mock.reply = '{"action": "stack_xrd", "params": {"offset_mode": "fixed_value", "offset_value": 100}}'
 act, _ = ab.interpret("stack them", ["a.xrdml", "b.xrdml"], "ollama", cfg)

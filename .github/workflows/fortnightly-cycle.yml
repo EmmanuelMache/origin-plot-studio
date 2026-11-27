@@ -1,0 +1,643 @@
+# Fortnightly improvement cycle.
+#
+# STATUS: this file is a definition, not a running schedule. GitHub runs a scheduled workflow only from the DEFAULT
+# branch, so nothing here runs until the file is merged into main; and after that every job still does nothing
+# until the repository variable FORTNIGHTLY_ENABLED is set to 'true' (or the owner starts it by hand with
+# "Run workflow"). Setup, limits and what was and was not tested: docs/FORTNIGHTLY_CYCLE.md.
+#
+# What it does, once a day:
+#   due       ordinary code (tools/cycle_due.py) decides whether the 14-calendar-day cycle is due. Usually: no, stop.
+#   evidence  builds a small, sanitized evidence bundle from the maintainer's private evidence source.
+#             No source configured -> a report says so. Nothing is invented.
+#   claude    only for a due cycle with useful evidence: the official Claude Code action works out a change in a
+#             checkout of the branch cycle/<cycle id>. This job can only READ the repository; what it produces
+#             leaves it as a patch file.
+#   publish   ordinary code, no model: checks the patch (allowed paths, version untouched, no overlap with an open
+#             cycle pull request), pushes the cycle branch and opens or updates ONE draft pull request.
+#   report    records how the cycle ended and writes a short report.
+#
+# What it never does: merge, push to the default branch, publish a release, bump the version. It holds no signing
+# key and no database credential. Release is a separate workflow (release.yml) behind a protected environment.
+#
+# The cron below is in UTC and only wakes the daily check. The 14-day rhythm, the time zone and daylight saving are
+# handled by tools/cycle_due.py from the state file - a day-of-month step in cron cannot express "every two weeks".
+# GitHub may start a scheduled run late or drop it under load; the gate then resumes the pending cycle on a later day.
+name: Fortnightly cycle
+
+on:
+  schedule:
+    - cron: "17 5 * * *"        # daily at 05:17 UTC (06:17 or 07:17 in Europe/Stockholm): after a 06:00 local due time all year
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run a cycle now even when none is due (it gets an id of its own and does not move the calendar)"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Only show what would happen: no state change, no coding agent, no pull request"
+        type: boolean
+        default: false
+
+permissions: {}                 # every job states exactly what it needs
+
+concurrency:
+  group: fortnightly-cycle      # two runs never overlap; a second one waits
+  cancel-in-progress: false
+
+env:
+  STATE_BRANCH: automation-state
+  STATE_FILE: cycle_state.json
+  MAX_ATTEMPTS: "2"             # a failed cycle is tried once more on the next day, then given up until the next slot
+
+jobs:
+  # ------------------------------------------------------------------------------------------------ due
+  due:
+    name: Is a cycle due?
+    if: vars.FORTNIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write           # only used to push the state file to the automation-state branch
+      pull-requests: read       # to see whether the pull request of an earlier cycle is still open
+    outputs:
+      due: ${{ steps.gate.outputs.due }}
+      cycle_id: ${{ steps.check.outputs.cycle_id }}
+      reason: ${{ steps.gate.outputs.reason }}
+      open_pr_cycles: ${{ steps.check.outputs.open_pr_cycles }}
+      watermark: ${{ steps.check.outputs.evidence_watermark }}
+      next_due_at: ${{ steps.check.outputs.next_due_at }}
+    env:
+      FORCE: ${{ inputs.force == true }}
+      DRY_RUN: ${{ inputs.dry_run == true }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch the state
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "$STATE_BRANCH" >/dev/null 2>&1; then
+            git fetch --depth 1 origin "$STATE_BRANCH"
+            git worktree add --detach _state FETCH_HEAD
+          else
+            mkdir -p _state
+            echo "::notice title=Cycle state::The branch $STATE_BRANCH does not exist yet. Nothing is due until the owner creates the state (docs/FORTNIGHTLY_CYCLE.md)."
+          fi
+
+      - name: Note what became of earlier cycle pull requests
+        if: env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          [ -f "_state/$STATE_FILE" ] || exit 0
+          python3 tools/cycle_due.py check --state "_state/$STATE_FILE" --max-attempts "$MAX_ATTEMPTS" > "$RUNNER_TEMP/first.json"
+          python3 - "$RUNNER_TEMP/first.json" > "$RUNNER_TEMP/open.txt" <<'PY'
+          import json, sys
+          for c in json.load(open(sys.argv[1])).get("open_pr_cycles", []):
+              if c.get("pr_number"): print(c["cycle_id"], int(c["pr_number"]))
+          PY
+          while read -r cid pr; do
+            state=$(gh pr view "$pr" --json state --jq .state 2>/dev/null || true)
+            case "$state" in
+              MERGED) python3 tools/cycle_due.py set-pr --state "_state/$STATE_FILE" --cycle-id "$cid" --pr-state merged >/dev/null ;;
+              CLOSED) python3 tools/cycle_due.py set-pr --state "_state/$STATE_FILE" --cycle-id "$cid" --pr-state closed >/dev/null ;;
+            esac
+          done < "$RUNNER_TEMP/open.txt"
+
+      - name: Check (deterministic; no model involved)
+        id: check
+        run: |
+          set -euo pipefail
+          args=(check --state "_state/$STATE_FILE" --max-attempts "$MAX_ATTEMPTS")
+          if [ "$FORCE" = "true" ]; then args+=(--force); fi
+          python3 tools/cycle_due.py "${args[@]}"
+
+      - name: Start the cycle
+        id: start
+        if: steps.check.outputs.due == 'true' && env.DRY_RUN != 'true'
+        env:
+          CYCLE_ID: ${{ steps.check.outputs.cycle_id }}
+        run: |
+          set -euo pipefail
+          args=(start --state "_state/$STATE_FILE" --cycle-id "$CYCLE_ID" --run-id "$GITHUB_RUN_ID" --max-attempts "$MAX_ATTEMPTS")
+          if [ "$FORCE" = "true" ]; then args+=(--force); fi
+          python3 tools/cycle_due.py "${args[@]}"
+
+      - name: Save the state
+        if: env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          [ -e _state/.git ] || exit 0
+          cd _state
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "cycle state: check of run $GITHUB_RUN_ID"
+          git push origin "HEAD:refs/heads/$STATE_BRANCH"
+
+      - name: Result
+        id: gate
+        env:
+          CHECK_DUE: ${{ steps.check.outputs.due }}
+          CHECK_REASON: ${{ steps.check.outputs.reason }}
+          CYCLE_ID: ${{ steps.check.outputs.cycle_id }}
+          NEXT_DUE: ${{ steps.check.outputs.next_due_at }}
+          STARTED: ${{ steps.start.outputs.started }}
+          START_REASON: ${{ steps.start.outputs.reason }}
+        run: |
+          set -euo pipefail
+          due=false; reason="$CHECK_REASON"
+          if [ "$CHECK_DUE" = "true" ]; then
+            if [ "$DRY_RUN" = "true" ] || [ "$STARTED" = "true" ]; then due=true; else reason="${START_REASON:-not_started}"; fi
+          fi
+          echo "due=$due" >> "$GITHUB_OUTPUT"; echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Fortnightly cycle: check"
+            echo "- due: **$due** (reason: \`$reason\`)"
+            echo "- cycle: \`${CYCLE_ID:-none}\`; next due date in the state: \`${NEXT_DUE:-not set}\`"
+            echo "- dry run: $DRY_RUN; forced: $FORCE; started by: $GITHUB_EVENT_NAME"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ------------------------------------------------------------------------------------------------ evidence
+  evidence:
+    name: Evidence bundle
+    needs: due
+    if: (vars.FORTNIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch') && needs.due.outputs.due == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      status: ${{ steps.source.outputs.status }}
+      message: ${{ steps.source.outputs.message }}
+      useful_evidence: ${{ steps.bundle.outputs.useful_evidence }}
+      new_items: ${{ steps.bundle.outputs.new_items }}
+      watermark: ${{ steps.bundle.outputs.watermark }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The evidence source is the maintainer's PRIVATE, curated backlog of evidence exports. It is not configured by
+      # this repository. Two ways are supported:
+      #   A  another, private repository:  variable EVIDENCE_REPOSITORY (owner/name), optional EVIDENCE_REF and
+      #      EVIDENCE_PATH, and the secret EVIDENCE_READ_TOKEN (read-only access to that one repository)
+      #   B  a branch of this repository:  variable EVIDENCE_BRANCH - accepted only while this repository is private
+      - name: Where is the evidence?
+        id: source
+        env:
+          EVIDENCE_REPOSITORY: ${{ vars.EVIDENCE_REPOSITORY }}
+          EVIDENCE_BRANCH: ${{ vars.EVIDENCE_BRANCH }}
+          EVIDENCE_PATH: ${{ vars.EVIDENCE_PATH }}
+          HAS_TOKEN: ${{ secrets.EVIDENCE_READ_TOKEN != '' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          status=not_configured; message="No evidence source is configured (variable EVIDENCE_REPOSITORY with secret EVIDENCE_READ_TOKEN, or EVIDENCE_BRANCH in a private repository)."
+          if [ -n "$EVIDENCE_REPOSITORY" ]; then
+            if ! printf '%s' "$EVIDENCE_REPOSITORY" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then message="EVIDENCE_REPOSITORY is not of the form owner/name."
+            elif [ "$HAS_TOKEN" != "true" ]; then message="EVIDENCE_REPOSITORY is set, but the secret EVIDENCE_READ_TOKEN is missing."
+            else status=repository; message="Evidence is read from the private repository named in EVIDENCE_REPOSITORY."; fi
+          elif [ -n "$EVIDENCE_BRANCH" ]; then
+            private=$(gh api "repos/$GITHUB_REPOSITORY" --jq .private 2>/dev/null || echo unknown)
+            if [ "$private" = "true" ]; then status=branch; message="Evidence is read from the branch named in EVIDENCE_BRANCH of this private repository."
+            else message="EVIDENCE_BRANCH is ignored: this repository is not private, and evidence must not be kept in a public place."; fi
+          fi
+          case "${EVIDENCE_PATH:-.}" in /*|*..*) status=not_configured; message="EVIDENCE_PATH must be a folder inside the evidence source." ;; esac
+          echo "status=$status" >> "$GITHUB_OUTPUT"; echo "message=$message" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Evidence source::$message"
+
+      - name: Fetch the evidence (private repository)
+        if: steps.source.outputs.status == 'repository'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ vars.EVIDENCE_REPOSITORY }}
+          ref: ${{ vars.EVIDENCE_REF }}
+          token: ${{ secrets.EVIDENCE_READ_TOKEN }}
+          path: _evidence_src
+          persist-credentials: false
+
+      - name: Fetch the evidence (branch of this private repository)
+        if: steps.source.outputs.status == 'branch'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ vars.EVIDENCE_BRANCH }}
+          path: _evidence_src
+          persist-credentials: false
+
+      - name: Build the bounded, sanitized bundle
+        id: bundle
+        if: steps.source.outputs.status != 'not_configured'
+        env:
+          CYCLE_ID: ${{ needs.due.outputs.cycle_id }}
+          WATERMARK: ${{ needs.due.outputs.watermark }}
+          EVIDENCE_PATH: ${{ vars.EVIDENCE_PATH }}
+          REQUESTS_ACTIONABLE: ${{ vars.CYCLE_REQUESTS_ACTIONABLE }}
+        run: |
+          set -uo pipefail
+          args=(--source "_evidence_src/${EVIDENCE_PATH:-.}" --out "$RUNNER_TEMP/bundle" --cycle-id "$CYCLE_ID" --max-items 40 --max-bytes 48000)
+          if [ -n "$WATERMARK" ]; then args+=(--watermark "$WATERMARK"); fi
+          if [ "$REQUESTS_ACTIONABLE" = "true" ]; then args+=(--requests-actionable); fi
+          python3 tools/evidence_bundle.py "${args[@]}"; rc=$?
+          # 0: useful evidence   3: nothing that justifies a code change (not an error)   anything else: the tool failed
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then echo "::error::The evidence bundle could not be built (exit code $rc)."; exit 1; fi
+          rm -rf _evidence_src
+
+      # In a public repository workflow artifacts and logs can be read by others. The bundle holds only what passed
+      # the sanitizer, and it is uploaded only when the coding job needs it. See docs/FORTNIGHTLY_CYCLE.md, "Privacy".
+      - name: Hand the bundle to the coding job
+        if: steps.bundle.outputs.useful_evidence == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cycle-evidence
+          path: |
+            ${{ runner.temp }}/bundle/bundle.md
+            ${{ runner.temp }}/bundle/bundle.json
+            ${{ runner.temp }}/bundle/watermark.json
+          if-no-files-found: error
+          retention-days: 14
+
+  # ------------------------------------------------------------------------------------------------ claude
+  # The only job that calls a model. Its token can READ this repository and its pull requests and nothing more: it
+  # cannot push, open, approve or merge anything, whatever the agent is talked into. It has no release environment,
+  # no signing key, no database credential and no evidence token. Its result is a patch file for the next job.
+  claude:
+    name: Coding agent (works out a patch)
+    needs: [due, evidence]
+    if: >-
+      (vars.FORTNIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
+      && needs.due.outputs.due == 'true'
+      && needs.evidence.outputs.useful_evidence == 'true'
+      && inputs.dry_run != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      agent: ${{ steps.collect.outputs.agent }}
+      has_changes: ${{ steps.collect.outputs.has_changes }}
+      base_sha: ${{ steps.branch.outputs.base_sha }}
+    env:
+      CYCLE_ID: ${{ needs.due.outputs.cycle_id }}
+      CYCLE_BRANCH: cycle/${{ needs.due.outputs.cycle_id }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+      QT_QPA_PLATFORM: offscreen
+      MPLBACKEND: Agg
+      OPS_NO_OPEN: "1"
+    steps:
+      # Billing route. ANTHROPIC_API_KEY = Claude API (pay per token, limit set in the Claude Console).
+      # CLAUDE_CODE_OAUTH_TOKEN = the owner's Claude subscription (its usage limits apply). The workflow uses the one
+      # that exists. With both set, the variable CLAUDE_AUTH_ROUTE (api_key | subscription) must say which.
+      - name: Which Claude credential is configured?
+        id: auth
+        env:
+          HAS_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          PREFERRED: ${{ vars.CLAUDE_AUTH_ROUTE }}
+        run: |
+          set -euo pipefail
+          route=none
+          if [ "$HAS_API_KEY" = "true" ] && [ "$HAS_OAUTH" = "true" ]; then
+            case "$PREFERRED" in api_key|subscription) route="$PREFERRED" ;; *)
+              echo "::error title=Claude credential::Both ANTHROPIC_API_KEY and CLAUDE_CODE_OAUTH_TOKEN are set. Set the repository variable CLAUDE_AUTH_ROUTE to 'api_key' or 'subscription' so the billing route is not chosen by accident."; exit 1 ;;
+            esac
+          elif [ "$HAS_API_KEY" = "true" ]; then route=api_key
+          elif [ "$HAS_OAUTH" = "true" ]; then route=subscription
+          else
+            echo "::error title=Claude credential::Neither the secret ANTHROPIC_API_KEY (Claude API billing) nor CLAUDE_CODE_OAUTH_TOKEN (Claude subscription) is set. Add one of them: docs/FORTNIGHTLY_CYCLE.md."; exit 1
+          fi
+          echo "route=$route" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Claude credential::Billing route of this run: $route"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The instructions come from the default branch, never from the cycle branch and never from the evidence.
+      - name: Take the instructions from the default branch
+        run: |
+          set -euo pipefail
+          printf '%s' "$CYCLE_ID" | grep -Eq '^cycle-[0-9]{4}-[0-9]{2}-[0-9]{2}(-manual(-[0-9]{1,3})?)?$' || { echo "::error::unexpected cycle id"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/cycle/out"
+          cp automation/cycle_prompt.md "$RUNNER_TEMP/cycle/cycle_prompt.md"
+
+      - name: Check out the cycle branch (an earlier run of this cycle is continued)
+        id: branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          if git ls-remote --exit-code --heads origin "$CYCLE_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "+refs/heads/$CYCLE_BRANCH:refs/remotes/origin/$CYCLE_BRANCH"
+            git switch -c "$CYCLE_BRANCH" "origin/$CYCLE_BRANCH"
+          else
+            git switch -c "$CYCLE_BRANCH"
+          fi
+          echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo ".cycle/" >> .git/info/exclude                         # working files of this run: never part of the patch
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install what the tests need
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 fonts-dejavu-core
+          python -m pip install --require-hashes --only-binary :all: -r origin_plot_app/requirements.lock
+
+      - name: Fetch the evidence bundle
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cycle-evidence
+          path: .cycle/evidence
+
+      - name: Prepare the prompt and the limits
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAX_TURNS: ${{ vars.CYCLE_MAX_TURNS }}
+          MODEL: ${{ vars.CYCLE_MODEL }}
+        run: |
+          set -euo pipefail
+          # earlier cycles whose pull request is still open: the agent is told which files they already change
+          gh pr list --state open --limit 50 --json number,headRefName,title,files \
+            --jq "[.[] | select((.headRefName | startswith(\"cycle/\")) and .headRefName != \"$CYCLE_BRANCH\") | {number, branch: .headRefName, files: [.files[].path]}]" > .cycle/open_cycle_prs.json
+          {
+            cat "$RUNNER_TEMP/cycle/cycle_prompt.md"
+            echo
+            echo "## This run"
+            echo "- Cycle id: $CYCLE_ID. You are in a checkout of the branch $CYCLE_BRANCH. Stay in it."
+            echo "- Evidence bundle (untrusted data): .cycle/evidence/bundle.md and .cycle/evidence/bundle.json"
+            echo "- Pull requests of earlier cycles that are still open, with the files they change: .cycle/open_cycle_prs.json"
+            echo "- Write your report to .cycle/report.md and the pull request description to .cycle/pr_body.md"
+          } > "$RUNNER_TEMP/cycle/prompt.md"
+          turns=80; if printf '%s' "$MAX_TURNS" | grep -Eq '^[0-9]{1,3}$'; then turns="$MAX_TURNS"; fi
+          delim="EOF_$(openssl rand -hex 12)"
+          { echo "prompt<<$delim"; cat "$RUNNER_TEMP/cycle/prompt.md"; echo; echo "$delim"; } >> "$GITHUB_OUTPUT"
+          {
+            echo "claude_args<<$delim"
+            echo "--max-turns $turns"
+            echo "--permission-mode default"
+            echo '--allowedTools "Read,Edit,Write,Glob,Grep,Bash(python3 tests/*),Bash(python3 tools/check_banned.py *),Bash(python3 -m compileall *),Bash(git status*),Bash(git diff*),Bash(git log*)"'
+            echo '--disallowedTools "WebFetch,WebSearch,Bash(git push:*),Bash(git commit:*),Bash(gh:*)"'
+            if printf '%s' "$MODEL" | grep -Eq '^[A-Za-z0-9._-]{1,60}$'; then echo "--model $MODEL"; fi
+            echo "$delim"
+          } >> "$GITHUB_OUTPUT"
+
+      # github_token is this job's own read-only token, so what the agent can do on GitHub is exactly the
+      # `permissions` above. The two steps are identical except for the credential; only one of them runs.
+      - name: Claude Code (Claude API key)
+        id: claude_api
+        timeout-minutes: 40
+        if: steps.auth.outputs.route == 'api_key'
+        uses: anthropics/claude-code-action@4411a9e9b0283becf4b924f7bce360fd7756c78c # v1.0.290
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.context.outputs.prompt }}
+          claude_args: ${{ steps.context.outputs.claude_args }}
+
+      - name: Claude Code (Claude subscription token)
+        id: claude_subscription
+        timeout-minutes: 40
+        if: steps.auth.outputs.route == 'subscription'
+        uses: anthropics/claude-code-action@4411a9e9b0283becf4b924f7bce360fd7756c78c # v1.0.290
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.context.outputs.prompt }}
+          claude_args: ${{ steps.context.outputs.claude_args }}
+
+      # What the agent did leaves this job as files: a patch against the commit it started from, its report and its
+      # text for the pull request. The next job treats all three as untrusted.
+      - name: Collect the proposed change as a patch
+        id: collect
+        if: always() && steps.branch.outcome == 'success'
+        env:
+          BASE_SHA: ${{ steps.branch.outputs.base_sha }}
+          RESULT_API: ${{ steps.claude_api.outcome }}
+          RESULT_SUBSCRIPTION: ${{ steps.claude_subscription.outcome }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cycle/out"; mkdir -p "$out"
+          agent=failed; if [ "$RESULT_API" = "success" ] || [ "$RESULT_SUBSCRIPTION" = "success" ]; then agent=finished; fi
+          has_changes=false
+          if [ "$agent" = "finished" ]; then
+            git add -A
+            git diff --cached --binary "$BASE_SHA" > "$out/change.patch"
+            if [ -s "$out/change.patch" ]; then has_changes=true; fi
+          fi
+          head -c 20000 .cycle/report.md > "$out/report.md" 2>/dev/null || true
+          head -c 40000 .cycle/pr_body.md > "$out/pr_body.md" 2>/dev/null || true
+          echo "agent=$agent" >> "$GITHUB_OUTPUT"; echo "has_changes=$has_changes" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Coding agent::$agent; proposed changes: $has_changes"
+
+      - name: Hand the result to the next job
+        if: always() && steps.collect.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cycle-change
+          path: ${{ runner.temp }}/cycle/out/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ------------------------------------------------------------------------------------------------ publish
+  # Ordinary code, no model, no Claude credential. It runs nothing from the patch: it applies it with git, looks at
+  # which files it changes, and then either pushes the cycle branch and opens/updates the one pull request of this
+  # cycle, or publishes nothing and says why. It can write branches and pull requests; branch protection on the
+  # default branch (owner setup) keeps that from ever being a push or a merge there.
+  publish:
+    name: Publish the cycle branch and its pull request (or nothing)
+    needs: [due, claude]
+    if: >-
+      (vars.FORTNIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
+      && needs.due.outputs.due == 'true'
+      && needs.claude.outputs.agent == 'finished'
+      && needs.claude.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      outcome: ${{ steps.publish.outputs.outcome }}
+      reason: ${{ steps.publish.outputs.reason }}
+      pr_number: ${{ steps.publish.outputs.pr_number }}
+    env:
+      CYCLE_ID: ${{ needs.due.outputs.cycle_id }}
+      CYCLE_BRANCH: cycle/${{ needs.due.outputs.cycle_id }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+      BASE_SHA: ${{ needs.claude.outputs.base_sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch the agent's result
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cycle-change
+          path: ${{ runner.temp }}/change
+
+      - name: Check, then publish or refuse
+        id: publish
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/change"
+          finish() { echo "outcome=$1" >> "$GITHUB_OUTPUT"; echo "reason=$2" >> "$GITHUB_OUTPUT"; echo "pr_number=${3:-}" >> "$GITHUB_OUTPUT"; echo "::notice title=Cycle outcome::$1: $2"; exit 0; }
+          printf '%s' "$CYCLE_ID" | grep -Eq '^cycle-[0-9]{4}-[0-9]{2}-[0-9]{2}(-manual(-[0-9]{1,3})?)?$' || finish failed "unexpected cycle id"
+          [ -s "$work/change.patch" ] || finish failed "the patch of the coding job is missing"
+          [ "$(stat -c %s "$work/change.patch")" -le 2000000 ] || finish failed "the patch is larger than 2 MB; nothing was pushed"
+          gh auth setup-git
+          if git ls-remote --exit-code --heads origin "$CYCLE_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "+refs/heads/$CYCLE_BRANCH:refs/remotes/origin/$CYCLE_BRANCH"
+            git switch -c "$CYCLE_BRANCH" "origin/$CYCLE_BRANCH"
+          else
+            git switch -c "$CYCLE_BRANCH"
+          fi
+          [ "$(git rev-parse HEAD)" = "$BASE_SHA" ] || finish failed "the branch moved while the agent was working; nothing was pushed"
+          git apply --index --binary "$work/change.patch" || finish failed "the patch does not apply; nothing was pushed"
+          base=$(git merge-base "origin/$DEFAULT_BRANCH" HEAD)
+          git diff --cached --name-only "$base" | sort -u > "$work/changed.txt"
+          [ -s "$work/changed.txt" ] || finish no_change "the patch changes nothing compared with the default branch"
+          if git diff --cached --raw "$base" | grep -Eq '^:[0-7]{6} (120000|160000) '; then finish failed "the patch adds a symbolic link or a submodule; nothing was pushed"; fi
+          if grep -Eq '^(\.github/|automation/|backend/|\.cycle/|tools/(cycle_due|evidence_bundle|sign_release|build_release|secret_scan|dependency_inventory|check_banned)\.py$|origin_plot_app/(update_trust|update_verify|self_update)\.py$|origin_plot_app/requirements\.(txt|lock)$|CITATION\.cff$|origin_plot_app/WHATS_NEW\.txt$|SECURITY\.md$|PRIVACY\.md$)' "$work/changed.txt"; then
+            finish failed "the agent changed a file it must not touch (workflow, automation, release, signing, update, dependency or version files); nothing was pushed"
+          fi
+          if git diff --cached "$base" -- origin_plot_app/smart_plots.py | grep -Eq '^[+-]VERSION[[:space:]]*='; then finish failed "the agent changed the app version; nothing was pushed"; fi
+          # pull requests of earlier cycles that are still open: a change to the same files is not published twice
+          gh pr list --state open --limit 50 --json number,headRefName,files \
+            --jq ".[] | select((.headRefName | startswith(\"cycle/\")) and .headRefName != \"$CYCLE_BRANCH\") | .number as \$n | .files[].path | \"\\(\$n)\t\\(.)\"" > "$work/open_files.txt"
+          overlap=$(cut -f2 "$work/open_files.txt" | sort -u | comm -12 - "$work/changed.txt" | head -20 || true)
+          if [ -n "$overlap" ]; then
+            prs=$(grep -F -f <(printf '%s\n' "$overlap") "$work/open_files.txt" | cut -f1 | sort -u | tr '\n' ' ')
+            finish deferred "the change overlaps the open pull request(s) of an earlier cycle: #${prs% }; nothing was pushed, the evidence is looked at again next cycle"
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Cycle $CYCLE_ID: change proposed from the evidence bundle"
+          git push origin "HEAD:refs/heads/$CYCLE_BRANCH"
+          {
+            echo "This pull request was prepared by the fortnightly cycle \`$CYCLE_ID\` (workflow run $GITHUB_RUN_ID). It was written by a coding agent from sanitized evidence."
+            echo "**It needs a maintainer's review.** Nothing is merged or released automatically, and the app version is not changed here."
+            echo
+            echo "Checks do not start by themselves on a pull request opened by a workflow: close and reopen it (or run the CI workflow on the branch \`$CYCLE_BRANCH\`) before reviewing."
+            echo
+            echo "---"
+            echo "_What follows is the agent's own description. Check it against the changed files._"
+            echo
+            if [ -s "$work/pr_body.md" ]; then head -c 40000 "$work/pr_body.md"; else echo "_The agent wrote no description. See the changed files and the workflow run._"; fi
+          } > "$work/final_body.md"
+          pr=$(gh pr list --head "$CYCLE_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --body-file "$work/final_body.md"
+            gh pr comment "$pr" --body "Updated by workflow run $GITHUB_RUN_ID of cycle \`$CYCLE_ID\`."
+          else
+            if ! gh pr create --draft --base "$DEFAULT_BRANCH" --head "$CYCLE_BRANCH" --title "Cycle $CYCLE_ID: proposed improvement (needs review)" --body-file "$work/final_body.md"; then
+              finish failed "the branch $CYCLE_BRANCH was pushed, but the pull request could not be opened (is 'Allow GitHub Actions to create and approve pull requests' switched on in the repository settings?)"
+            fi
+            pr=$(gh pr list --head "$CYCLE_BRANCH" --state open --json number --jq '.[0].number // empty')
+          fi
+          finish pr_open "pull request #$pr was opened or updated" "$pr"
+
+  # ------------------------------------------------------------------------------------------------ report
+  report:
+    name: Record the outcome
+    needs: [due, evidence, claude, publish]
+    if: always() && (vars.FORTNIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch') && needs.due.outputs.due == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write           # only used to push the state file and the report to the automation-state branch
+      issues: write             # only used when the variable CYCLE_REPORT_ISSUE is 'true'
+    env:
+      DRY_RUN: ${{ inputs.dry_run == true }}
+      CYCLE_ID: ${{ needs.due.outputs.cycle_id }}
+      DUE_REASON: ${{ needs.due.outputs.reason }}
+      EVIDENCE_RESULT: ${{ needs.evidence.result }}
+      EVIDENCE_STATUS: ${{ needs.evidence.outputs.status }}
+      EVIDENCE_MESSAGE: ${{ needs.evidence.outputs.message }}
+      USEFUL: ${{ needs.evidence.outputs.useful_evidence }}
+      NEW_ITEMS: ${{ needs.evidence.outputs.new_items }}
+      WATERMARK: ${{ needs.evidence.outputs.watermark }}
+      CLAUDE_RESULT: ${{ needs.claude.result }}
+      AGENT: ${{ needs.claude.outputs.agent }}
+      HAS_CHANGES: ${{ needs.claude.outputs.has_changes }}
+      PUBLISH_RESULT: ${{ needs.publish.result }}
+      PUBLISH_OUTCOME: ${{ needs.publish.outputs.outcome }}
+      PUBLISH_REASON: ${{ needs.publish.outputs.reason }}
+      PR_NUMBER: ${{ needs.publish.outputs.pr_number }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch the state
+        run: |
+          set -euo pipefail
+          git fetch --depth 1 origin "$STATE_BRANCH"
+          git worktree add --detach _state FETCH_HEAD
+
+      - name: Fetch the agent's report (if there is one)
+        if: needs.claude.result == 'success' || needs.claude.result == 'failure'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cycle-change
+          path: _agent
+
+      - name: Decide the status and write the report
+        id: outcome
+        run: |
+          set -euo pipefail
+          if [ "$EVIDENCE_RESULT" != "success" ]; then status=failed; why="The evidence job did not finish ($EVIDENCE_RESULT)."
+          elif [ "$EVIDENCE_STATUS" = "not_configured" ]; then status=no_evidence; why="No evidence source configured. $EVIDENCE_MESSAGE"
+          elif [ "$USEFUL" != "true" ]; then
+            if [ "${NEW_ITEMS:-0}" = "0" ]; then status=no_evidence; why="No new evidence since the last processed cycle."
+            else status=no_change; why="$NEW_ITEMS new report(s), none of which justifies a code change (preferences, unverified requests, or workflows seen on too few installations). They stay data."; fi
+          elif [ "$DRY_RUN" = "true" ]; then status=dry_run; why="Dry run: useful evidence was found; the coding agent was not started."
+          elif [ "$CLAUDE_RESULT" != "success" ] || [ "$AGENT" != "finished" ]; then status=failed; why="The coding agent did not finish (job: $CLAUDE_RESULT; time limit, turn limit, missing credential or an error). Nothing was pushed."
+          elif [ "$HAS_CHANGES" != "true" ]; then status=no_change; why="The coding agent looked at the evidence and changed no file."
+          elif [ "$PUBLISH_RESULT" = "success" ] && printf '%s' "$PUBLISH_OUTCOME" | grep -Eq '^(pr_open|no_change|deferred|failed)$'; then status="$PUBLISH_OUTCOME"; why="$PUBLISH_REASON"
+          else status=failed; why="The publishing job did not finish ($PUBLISH_RESULT)."; fi
+          if [ "$DRY_RUN" = "true" ]; then why="DRY RUN (nothing recorded). $why"; fi
+          {
+            echo "# Cycle report: $CYCLE_ID"
+            echo
+            echo "- outcome: **$status**"
+            echo "- why: $why"
+            echo "- started because: $DUE_REASON (workflow run $GITHUB_RUN_ID, $GITHUB_EVENT_NAME)"
+            echo "- new evidence reports: ${NEW_ITEMS:-not counted}; evidence source: ${EVIDENCE_STATUS:-not looked at}"
+            if [ -n "${PR_NUMBER:-}" ]; then echo "- pull request: #$PR_NUMBER (a draft, open for review; not merged by this workflow)"; fi
+            echo "- version bump: none. Release: none. A cycle never does either."
+            if [ -s _agent/report.md ]; then echo; echo "## Report of the coding agent (its own words; check them against the pull request)"; echo; head -c 12000 _agent/report.md; fi
+          } > "$RUNNER_TEMP/report.md"
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Record it in the state
+        if: env.DRY_RUN != 'true'
+        env:
+          STATUS: ${{ steps.outcome.outputs.status }}
+        run: |
+          set -euo pipefail
+          args=(finish --state "_state/$STATE_FILE" --cycle-id "$CYCLE_ID" --status "$STATUS" --report "$RUNNER_TEMP/report.md" --max-attempts "$MAX_ATTEMPTS")
+          if [ -n "${PR_NUMBER:-}" ]; then args+=(--pr "$PR_NUMBER"); fi
+          if [ -n "${WATERMARK:-}" ]; then args+=(--watermark "$WATERMARK"); fi
+          python3 tools/cycle_due.py "${args[@]}"
+          cd _state
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "cycle state: $CYCLE_ID ended as $STATUS (run $GITHUB_RUN_ID)"
+          git push origin "HEAD:refs/heads/$STATE_BRANCH"
+
+      - name: Post the report as an issue (optional)
+        if: env.DRY_RUN != 'true' && vars.CYCLE_REPORT_ISSUE == 'true' && steps.outcome.outputs.status != 'pr_open'
+        env:
+          STATUS: ${{ steps.outcome.outputs.status }}
+        run: |
+          gh issue create --title "Cycle $CYCLE_ID: $STATUS" --body-file "$RUNNER_TEMP/report.md"

@@ -116,6 +116,9 @@ def install(w):
     h.addSeparator()
     add(h, "System Check", w.system_check)
     add(h, "Problem report…", w.problem_report)
+    h.addSeparator()
+    add(h, "Privacy and connections…", lambda: __import__("workspace_privacy").open_dialog(w))
+    add(h, "Learning (what the app remembers)…", lambda: __import__("workspace_learning").open_history(w))
     add(h, "Open the error log…", w.open_error_log)
     add(h, "Mouse actions and keyboard shortcuts", w.show_shortcuts, shown_key="F1")
     add(h, "About Origin Plot Studio", w.about)
@@ -594,10 +597,18 @@ def update_source(self):
 
 
 def _upd_token(self):
+    """The read-only access token of a private update repository: read from the app's protected store (secure_store). A token an
+    older version kept in the settings file is moved there once and removed from the file - also when this system has no protected
+    store (then it lives until the app closes)."""
     import self_update as su
     try:
-        import assistant as ai
-        su.TOKEN = (ai.reveal_key(self.cfg.get("update_token", "")) or "") if self.cfg.get("update_token") else ""
+        r = su.load_token(self.cfg.get("update_token"))
+        if r.get("drop_legacy"):
+            from workspace_qt import save_cfg
+            save_cfg({"update_token": ""})                    # the copy in the settings file is gone
+            self.cfg["update_token"] = ""
+        if r.get("note"):
+            self.log(r["note"])
     except Exception:
         su.TOKEN = ""
 
@@ -606,6 +617,11 @@ def startup_checks(self):
     """Once, after the window is up: old program files removed, plugin folders and the System Check into Details, and a quiet look for
     a new version (a button at the top when there is one; nothing is installed without your click)."""
     import origin_plot_app as opa
+    try:                                                          # the lessons and learned file layouts of earlier versions are taken into the structured memory (once; the original files stay)
+        import workspace_learning as WL
+        WL.controller(self).migrate_once()
+    except Exception:
+        pass
     gone = []
     for f, mark in getattr(opa, "REMOVED_FILES", {}).items():
         p = HERE / f
@@ -630,6 +646,14 @@ def startup_checks(self):
                 self.log(f"   System Check: {n}: {d}")
     except Exception:
         pass
+    try:
+        import self_update as su
+        done = su.recover(str(HERE), _upd_store())            # an install that was cut off (power loss, a crash) is finished or undone
+        if done:
+            self.log("!! " + done)
+            self.set_status(done)
+    except Exception:
+        self.log("!! Recovering an interrupted install:\n" + traceback.format_exc())
     if os.environ.get("OPS_NO_UPDATE_CHECK") or os.environ.get("OPS_NO_OPEN"):
         return
     src = self.update_source()
@@ -638,7 +662,7 @@ def startup_checks(self):
     self._upd_token()
     def look():
         import self_update as su
-        try:
+        try:                                                  # (local-only mode, or update checks switched off in Privacy: find_update refuses and nothing is asked)
             part = su.incomplete(str(HERE))                   # a folder of this version is missing here (the update came through an older updater)
             r = su.find_update(src, "0.0.0" if part else sp.VERSION)
         except Exception:
@@ -686,7 +710,7 @@ def _upd_msg(self, m):
         else:
             dlg.head.setText(f"Version {v} draws some examples differently")
             dlg.sub.setText("A new version can change drawings on purpose. What differs is listed below; install only if you want it.")
-            dlg.detail.setPlainText("\n".join(c.get("lines") or []))
+            dlg.detail.setPlainText(__import__("self_update").verification_note(trial) + "\n\n" + "\n".join(c.get("lines") or []))      # signed by the publisher, or NOT verified: said before the button
             dlg.detail.show()
             dlg.main_b.setText("Install this version")
             dlg.main_b.clicked.connect(lambda: self._upd_install(trial, v))
@@ -698,10 +722,11 @@ def _upd_install(self, trial, v):
     import self_update as su
     dlg = self.upd_dlg
     try:
+        how = su.verification_note(trial)                     # said plainly: signed by the publisher, or NOT verified
         b, ch = su.install(trial, str(HERE), _upd_store(), f"update {sp.VERSION} to {v}")
-        self.log(f"Updated {sp.VERSION} to {v}: {len(ch)} file(s) changed. Backup: {b}")
+        self.log(f"Updated {sp.VERSION} to {v}: {len(ch)} file(s) changed. Backup: {b}. {how}")
         dlg.bar.setValue(100); dlg.head.setText(f"Version {v} is installed"); dlg.sub.setText("Restart the app to use it. Help > Undo the last update brings the earlier version back.")
-        dlg.line.setText(f"{len(ch)} file(s) changed.")
+        dlg.line.setText(f"{len(ch)} file(s) changed. {how}")
         try:
             dlg.main_b.clicked.disconnect()
         except Exception:
@@ -768,12 +793,13 @@ def check_updates(self, source=None, wait=False):
             ver = info.get("version") or "new"
             emit(("found", ver))
             shutil.rmtree(work, ignore_errors=True)
-            trial = su.fetch_and_unpack(info, work)
+            trial = su.fetch_and_unpack(info, work, current=sp.VERSION, allow_same=part)       # the signature is checked here, before anything of the update runs
             ver = su.version_of(trial) or ver
             if not su.newer(ver, sp.VERSION) and not part:
                 emit(("none",))
                 return
             emit(("checking", ver))
+            emit(("line", su.verification_note(trial)))
             c = su.check(trial, str(HERE), quick=True, stop=lambda: stop["stop"], log=lambda t: emit(("line", t)), progress=lambda fr: emit(("bar", 30 + 60 * fr)))
             if not stop["stop"]:
                 emit(("checked", trial, c, ver, str(info.get("notes") or "").split("\n")[0][:140]))
@@ -857,31 +883,29 @@ def system_check(self):
 
 
 def problem_report(self, folder=None):
-    """One zip with what is needed to find the cause of a problem: messages, settings, the list of graphs; no data tables, no key."""
+    """One zip for a problem report, safe to send: versions, the privacy level, recent messages and the kinds of graphs -
+    with the names of your samples, files and folders replaced, and no data tables, settings values or keys. It is
+    written to the results folder and sent nowhere. MANIFEST.txt inside says exactly what it holds."""
     import platform
     import zipfile
-    import numpy as np
-    import pandas as pd
+    import diagnostics
     folder = folder or self.outdir.text().strip() or __import__("origin_plot_app").default_results_folder()
     os.makedirs(folder, exist_ok=True)
     p = os.path.join(folder, "OriginPlotStudio_problem_report_" + datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + ".zip")
-    about = [f"Origin Plot Studio {sp.VERSION} (main window)", f"Python {sys.version.split()[0]} on {platform.platform()}", f"pandas {pd.__version__}, numpy {np.__version__}",
-             "", "Graphs in the list:"] + [f"  {it.title.strip()}" for it in self.items[:200]]
-    with zipfile.ZipFile(p, "w", zipfile.ZIP_DEFLATED) as z:
+    names = []                                                    # what this window has open: replaced wherever it turns up
+    for it in list(self.items)[:400]:
+        for v in (getattr(it, "name", ""), getattr(it, "file", ""), getattr(it, "sample", ""), getattr(it, "path", "")):
+            if v: names.append(str(v))
+    out = diagnostics.build_bundle(p, names=names)
+    san = diagnostics.Sanitizer(diagnostics.known_names(str(HERE), names), str(HERE))
+    kinds = {}
+    for it in self.items: kinds[getattr(it, "kind", "?")] = kinds.get(getattr(it, "kind", "?"), 0) + 1
+    about = [f"Origin Plot Studio {sp.VERSION} (main window)", f"Python {sys.version.split()[0]} on {platform.system()} {platform.release()}", "",
+             "Graphs in the list (kinds and counts only):"] + [f"  {n} x {k}" for k, n in sorted(kinds.items())]
+    with zipfile.ZipFile(p, "a", zipfile.ZIP_DEFLATED) as z:
         z.writestr("about.txt", "\n".join(about))
-        z.writestr("details.txt", self.details.toPlainText())
-        for nm in ("settings.json", "settings_modern.json", "last_run_log.txt", "startup_error.txt", "console_output.txt", "error_log.txt"):
-            if (HERE / nm).exists():
-                txt = (HERE / nm).read_text(encoding="utf-8", errors="replace")
-                if nm.startswith("settings"):
-                    try:
-                        d = json.loads(txt)
-                        d.pop("update_token", None)
-                        txt = json.dumps(d, indent=1)
-                    except Exception:
-                        pass
-                z.writestr(nm, txt)
-    self.set_status(f"Problem report written: {p} (messages, settings, the list of graphs; no tables, no key).")
+        z.writestr("details.txt", san.clean(self.details.toPlainText()))
+    self.set_status(f"Problem report written: {p} (versions, messages and kinds of graphs with names, folders and keys removed; no tables). Read MANIFEST.txt in it before you send it. Nothing was sent.")
     return p
 
 

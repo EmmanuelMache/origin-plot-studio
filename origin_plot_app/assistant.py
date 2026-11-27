@@ -52,15 +52,29 @@ class AIError(Exception):
     """A problem with the AI service, already put in plain words."""
 
 
-def detect(key="", address="", choice=""):
-    """Which AI is this? Returns dict(provider, name, base, key, how). `choice` is the text of the list in the window."""
+def _host_of(address):
+    """(host name, port or None) of an address, parsed; ('', None) when it cannot be read."""
+    try:
+        p = urllib.parse.urlsplit(str(address).strip() if "//" in str(address) else "//" + str(address).strip())
+        return (p.hostname or "").lower().rstrip("."), p.port
+    except Exception: return "", None
+
+def _is(host, domain): return host == domain or host.endswith("." + domain)
+
+def detect(key="", address="", choice="", *, entered=None):
+    """Which AI is this? Returns dict(provider, name, base, key, how, host). `choice` is the text of the list in the window.
+    host is the name of the computer the requests (and the key) go to: show it when the user connects.
+    entered=True: the user typed or pasted this key NOW for this address; the key is then bound to that service (see bind_key).
+    Otherwise a key that was entered for one service is not sent to another one (key_check)."""
     key = (key or "").strip(); address = (address or "").strip().rstrip("/"); how = ""
     prov = provider_of(choice)
     if prov is None:
-        a = address.lower()
-        if a:
-            prov = ("anthropic" if "anthropic" in a else "gemini" if "googleapis" in a else "openai" if "api.openai.com" in a
-                    else "kimi" if ("moonshot" in a or "kimi" in a) else "ollama" if (":11434" in a or (("localhost" in a or "127.0.0.1" in a) and not key)) else "other"); how = "from the address"
+        if address:
+            # the kind of service is read from the parsed HOST name, never from a word somewhere in the address
+            host, port = _host_of(address)
+            prov = ("anthropic" if _is(host, "anthropic.com") else "gemini" if _is(host, "googleapis.com") else "openai" if host == "api.openai.com"
+                    else "kimi" if (_is(host, "moonshot.ai") or _is(host, "moonshot.cn") or _is(host, "kimi.ai") or _is(host, "kimi.com"))
+                    else "ollama" if (_loopback(host) and (port == 11434 or not key)) else "other"); how = "from the address"
         elif key:
             hit = next(((p, b) for pre, p, b in KEY_HINTS if key.startswith(pre)), None)
             if hit: prov, address = hit[0], hit[1]; how = "from the key"
@@ -75,19 +89,105 @@ def detect(key="", address="", choice=""):
     if prov == "other" and not base: raise AIError("For 'Other service' the address is needed, for example https://api.mistral.ai/v1")
     if prov in NEEDS_KEY and not key: raise AIError(f"{p['name']} needs a key. Press 'Get a key…' if you have none yet, then Paste.")
     if prov == "anthropic": base = re.sub(r"/v1$", "", base)
-    return dict(provider=prov, name=p["name"] if prov != "other" else urllib.parse.urlparse(base).netloc or "Other service", base=base, key=key, how=how)
+    conn = dict(provider=prov, name=p["name"] if prov != "other" else service_host(base) or "Other service", base=base, key=key, how=how, host=service_host(base))
+    if entered and key: bind_key(key, base)
+    return conn
 
 
-def _http(method, url, headers, body=None, timeout=180):
-    data = None if body is None else json.dumps(body).encode("utf-8")
-    h = {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "OriginPlotApp"}; h.update(headers or {})
-    req = urllib.request.Request(url, data=data, headers=h, method=method)
-    host = urllib.parse.urlparse(url).netloc
-    local = host.split(":")[0] in ("localhost", "127.0.0.1", "::1", "[::1]")
+def _loopback(host):
+    try:
+        import outbound_policy
+        return outbound_policy.is_loopback(host)
+    except Exception: return False
+
+def service_host(base):
+    """The host name (with a port that is not the usual one) a service address really points to."""
+    host, port = _host_of(base); usual = {"https": 443, "http": 80}.get(str(base).split("://", 1)[0].lower()) if "://" in str(base) else None
+    return host + (f":{port}" if port and port != usual else "") if host else ""
+
+def origin_text(base):
+    """'https://host:port' of an address: what 'the same service' means for a key."""
+    try:
+        p = urllib.parse.urlsplit(str(base).strip()); s = (p.scheme or "").lower(); host = (p.hostname or "").lower().rstrip(".")
+        port = p.port or (443 if s == "https" else 80 if s == "http" else 0)
+        return f"{s}://{host}:{port}" if host and s else ""
+    except Exception: return ""
+
+
+# ----------------------------------------------------------------------------- a key belongs to the service it was entered for
+_BOUND = {}          # fingerprint of a key (never the key) -> origin of the service it was entered for; in memory, and beside the key reference in assistant.json
+
+def _fp(key):
+    import hashlib
+    return hashlib.sha256(("ops-key\0" + str(key)).encode("utf-8")).hexdigest()
+
+def bind_key(key, base):
+    """Say that this key was entered for the service at `base` (the user pasted it for that address)."""
+    o = origin_text(base)
+    if str(key or "").strip() and o: _BOUND[_fp(str(key).strip())] = o
+    return o
+
+def unbind_key(key):
+    _BOUND.pop(_fp(str(key or "").strip()), None)
+
+def key_check(conn):
+    """Called before a key is put into a request. A key that was saved or entered for one service (bind_key: when it is pasted
+    for an address, when it is saved, when it is read back from the settings) is never sent to another address: after the address
+    of a service changed, the key has to be removed and entered again for the new one. A key the app has never stored or been
+    told a service for (typed for this one request, or from a Windows variable) is not bound."""
+    key = str(conn.get("key") or "").strip()
+    if not key: return True
+    was = _BOUND.get(_fp(key))
+    if was is None: return True
+    now = origin_text(conn.get("base", ""))
+    if was != now:
+        raise AIError(f"This key was entered for {service_host(was)}, but the address now points to {service_host(now) or 'an address that cannot be read'}. The key was NOT sent there. "
+                      f"If that is the service you want, remove the saved key and enter the key of that service again.")
+    return True
+
+
+class AIBlocked(AIError, PermissionError):
+    """The outbound policy or the address rules do not allow this request (also an outbound_policy-style PermissionError)."""
+
+
+def _opener(local, origin_url):
+    """The way requests leave: certificates verified against this computer's and the standard public list (net.py); a model on
+    this computer is never reached through a proxy; a redirect is followed only to the SAME service over the same kind of
+    connection - never to another host, port or down to plain http, so the key and your text cannot be sent on elsewhere."""
+    import outbound_policy as op
+    class SameOrigin(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            try: op.check_url(newurl, loopback_http=True)
+            except op.Blocked as e: raise AIBlocked(f"{service_host(origin_url)} sent the request on to an address the app does not use ({e}). It was not followed; your key was not sent there.")
+            if not op.same_origin(origin_url, newurl):
+                raise AIBlocked(f"{service_host(origin_url)} sent the request on to another place ({service_host(newurl)}). It was not followed; your key and your text were not sent there.")
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+    if local: return urllib.request.build_opener(urllib.request.ProxyHandler({}), SameOrigin())
     try:
         import net; https_ = urllib.request.HTTPSHandler(context=net.context())       # trust this computer's certificates and the standard public list (see net.py)
     except Exception: https_ = urllib.request.HTTPSHandler()
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({})) if local else urllib.request.build_opener(https_)      # a model on this computer is never reached through a proxy
+    return urllib.request.build_opener(https_, SameOrigin())
+
+
+def _redact(text):
+    try:
+        import outbound_policy
+        return outbound_policy.redact(str(text))
+    except Exception: return "(details withheld)"
+
+
+def _http(method, url, headers, body=None, timeout=180):
+    import outbound_policy as op
+    # The policy is asked HERE, where the request leaves: local-only mode and the AI switch stop it, a remote address must be
+    # https, and plain http is accepted only for a real loopback address of this computer on an approved port.
+    try: parsed = op.require("ai", url, loopback_http=True)
+    except op.Blocked as e: raise AIBlocked(str(e))
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    h = {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "OriginPlotApp"}; h.update(headers or {})
+    req = urllib.request.Request(url, data=data, headers=h, method=method)
+    host = service_host(url)
+    local = op.is_loopback(parsed.hostname)                           # the parsed host: 'localhost.example.net' is not this computer
+    opener = _opener(local, url)
     try:
         with opener.open(req, timeout=timeout) as r: raw = r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
@@ -98,22 +198,26 @@ def _http(method, url, headers, body=None, timeout=180):
             j = json.loads(txt); er = j.get("error", j) if isinstance(j, dict) else {}
             msg = (er.get("message") if isinstance(er, dict) else str(er)) or ""
         except Exception: msg = txt[:200]
-        msg = re.sub(r"(key=)[^&\s]+", r"\1***", str(msg))[:300]
+        msg = _redact(re.sub(r"(key=)[^&\s]+", r"\1***", str(msg)))[:300]
         what = {400: "The AI service did not understand the request", 401: "The AI service did not accept the key", 403: "The key is not allowed to do this",
                 404: "The AI service does not know this model or address", 429: "The limit of this key is reached (too many requests, or no credit left)",
                 529: "The AI service is overloaded at the moment"}.get(e.code, "The AI service has a problem" if e.code >= 500 else "The AI service refused the request")
+        if e.code in (301, 302, 303, 307, 308): what = "The AI service sent the request on to another address, which the app does not follow with your key"
         raise AIError(f"{what} ({host}, code {e.code})" + (f": {msg}" if msg else ""))
+    except AIError: raise
     except urllib.error.URLError as e:
+        if isinstance(getattr(e, "reason", None), AIError): raise e.reason
         if "CERTIFICATE_VERIFY_FAILED" in str(e).upper() or "SSL:" in str(e).upper():
             raise AIError(f"This computer could not verify the secure connection to {host}. That is usually an antivirus or a company or university network that inspects secure connections, or a wrong date on the computer. Ask whoever looks after the computer to trust that connection; nothing is wrong with your key.")
-        raise AIError(f"I could not reach {host} ({getattr(e, 'reason', e)}). " + ("Is the local model program (Ollama) running?" if local else "Check the internet connection, or a firewall or proxy of the university network."))
+        raise AIError(f"I could not reach {host} ({_redact(getattr(e, 'reason', e))}). " + ("Is the local model program (Ollama) running?" if local else "Check the internet connection, or a firewall or proxy of the university network."))
     except Exception as e:
-        raise AIError(f"I could not reach {host}: {e}")
+        raise AIError(f"I could not reach {host}: {_redact(e)}")
     try: return json.loads(raw)
-    except Exception: raise AIError(f"{host} answered with something that is not the expected format: {raw[:160]}")
+    except Exception: raise AIError(f"{host} answered with something that is not the expected format: {_redact(raw[:160])}")
 
 
 def _auth(conn):
+    key_check(conn)                                                   # a key goes only to the service it was entered for
     if conn["provider"] == "anthropic":
         if conn.get("auth") == "bearer": return {"Authorization": "Bearer " + conn["key"], "anthropic-version": ANTHROPIC_VERSION}
         return {"x-api-key": conn["key"], "anthropic-version": ANTHROPIC_VERSION}
@@ -395,7 +499,12 @@ def learn(h, text):
     with open(p, "a", encoding="utf-8") as f: f.write(f"{datetime.date.today().isoformat()}: {t}\n")
     return t
 
-# ----------------------------------------------------------------------------- the key is stored encrypted by Windows
+# ----------------------------------------------------------------------------- where a key is kept
+# ONE store for every credential of the app: secure_store.py (Windows data protection, the keyring of other systems, or - when
+# neither exists - only the memory of this session). A key is NEVER written to disk as plain text. assistant.json holds, per AI,
+# only a reference {"store": "ai:<provider>", "origin": "https://host:443"}: where the key is kept and which service it was
+# entered for. Keys saved by earlier versions ({"dpapi": ...} blobs in assistant.json) are still read, and move into the store at
+# the next save. A plain key left by an old version is moved into the store when the settings are read, and removed from the file.
 def _dpapi(data, protect):
     """Windows data protection (DPAPI): encrypts with your Windows login. Only your Windows account on this computer can read it back."""
     import ctypes
@@ -409,12 +518,28 @@ def _dpapi(data, protect):
     finally:
         free = ctypes.windll.kernel32.LocalFree; free.argtypes = [ctypes.c_void_p]; free.restype = ctypes.c_void_p; free(ctypes.cast(bout.pbData, ctypes.c_void_p))
 
-def protect_key(key):
-    """A key in the form it is written to disk: encrypted by Windows. Returns None when it cannot be stored safely (then it is not stored at all)."""
+STORAGE_NOTES = []           # plain lines about keys that were moved or could not be kept; a window shows them once (storage_notes())
+
+def storage_notes():
+    """What happened to stored keys since the last call (moved into the protected store, kept for this session only ...)."""
+    out = list(dict.fromkeys(STORAGE_NOTES)); del STORAGE_NOTES[:]
+    return out
+
+def store_name(provider): return "ai:" + str(provider)
+
+def protect_key(key, *, name=None):
+    """A key in the form that may be written to disk, or None when it cannot be kept safely (then NOTHING is written: there is
+    no plain-text form). On Windows: encrypted by Windows ({"dpapi": ...}). With `name`: the key is put into the app's
+    protected store under that name and a reference {"store": name} is returned when it is kept there beyond this session."""
     import base64
     key = str(key or "").strip()
     if not key: return None
-    if os.name != "nt": return {"plain": key}                 # not Windows (the tests): there is no Windows protection to use
+    if name:
+        try:
+            import secure_store
+            return {"store": str(name)} if secure_store.put(str(name), key) in ("dpapi", "keyring") else None
+        except Exception: return None
+    if os.name != "nt": return None                              # no Windows protection here, and no name to keep it under: not stored
     try:
         enc = _dpapi(key.encode("utf-8"), True)
         if _dpapi(enc, False).decode("utf-8") != key: return None          # read it back before trusting it
@@ -422,33 +547,93 @@ def protect_key(key):
     except Exception: return None
 
 def reveal_key(v):
-    """The key back from its stored form; '' when it cannot be read (another computer, another Windows account)."""
+    """The key back from its stored form; '' when it cannot be read (another computer, another Windows account, or a key that
+    was kept for one session only). A reference that carries the service the key was entered for binds the key to it.
+    A plain value is only still read so that it can be moved into the protected store (load_settings does that)."""
     import base64
+    key = ""
     try:
-        if isinstance(v, str): return v.strip()               # a key saved by version 5.14.0 or 5.14.1 (plain): it is encrypted at the next save
-        if isinstance(v, dict) and v.get("dpapi"): return _dpapi(base64.b64decode(v["dpapi"]), False).decode("utf-8").strip()
-        if isinstance(v, dict) and v.get("plain") and os.name != "nt": return str(v["plain"]).strip()
+        if isinstance(v, str): key = v.strip()                # a key saved by version 5.14.0 or 5.14.1 (plain): moved into the store when the settings are read
+        elif isinstance(v, dict) and v.get("store"):
+            import secure_store
+            key = secure_store.get(str(v["store"]))
+        elif isinstance(v, dict) and v.get("dpapi"): key = _dpapi(base64.b64decode(v["dpapi"]), False).decode("utf-8").strip()
+        elif isinstance(v, dict) and v.get("plain") and os.name != "nt": key = str(v["plain"]).strip()      # left by an older version outside Windows
+    except Exception: key = ""
+    if key and isinstance(v, dict) and v.get("origin") and _fp(key) not in _BOUND: _BOUND[_fp(key)] = str(v["origin"])
+    return key
+
+def _key_origin(provider, d):
+    """The service a saved key of this provider belongs to: the address saved with it, or the provider's own address."""
+    return origin_text(str((d.get("addresses") or {}).get(provider) or "").strip().rstrip("/") or PROVIDERS.get(provider, {}).get("base", ""))
+
+def _write_settings(h, d):
+    p = os.path.join(h, "assistant.json"); tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, indent=1)
+    try: os.chmod(tmp, 0o600)
     except Exception: pass
-    return ""
+    os.replace(tmp, p)
 
 def load_settings(h):
+    """The settings of the assistant. A plain key that an older version left in the file is moved into the protected store here
+    and removed from the file (when this system has no protected store it is kept for this session only, and storage_notes()
+    says so). Every entry of "keys" comes back with the service it belongs to ("origin")."""
     try:
-        with open(os.path.join(h, "assistant.json"), "r", encoding="utf-8") as f: return json.load(f)
+        with open(os.path.join(h, "assistant.json"), "r", encoding="utf-8") as f: d = json.load(f)
     except Exception: return {}
+    if not isinstance(d, dict): return {}
+    keys = d.get("keys") if isinstance(d.get("keys"), dict) else {}
+    plain = {pr: (v if isinstance(v, str) else v.get("plain")) for pr, v in keys.items() if isinstance(v, str) or (isinstance(v, dict) and "plain" in v)}
+    old = str(d.get("key") or "").strip() if isinstance(d.get("key"), str) else ""          # the single key of version 5.14.0
+    if old and whose_key(old) and whose_key(old) not in keys: plain[whose_key(old)] = old
+    if plain or "key" in d:
+        try:
+            import secure_store
+            for pr, k in plain.items():
+                k = str(k or "").strip()
+                if not k: keys.pop(pr, None); continue
+                how, _ = secure_store.migrate_plain(store_name(pr), k)
+                keys[pr] = {"store": store_name(pr), "origin": _key_origin(pr, d)}
+                name = PROVIDERS.get(pr, {}).get("name", pr)
+                STORAGE_NOTES.append(f"The key of {name} was kept as plain text by an older version. It was moved into the protected store of this system and removed from the settings file."
+                                     if how in ("dpapi", "keyring") else
+                                     f"The key of {name} was kept as plain text by an older version. This system has no protected store the app can use, so the key was removed from the settings file and is kept only until the app closes. Paste it again next time.")
+            d["keys"] = keys; d.pop("key", None)
+            _write_settings(h, d)                             # the plain copy is gone from the disk
+        except Exception: pass
+    for pr, v in list(keys.items()):                          # a key saved before services were recorded belongs to the address saved with it
+        if isinstance(v, dict) and not v.get("origin"): keys[pr] = dict(v, origin=_key_origin(pr, d))
+    if keys: d["keys"] = keys
+    return d
 
 def save_settings(h, d):
-    """Write the settings. Keys are written encrypted; returns the names of the AIs whose key could not be stored safely (and was left out)."""
+    """Write the settings. A key goes into the protected store (secure_store); the file gets a reference to it, never the key.
+    Returns the names of the AIs whose key could not be kept beyond this session (no protected store on this system): it
+    works until the app closes and is asked for again."""
+    import secure_store
     d = dict(d); lost = []; keys = {}
-    for pr, k in (d.get("keys") or {}).items():
-        v = protect_key(k)
-        if v: keys[pr] = v
-        elif str(k or "").strip(): lost.append(pr)
-    d["keys"] = keys; d.pop("key", None)
     try:
-        p = os.path.join(h, "assistant.json")
-        with open(p, "w", encoding="utf-8") as f: json.dump(d, f, indent=1)
-        try: os.chmod(p, 0o600)
-        except Exception: pass
+        with open(os.path.join(h, "assistant.json"), "r", encoding="utf-8") as f: before = (json.load(f) or {}).get("keys") or {}
+    except Exception: before = {}
+    for pr, k in (d.get("keys") or {}).items():
+        if isinstance(k, dict): k = reveal_key(k)
+        k = str(k or "").strip()
+        if not k: continue
+        origin = _BOUND.get(_fp(k)) or _key_origin(pr, d)
+        if _fp(k) not in _BOUND and origin: _BOUND[_fp(k)] = origin
+        try: how = secure_store.put(store_name(pr), k)
+        except Exception: how = ""
+        if how: keys[pr] = {"store": store_name(pr), "origin": origin}
+        if how not in ("dpapi", "keyring"): lost.append(pr)
+    for pr, v in before.items():                              # a key that is no longer listed is forgotten everywhere
+        if pr not in keys and isinstance(v, dict) and v.get("store") == store_name(pr):
+            try:
+                gone = secure_store.get(store_name(pr))
+                if gone: unbind_key(gone)
+                secure_store.delete(store_name(pr))
+            except Exception: pass
+    d["keys"] = keys; d.pop("key", None)
+    try: _write_settings(h, d)
     except Exception: pass
     return lost
 

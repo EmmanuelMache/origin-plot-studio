@@ -1,11 +1,46 @@
-numpy
-pandas
-scipy
-matplotlib
-openpyxl
-xlrd
-python-calamine
-PySide6
-certifi
-tzdata
-pywin32; sys_platform == 'win32'
+# Origin Plot Studio - the Python packages this release uses, each at ONE exact version.
+#
+# These are the DIRECT requirements. The complete set (with the packages they pull in) and the sha256 of every
+# file is in requirements.lock, made from this file by:   python tools/dependency_inventory.py --lock
+# Setup installs from requirements.lock (pip --require-hashes --only-binary :all:). Starting the app installs nothing.
+#
+# Needs Python 3.12 or newer (numpy 2.5 / scipy 1.18 do not install on older versions).
+# To change a version: edit it here, regenerate the lock, run the tests, review the result. Never "latest".
+#
+# What "tested" means here (2026-11-26, Python 3.13.18, Linux x86_64, Qt offscreen; nothing was run on Windows):
+#   main environment   the whole test suite is run there. It holds the eight packages of the first block at these
+#                      versions; it has no xlrd, python-calamine, tzdata or keyring, and Pillow 12.3.0.
+#   locked environment a fresh environment with exactly requirements.lock (pip --require-hashes). Twelve test scripts
+#                      were run there (docs/RELEASE_PROCESS.md, "Recorded results"), not the whole suite.
+#
+# --- installed in the main environment at these versions ----------------------------------------------------------
+numpy==2.5.3
+pandas==3.0.5
+scipy==1.18.1
+matplotlib==3.11.2
+openpyxl==3.1.5
+PySide6==6.12.0
+certifi==2026.10.18
+# checks the signature of an update before anything of it is opened
+cryptography==50.0.1
+#
+# --- pinned on purpose, NOT the version of the main environment -------------------------------------------------------
+# Pillow reads photos (sketch pad) and writes pictures for matplotlib. The main environment has 12.3.0, for which the
+# advisory database lists vulnerabilities fixed in 13.0.0 (pip-audit, 2026-11-26). 13.0.0 was run in the locked
+# environment only; run the whole suite with it before a release.
+pillow==13.0.0
+#
+# --- NOT installed in the main environment (installed in the locked environment only): verify on Windows ----------
+# readers of old .xls workbooks (the app works without them; such a file then has to be saved as .xlsx)
+xlrd==2.0.2
+python-calamine==0.9.1
+# time zones for pandas on Windows
+tzdata==2026.6
+# drives OriginPro (COM). Windows only: NOT installed and NOT tested anywhere here (it cannot be installed on Linux).
+pywin32==312; sys_platform == 'win32'
+#
+# --- optional -----------------------------------------------------------------------------------------------------
+# the keyring of the system, for saved keys on systems other than Windows (Windows uses its own data protection).
+# Installed in the locked environment only; storing a key with it was not tried. Without it a key is kept for the
+# session only.
+keyring==25.7.0; sys_platform != 'win32'

@@ -1,0 +1,341 @@
+{
+ "made": "2026-11-26",
+ "python": "3.13.18",
+ "platform": "linux x86_64",
+ "source": "origin_plot_app/requirements.lock",
+ "hashes": true,
+ "packages": [
+  {
+   "name": "certifi",
+   "version": "2026.10.18",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "Mozilla Public License 2.0 (MPL 2.0)",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "cffi",
+   "version": "2.1.1",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "MIT-0",
+   "hashes": 99,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "contourpy",
+   "version": "1.4.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "BSD-3-Clause",
+   "hashes": 69,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "cryptography",
+   "version": "50.0.1",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "Apache-2.0 OR BSD-3-Clause",
+   "hashes": 45,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "cycler",
+   "version": "0.12.1",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "BSD License",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "et_xmlfile",
+   "version": "2.0.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "MIT License",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "fonttools",
+   "version": "4.68.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "MIT",
+   "hashes": 64,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "jaraco.classes",
+   "version": "3.4.0",
+   "kind": "transitive",
+   "only_when": "sys_platform != 'win32'",
+   "licence": "MIT License",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "jaraco.context",
+   "version": "6.1.2",
+   "kind": "transitive",
+   "only_when": "sys_platform != 'win32'",
+   "licence": "MIT",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "jaraco.functools",
+   "version": "4.6.0",
+   "kind": "transitive",
+   "only_when": "sys_platform != 'win32'",
+   "licence": "MIT",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "jeepney",
+   "version": "0.9.0",
+   "kind": "transitive",
+   "only_when": "(sys_platform != 'win32' and sys_platform == \"linux\")",
+   "licence": "MIT",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "keyring",
+   "version": "25.7.0",
+   "kind": "direct",
+   "only_when": "sys_platform != 'win32'",
+   "licence": "MIT",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "kiwisolver",
+   "version": "1.5.1",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "BSD License",
+   "hashes": 140,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "matplotlib",
+   "version": "3.11.2",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "Python Software Foundation License",
+   "hashes": 52,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "more-itertools",
+   "version": "11.2.1",
+   "kind": "transitive",
+   "only_when": "sys_platform != 'win32'",
+   "licence": "MIT",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "numpy",
+   "version": "2.5.3",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+   "hashes": 65,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "openpyxl",
+   "version": "3.1.5",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "MIT License",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "packaging",
+   "version": "26.3",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "Apache-2.0 OR BSD-2-Clause",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "pandas",
+   "version": "3.0.5",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "BSD License",
+   "hashes": 41,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "pillow",
+   "version": "13.0.0",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "MIT-CMU",
+   "hashes": 82,
+   "build_environment": "installed in another version (12.3.0)"
+  },
+  {
+   "name": "pycparser",
+   "version": "3.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "BSD-3-Clause",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "pyparsing",
+   "version": "3.1.1",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "MIT License",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "PySide6",
+   "version": "6.12.0",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "hashes": 5,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "PySide6_Addons",
+   "version": "6.12.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "hashes": 5,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "PySide6_Essentials",
+   "version": "6.12.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "hashes": 5,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "PySide6_Pdf",
+   "version": "6.12.0.140",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "hashes": 5,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "PySide6_WebEngine",
+   "version": "6.12.0.140",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "hashes": 5,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "python-calamine",
+   "version": "0.9.1",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "MIT",
+   "hashes": 104,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "python-dateutil",
+   "version": "2.9.0.post0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "BSD License; Apache Software License",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "pywin32",
+   "version": "312",
+   "kind": "direct",
+   "only_when": "sys_platform == 'win32'",
+   "licence": "Python Software Foundation License",
+   "hashes": 21,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "scipy",
+   "version": "1.18.1",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "BSD License",
+   "hashes": 60,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "SecretStorage",
+   "version": "3.5.0",
+   "kind": "transitive",
+   "only_when": "(sys_platform != 'win32' and sys_platform == \"linux\")",
+   "licence": "BSD-3-Clause",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "shiboken6",
+   "version": "6.12.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "hashes": 5,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "six",
+   "version": "1.17.0",
+   "kind": "transitive",
+   "only_when": "",
+   "licence": "MIT License",
+   "hashes": 1,
+   "build_environment": "installed, same version"
+  },
+  {
+   "name": "tzdata",
+   "version": "2026.6",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "Apache-2.0",
+   "hashes": 1,
+   "build_environment": "not installed"
+  },
+  {
+   "name": "xlrd",
+   "version": "2.0.2",
+   "kind": "direct",
+   "only_when": "",
+   "licence": "BSD License",
+   "hashes": 1,
+   "build_environment": "not installed"
+  }
+ ],
+ "audit": {
+  "tool": "pip-audit 2.10.1",
+  "ran": true,
+  "checked": 36,
+  "outcome": "0 known vulnerabilities in 36 packages; 1 of them (for another system: pywin32) looked up in the advisory data of pypi.org",
+  "findings": []
+ },
+ "audit_made": "2026-11-26"
+}

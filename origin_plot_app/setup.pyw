@@ -2,7 +2,9 @@
 setup.pyw - the installer of Origin Plot Studio (started by Setup.bat).
 
 What it does, in a window that shows each step:
-  1. installs the Python packages the app needs (only the missing ones),
+  1. installs the Python packages the app needs, at the tested versions listed in requirements.lock - and only
+     here, when you press Install: starting the app installs nothing by itself. pip checks every file it downloads
+     against the sha256 in that list (--require-hashes) and takes ready-made packages only (--only-binary),
   2. copies the program into  %LOCALAPPDATA%\\Programs\\Origin Plot Studio  (your settings there are kept),
   3. puts a shortcut with the app's icon on the Desktop and in the Start menu,
   4. adds "Origin Plot Studio" to Windows' list of installed apps, so it can be removed there.
@@ -15,7 +17,10 @@ import os, sys, shutil, subprocess, threading, queue, traceback
 
 APP = "Origin Plot Studio"
 KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\OriginPlotStudio"
-PACKAGES = [("pywin32", "win32com"), ("numpy", "numpy"), ("pandas", "pandas"), ("openpyxl", "openpyxl"), ("matplotlib", "matplotlib"), ("xlrd", "xlrd"), ("python-calamine", "python_calamine"), ("certifi", "certifi"), ("scipy", "scipy"), ("tzdata", "tzdata"), ("PySide6", "PySide6")]
+PACKAGES = [("pywin32", "win32com"), ("numpy", "numpy"), ("pandas", "pandas"), ("openpyxl", "openpyxl"), ("matplotlib", "matplotlib"), ("xlrd", "xlrd"), ("python-calamine", "python_calamine"), ("certifi", "certifi"), ("scipy", "scipy"), ("tzdata", "tzdata"), ("PySide6", "PySide6"), ("cryptography", "cryptography")]
+OPTIONAL = ("xlrd", "python-calamine", "certifi", "keyring")                # the app works without these: when one cannot be installed, Setup goes on without it
+MIN_PYTHON = (3, 12)                                                        # the pinned packages (numpy, scipy) do not install on an older Python
+LOCK = "requirements.lock"                                                  # the complete tested set: exact versions and the sha256 of every file
 KEEP = ("settings.json", "settings_modern.json", "last_session.json", "last_run_log.txt")                     # yours: never overwritten by an install
 SKIP_DIRS = ("__pycache__", "dry_out", ".git")
 WIN = os.name == "nt"
@@ -52,6 +57,105 @@ def missing_packages():
             if importlib.util.find_spec(module) is None: out.append(pip_name)
         except Exception: out.append(pip_name)
     return out
+
+def _canon(name):
+    import re
+    return re.sub(r"[-_.]+", "-", str(name)).lower()
+
+def lock_entries(path):
+    """[(name, version, marker, text)] of requirements.lock; text is the whole entry with its --hash lines."""
+    import re
+    out, block = [], []
+    def flush():
+        if not block: return
+        one = " ".join(l.rstrip("\\").strip() for l in block); req = re.sub(r"--hash=\S+", "", one).strip()
+        spec, _, marker = req.partition(";"); m = re.match(r"^([A-Za-z0-9][A-Za-z0-9._-]*)\s*==\s*(\S+)$", spec.strip())
+        if m: out.append((m.group(1), m.group(2), marker.strip(), "\n".join(block)))
+        block.clear()
+    for raw in open(path, encoding="utf-8").read().splitlines():
+        line = raw.rstrip()
+        if not line.strip() or line.lstrip().startswith("#"): flush(); continue
+        if block and not block[-1].endswith("\\"): flush()
+        block.append(line)
+    flush()
+    return out
+
+def lock_hashed(path):
+    """True when every entry of the lock has a hash (pip is then told to refuse any file that does not match)."""
+    e = lock_entries(path)
+    return bool(e) and all("--hash=sha256:" in text for _n, _v, _m, text in e)
+
+def marker_applies(marker):
+    """Does 'only when ...' of a lock entry hold on this computer (sys_platform == 'win32' and the like)?"""
+    if not marker: return True
+    try:
+        from pip._vendor.packaging.markers import Marker
+        return bool(Marker(marker).evaluate())
+    except Exception:
+        import re
+        m = re.fullmatch(r"sys_platform\s*(==|!=)\s*['\"](\w+)['\"]", marker.strip())
+        return ((sys.platform == m.group(2)) == (m.group(1) == "==")) if m else True
+
+def packages_to_install(path):
+    """[(name, version wanted, version installed or '')] - the packages of the lock that are missing here or installed
+    in another version than the tested one. Empty: nothing has to be installed."""
+    import importlib.metadata as md
+    out = []
+    for name, want, marker, _text in lock_entries(path):
+        if not marker_applies(marker): continue
+        try: have = md.version(name)
+        except Exception: have = ""
+        if have != want: out.append((name, want, have))
+    return out
+
+def pip_install_command(py, req, hashed):
+    """The ONE way this app installs Python packages: exactly the versions of the lock, ready-made packages only, every
+    file checked against its sha256 when the lock has hashes. Never 'the newest', never --upgrade."""
+    return [py, "-m", "pip", "install", "--disable-pip-version-check", "--no-warn-script-location", "--no-input", "--only-binary", ":all:"] + (["--require-hashes"] if hashed else ["--no-deps"]) + ["-r", req]
+
+def run_pip(cmd, say=None, each=None):
+    """Run pip and show what it does, line by line. Returns (ok, the last lines of its output)."""
+    tail = []
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", creationflags=NOWIN)
+        for line in p.stdout:
+            line = line.strip()
+            if not line: continue
+            tail.append(line); del tail[:-25]
+            if line.startswith(("Collecting", "Downloading", "Installing", "Using cached")):
+                if say: say(line[:120])
+                if each and line.startswith("Collecting"): each()
+        return p.wait() == 0, "\n".join(tail)
+    except Exception as e:
+        return False, str(e)
+
+def install_packages(say=lambda text: None, progress=lambda done, of: None, folder=None):
+    """Install the locked set into this Python (for this user; no administrator rights). Returns what it did, as a
+    sentence. Raises RuntimeError with a plain reason when the packages the app cannot do without are not there after it."""
+    import tempfile
+    lock = os.path.join(folder or HERE, LOCK)
+    if not os.path.isfile(lock): raise RuntimeError(f"{LOCK} is missing from this folder, so Setup does not know which package versions were tested. Download the release again and unpack all of it.")
+    todo = packages_to_install(lock)
+    if not todo: return "Every package is already installed at its tested version."
+    hashed = lock_hashed(lock); seen = [0]
+    def each(): seen[0] += 1; progress(min(seen[0], len(todo)), len(todo))
+    say(f"Installing {len(todo)} package(s) at their tested versions ({LOCK}) … this can take several minutes")
+    ok, tail = run_pip(pip_install_command(python_exe(), lock, hashed), say, each)
+    left = ""
+    if not ok:                                                 # once more without the packages the app can do without
+        keep = [text for name, _v, marker, text in lock_entries(lock) if _canon(name) not in [_canon(o) for o in OPTIONAL]]
+        fd, part = tempfile.mkstemp(prefix="ops_requirements_", suffix=".txt"); os.close(fd)
+        try:
+            open(part, "w", encoding="utf-8").write("\n".join(keep) + "\n")
+            say("Trying again without the optional packages …"); ok2, tail2 = run_pip(pip_install_command(python_exe(), part, hashed) + ["--no-deps"] * hashed, say, each)
+        finally:
+            try: os.unlink(part)
+            except OSError: pass
+        if not ok2: raise RuntimeError("The packages could not be installed. Is the computer online?\n" + (tail2 or tail)[-500:])
+        left = " Optional packages (readers of old .xls files) were left out: " + tail.splitlines()[-1][:160] if tail else ""
+    still = [p for p in missing_packages() if p not in OPTIONAL]
+    if still: raise RuntimeError("These packages are still missing after the install: " + ", ".join(still) + "\n" + tail[-400:])
+    return f"{len(todo)} package(s) installed at their tested versions." + left
 
 def copy_program(src, dst, say):
     """Copy the program files. Returns the number of files copied. Your settings in the folder are kept."""
@@ -137,7 +241,7 @@ def window(uninstall=False):
     else: mode = "older"
     title_ = {"remove": "Remove " + APP, "install": "Install " + APP, "update": "Update " + APP, "repair": APP + " is already installed", "older": "A newer version is already installed"}[mode]
     text_ = {"remove": "This removes the app, its shortcuts and its entry in Windows.\nYour results and saved sessions in your own folders are not touched.",
-             "install": f"Version {src_v}. It is installed for you only; no administrator rights are needed.",
+             "install": f"Version {src_v}. It is installed for you only; no administrator rights are needed.\nInstall also puts the Python packages the app needs into your Python, at the versions it was tested with.",
              "update": f"Version {old_v} is installed on this computer.\nUpdate it to version {src_v}? Your settings, AI link and sessions are kept.",
              "repair": f"Version {old_v} is installed, the same as this Setup.\nYou can install it again over itself (this repairs missing or damaged files), or close this window.",
              "older": f"Version {old_v} is installed, which is newer than this Setup (version {src_v}).\nClose this window to keep it. Installing would put the older version back."}[mode]
@@ -148,12 +252,17 @@ def window(uninstall=False):
     sub = tk.StringVar(value=text_)
     ttk.Label(f, textvariable=sub, foreground=SOFT, wraplength=W - 48, justify="left").pack(anchor="w", pady=(0, 14))
     names = (["Remove the shortcuts", "Remove the entry in Windows", "Remove the program"] if uninstall else
-             ["Check Python", "Install the packages the app needs", "Replace the program with the new version" if mode == "update" else "Copy the program", "Create the shortcuts", "Add the app to Windows' list of apps"])
+             ["Check Python", "Install the tested Python packages (requirements.lock)", "Replace the program with the new version" if mode == "update" else "Copy the program", "Create the shortcuts", "Add the app to Windows' list of apps"])
     marks = []
     for n_ in names:
         r = ttk.Frame(f); r.pack(fill="x", pady=2); m = ttk.Label(r, text="○", foreground="#94A3B8", width=2, font=(F, 11)); m.pack(side="left"); l = ttk.Label(r, text=n_, foreground=SOFT); l.pack(side="left"); marks.append((m, l))
     bar = ttk.Progressbar(f, mode="determinate", maximum=100); bar.pack(fill="x", pady=(16, 6))
-    line = tk.StringVar(value="Ready."); ttk.Label(f, textvariable=line, foreground=SOFT, wraplength=W - 48, justify="left").pack(anchor="w")
+    try: _todo = [] if uninstall else packages_to_install(os.path.join(HERE, LOCK))
+    except Exception: _todo = None
+    ready = "Ready." if uninstall else (f"Ready. {LOCK} is missing: the packages cannot be installed from this folder." if _todo is None else
+             "Ready. Every Python package is already installed at its tested version; nothing will be downloaded." if not _todo else
+             f"Ready. Install will download {len(_todo)} Python package(s) at their tested versions ({LOCK}); each file is checked against its sha256.")
+    line = tk.StringVar(value=ready); ttk.Label(f, textvariable=line, foreground=SOFT, wraplength=W - 48, justify="left").pack(anchor="w")
     desk = tk.BooleanVar(value=True); launch = tk.BooleanVar(value=True)
     opt = ttk.Frame(f); opt.pack(fill="x", pady=(14, 0))
     desk_box = ttk.Checkbutton(opt, text="Put a shortcut on the Desktop", variable=desk)
@@ -166,14 +275,9 @@ def window(uninstall=False):
     def work_install():
         try:
             step(0, "now"); say(f"Python {sys.version.split()[0]}")
-            if sys.version_info < (3, 9): raise RuntimeError(f"Python {sys.version.split()[0]} is too old: version 3.9 or newer is needed. Install it from python.org and run Setup again.")
-            step(0, "ok"); q.put(("bar", 8)); step(1, "now"); miss = missing_packages()
-            if not miss: say("Every package is already installed.")
-            for i, p in enumerate(miss, 1):
-                say(f"Installing {p} ({i} of {len(miss)}) … this can take a minute")
-                r = subprocess.run([python_exe(), "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "--no-warn-script-location", p], capture_output=True, text=True, creationflags=NOWIN)
-                if r.returncode != 0 and p not in ("python-calamine", "xlrd", "certifi"): raise RuntimeError(f"The package {p} could not be installed. Is the computer online?\n{(r.stderr or r.stdout).strip()[-400:]}")
-                q.put(("bar", 8 + 52 * i / len(miss)))
+            if sys.version_info < MIN_PYTHON: raise RuntimeError(f"Python {sys.version.split()[0]} is too old: version {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or newer is needed (the tested packages do not install on an older one). Install it from python.org and run Setup again.")
+            step(0, "ok"); q.put(("bar", 8)); step(1, "now")
+            say(install_packages(say, lambda done, of: q.put(("bar", 8 + 52 * done / max(of, 1)))))          # the tested set of requirements.lock, nothing else
             step(1, "ok"); q.put(("bar", 60)); step(2, "now"); n = copy_program(HERE, dst, say); say(f"{n} files copied to {dst}" if n else f"The program is already in {dst}"); step(2, "ok"); q.put(("bar", 82))
             step(3, "now")
             if WIN: powershell(shortcut_script(dst, desktop=desk.get(), startmenu=True)); say("Shortcut on the Desktop and in the Start menu." if desk.get() else "Shortcut in the Start menu."); step(3, "ok")

@@ -1,6 +1,6 @@
 ' Origin Plot Studio - starts the app without any black window.
 ' Double-click this file, or drag data files onto it.
-' The first time (or when a Python package is missing) it opens Run_Origin_Plot_App.bat instead, which installs what is needed.
+' The first time (or when a Python package is missing) it opens Run_Origin_Plot_App.bat instead, which tells you to run Setup (packages are installed only by Setup, from the tested list).
 Option Explicit
 Dim sh, fso, folder, args, i, rc
 Set sh = CreateObject("WScript.Shell")

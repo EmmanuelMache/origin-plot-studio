@@ -486,7 +486,8 @@ VERSION 5.33.0  -  MODERN WINDOW, STEPS 3 AND 4: ANALYSIS, GALLERY GRAPHS, ASSIS
                     Search the web   Claude, ChatGPT, Gemini and OpenRouter look things up and list the pages they used.
                     Actions  look, show, tick, name samples, graph type, run analyses, TGA steps, gallery graphs, panel figures,
                              results folder, save, draw in Origin, paper set, XRD Scan Generator, remember a rule. It says what it
-                             wants to do; nothing runs until you press Do it. It sees the list of graphs, not your tables.
+                             wants to do; a change runs only when you press Do it. Reading steps (look, show) run by themselves and send back only what
+                             your privacy level permits (Settings > Privacy and connections): names and numbers stay here at 'Minimal'.
   Settings        which window opens when you start the app (current or modern), the AI and its key, your instructions and what
                   it has learned, and the analysis and figure settings (XRD, TGA, FTIR, calorimetry, figures) with
                   "Apply to my graphs".

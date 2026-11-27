@@ -346,6 +346,7 @@ class WorkbookPage(QWidget):
                             ('Add a sheet\u2026',self.add_sheet,'A new, empty sheet in the working copy of this file: type or paste data into it'),
                             ('Duplicate this sheet\u2026',lambda: self.add_sheet(copy=True),'A copy of the sheet on show under a new name: change it and keep the original'),
                             ('Remove this sheet',self.remove_sheet,'Take the sheet on show out of the working copy (its graphs leave Workspace). The file on the disk keeps it'),(None,None,None),
+                            ('Remember the last merge as a workflow\u2026',self.save_workflow,'After a merge: remember HOW the files were put together (append, join on X, side by side) for this kind of data. No values are kept'),(None,None,None),
                             ('Delete the selected rows',lambda: self.delete_rows(),''),('Delete the selected columns',lambda: self.delete_columns(),''),('Empty the selected cells  (Delete)',self.delete_in_table,'')):
             if text is None: tm.addSeparator(); continue
             a=tm.addAction(text,fn); a.setToolTip(tip)
@@ -382,6 +383,12 @@ class WorkbookPage(QWidget):
         self.type=QComboBox(); from opstudio.detection import KINDS
         self.type.addItems(['Automatic']+KINDS); self.type.activated.connect(self.map_changed)
         rv.addWidget(QLabel('Measurement type')); rv.addWidget(self.type)
+        # personal learning, as on Start here: 'Remember this import mapping' after YOU corrected the type or the columns
+        self.learn_bar=None
+        try:
+            import workspace_learning as WL
+            self.learn_bar=WL.MappingBar(self.ws,lambda: self.path,self.refresh_columns); rv.addWidget(self.learn_bar)
+        except Exception: self.learn_bar=None
         split.addWidget(right); split.setSizes([260,820,260]); split.setStretchFactor(1,3)
         self.path=None; self.model=None
 
@@ -751,6 +758,10 @@ class WorkbookPage(QWidget):
         data=self.files.item(index).data(Qt.UserRole)
         if not isinstance(data,str): return self.open_series(data)
         self.path=data
+        try:                                       # opening a file is not a correction: only the baseline a later change of yours is compared with
+            import workspace_learning as WL
+            WL.controller(self.ws).baseline(self.path)
+        except Exception: pass
         try:
             table,selected,names,_cols,_prefs=self.controller.table_of(self.path)
             self._loading=True; self.sheet.clear(); self.sheet.addItems(names)
@@ -947,6 +958,10 @@ class WorkbookPage(QWidget):
         if self.x.currentText()==self.y.currentText(): self.ws.set_status('X and Y must use different columns.'); return
         self.controller.set_mapping(self.path,self.x.currentText(),self.y.currentText(),self.sheet.currentIndex(),self.type.currentText())
         self.refresh_columns()
+        try:                                       # the same staging and confirmation as on Start here (one shared path)
+            import workspace_learning as WL
+            WL.controller(self.ws).user_changed(self.path)
+        except Exception: pass
 
     def move_file(self,delta):
         index=self.files.currentRow(); target=index+delta
@@ -998,10 +1013,23 @@ class WorkbookPage(QWidget):
             else: self.ws.templates_page.add_files([str(path)])
             self.set_paths(self.paths+[str(path)]); self.files.setCurrentRow(self.paths.index(str(path)))
             self.controller.changed(str(path),slug)
+            self._last_workflow=(paths[0],[{'op':'append_rows','params':{'match':'headers','require_same_units':True}}] if mode==0 else
+                                 [{'op':'join_columns','params':{'on_role':'x','require_equal_x':True}}] if mode==1 else [{'op':'arrange_sheets','params':{'order_by':'source_order'}}])
             self.ws.set_status(f"'{name.strip()}' is a dataset of its own now" + (f": an Excel workbook with a sheet for each of the {len(paths)} files and all of them side by side on the last sheet '{related.OVERVIEW_SHEET}'" if mode==2 else '')
                                + f". It is the entry selected in this list, also in Your graphs and on Start here. The {len(paths)} files are unchanged. {path}")
             return str(path)
         except Exception as e: self.ws.set_status('Merge could not be completed: '+str(e)); return None
+
+    def save_workflow(self):
+        """'Remember this workflow': the merge that was just completed, as a step from the app's own list of operations
+        (how the files were put together - never the values in them). Only when you ask for it."""
+        last=getattr(self,'_last_workflow',None)
+        if not last: self.ws.set_status('There is nothing to remember yet: merge the ticked files first, then save that as a workflow.'); return None
+        try:
+            import workspace_learning as WL
+            result,text=WL.controller(self.ws).save_workflow(last[0],last[1])
+        except Exception: result,text=None,'The workflow could not be remembered.'
+        self.ws.set_status(text); return result
 
     def export_data(self):
         if self.model is None: return None
@@ -1013,11 +1041,12 @@ class WorkbookPage(QWidget):
             if self.path and self.sheet.currentText()!=__import__('related').PEAKS_SHEET:
                 try: peaks=self.controller.peak_frame(self.path)[0]
                 except Exception: peaks=None
+            from safe_export import safe_frame                                                           # text that would be read as a formula stays text; numbers are untouched
             if path.lower().endswith('.xlsx'):
                 with pd.ExcelWriter(path) as xw:
-                    self.model.df.to_excel(xw,index=False,sheet_name='Data')
-                    if peaks is not None: peaks.to_excel(xw,index=False,sheet_name='Peaks')            # the peaks of the file and what they may be, beside its data
-            else: self.model.df.to_csv(path,index=False,sep='\t' if path.lower().endswith('.tsv') else ',')
+                    safe_frame(self.model.df).to_excel(xw,index=False,sheet_name='Data')
+                    if peaks is not None: safe_frame(peaks).to_excel(xw,index=False,sheet_name='Peaks')            # the peaks of the file and what they may be, beside its data
+            else: safe_frame(self.model.df).to_csv(path,index=False,sep='\t' if path.lower().endswith('.tsv') else ',')
             self.ws.set_status('Working data exported: '+path+(' (sheets Data and Peaks)' if peaks is not None and path.lower().endswith('.xlsx') else '')); return path
         except Exception as e: self.ws.set_status('Export failed: '+str(e)); return None
 

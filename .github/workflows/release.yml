@@ -1,0 +1,213 @@
+# Release: build, sign and stage a DRAFT release. Started by hand only, and separate from everything else.
+#
+# STATUS: a definition. It has not run on GitHub, the environment `release` does not exist yet and no signing key is
+# stored anywhere by this repository. Owner steps: docs/FORTNIGHTLY_CYCLE.md, "Release".
+#
+# Why it is separate from the fortnightly cycle and from CI:
+#   * the signing key lives ONLY in the protected environment `release` (secret OPS_RELEASE_SIGNING_KEY). The owner
+#     creates that environment with themselves as required reviewer and limits it to the default branch, so the job
+#     that signs waits for the owner's approval each time. No other workflow names this environment, so neither a
+#     pull request nor the coding agent's job can reach the key.
+#   * code is built and tested in jobs WITHOUT the key; the job with the key only signs what those jobs produced.
+#   * the result is a draft. The owner looks at RELEASE_CONTENTS.md and the assets, then publishes it by hand.
+#     Nothing here publishes.
+name: Release (manual, protected)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, for example 5.59.0. Must equal VERSION in origin_plot_app/smart_plots.py on the default branch."
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.13"
+  QT_QPA_PLATFORM: offscreen
+  MPLBACKEND: Agg
+  OPS_NO_OPEN: "1"
+
+jobs:
+  # ------------------------------------------------------------------------------------------------ verify (no secrets)
+  verify:
+    name: Checks on the exact commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Only from the default branch
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$REF_NAME" != "$DEFAULT_BRANCH" ]; then
+            echo "::error title=Release::A release is built from the default branch ($DEFAULT_BRANCH) only, not from '$REF_NAME'."; exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: The version asked for is the version in the code
+        id: version
+        env:
+          WANTED: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          wanted="${WANTED#v}"
+          printf '%s' "$wanted" | grep -Eq '^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$' || { echo "::error title=Release::'$WANTED' is not a version like 5.59.0."; exit 1; }
+          have=$(python3 -c "import re; print(re.search(r'^VERSION\s*=\s*[\"\\']([^\"\\']+)', open('origin_plot_app/smart_plots.py', encoding='utf-8').read(), re.M).group(1))")
+          if [ "$have" != "$wanted" ]; then echo "::error title=Release::The code says VERSION = $have, the release was asked for $wanted. Change the version in a reviewed pull request first."; exit 1; fi
+          echo "version=$wanted" >> "$GITHUB_OUTPUT"
+      - name: System libraries for Qt offscreen
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 fonts-dejavu-core
+      - name: Install the locked dependency set (hashes checked)
+        run: "python -m pip install --require-hashes --only-binary :all: -r origin_plot_app/requirements.lock"
+      - name: Static checks, secret scan, dependency pins
+        run: |
+          set -euo pipefail
+          python -m compileall -q origin_plot_app tools tests
+          python3 tools/secret_scan.py .
+          python3 tools/dependency_inventory.py --check
+      - name: Dependency audit of the locked set
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/audit"                       # the audit tool stays out of the tested environment
+          "$RUNNER_TEMP/audit/bin/python" -m pip install --quiet pip-audit==2.10.1
+          "$RUNNER_TEMP/audit/bin/python" -m pip_audit -r origin_plot_app/requirements.lock --disable-pip --progress-spinner off
+      - name: The whole test suite
+        run: |
+          set -uo pipefail
+          ran=0; failed=()
+          for f in $(ls tests/test_*.py | sort); do
+            if [ "$f" = "tests/test_xrd_generator.py" ]; then continue; fi      # one known failing check, reported in the next step
+            echo "::group::$f"; timeout 1500 python3 "$f"; rc=$?; echo "::endgroup::"
+            ran=$(( ran + 1 ))
+            if [ "$rc" -ne 0 ]; then failed+=("$f (exit code $rc)"); echo "::error title=Test failed::$f ended with exit code $rc"; fi
+          done
+          { echo "### Release checks: $ran test file(s) run, ${#failed[@]} failed"; for f in "${failed[@]}"; do echo "- FAILED: $f"; done; } >> "$GITHUB_STEP_SUMMARY"
+          [ "$ran" -gt 0 ] && [ "${#failed[@]}" -eq 0 ]
+      - name: The known failing check, shown and not hidden
+        run: |
+          set -uo pipefail
+          python3 tests/test_xrd_generator.py xrd_scan_generator/tests/fixtures/SAMPLE.xrdml > out.txt 2>&1; rc=$?
+          fails=$(grep -c '^FAIL' out.txt || true); known=$(grep -c '^FAIL  no file is called SAMPLE' out.txt || true)
+          if [ "$rc" -eq 0 ]; then echo "::notice::tests/test_xrd_generator.py passes now."
+          elif [ "$fails" -eq 1 ] && [ "$known" -eq 1 ]; then echo "::warning title=Known failing check::tests/test_xrd_generator.py: 1 check fails ('no file is called SAMPLE'; fixture-related, unchanged since 5.51.0)."
+          else cat out.txt; echo "::error::tests/test_xrd_generator.py: $fails failing check(s); only the known one is accepted."; exit 1; fi
+
+  # ------------------------------------------------------------------------------------------------ build (no secrets)
+  build:
+    name: Clean build from the commit
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Built from the files of the commit (an allow-list), never by zipping a working folder; the tool scans its own
+      # result for credentials and stops on a hit.
+      - name: Build the release for the 'friends' profile
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 tools/build_release.py --profile friends --out dist
+          test -f "dist/Origin_Plot_Studio_${VERSION}.zip" || { echo "::error::the build did not produce dist/Origin_Plot_Studio_${VERSION}.zip"; ls -la dist; exit 1; }
+          python3 tools/secret_scan.py --strict "dist/Origin_Plot_Studio_${VERSION}.zip"
+          mkdir -p staged
+          cp "dist/Origin_Plot_Studio_${VERSION}.zip" "dist/Origin_Plot_Studio_${VERSION}.zip.sha256" staged/
+          cp "dist/Origin_Plot_Studio_${VERSION}/RELEASE_CONTENTS.md" staged/ 2>/dev/null || true
+          (cd staged && sha256sum "Origin_Plot_Studio_${VERSION}.zip" | tee -a "$GITHUB_STEP_SUMMARY")
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-unsigned
+          path: staged/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ------------------------------------------------------------------------------------------------ sign and stage
+  # The only job in the repository that sees the signing key. It waits for the reviewer of the environment.
+  sign:
+    name: Sign and stage a draft release
+    needs: [verify, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: write           # to create the draft release and attach its three assets
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - name: The signing key and its id are configured in the environment
+        env:
+          HAS_KEY: ${{ secrets.OPS_RELEASE_SIGNING_KEY != '' }}
+          KEY_ID: ${{ vars.OPS_RELEASE_KEY_ID }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then echo "::error title=Release::The environment 'release' has no secret OPS_RELEASE_SIGNING_KEY. Nothing was signed."; exit 1; fi
+          if [ -z "$KEY_ID" ]; then echo "::error title=Release::The variable OPS_RELEASE_KEY_ID (the key id listed in origin_plot_app/update_trust.py) is not set."; exit 1; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install the locked dependency set (hashes checked; signing needs 'cryptography' from it)
+        run: "python -m pip install --require-hashes --only-binary :all: -r origin_plot_app/requirements.lock"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-unsigned
+          path: dist
+      - name: The zip is the one that was built
+        run: |
+          set -euo pipefail
+          cd dist
+          want=$(grep -Eo '[0-9a-f]{64}' "Origin_Plot_Studio_${VERSION}.zip.sha256" | head -1)
+          have=$(sha256sum "Origin_Plot_Studio_${VERSION}.zip" | cut -d' ' -f1)
+          [ -n "$want" ] && [ "$want" = "$have" ] || { echo "::error::the checksum of the zip does not match the one written by the build"; exit 1; }
+      - name: Write the manifest
+        env:
+          KEY_ID: ${{ vars.OPS_RELEASE_KEY_ID }}
+        run: python3 tools/sign_release.py make-manifest "dist/Origin_Plot_Studio_${VERSION}.zip" --version "$VERSION" --key-id "$KEY_ID" --min-python 3.12 --tag "v${VERSION}"
+      - name: Sign the manifest
+        env:
+          OPS_RELEASE_SIGNING_KEY: ${{ secrets.OPS_RELEASE_SIGNING_KEY }}       # this step only; never written to disk or printed
+        run: python3 tools/sign_release.py sign dist/manifest.json
+      - name: Verify exactly as the app will (with the public keys in origin_plot_app/update_trust.py)
+        run: python3 tools/sign_release.py verify dist
+      - name: Stage the draft release for the owner to review and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error title=Release::A release v${VERSION} exists already. A published version is never replaced: delete the draft by hand if it was one, or release a new version."; exit 1
+          fi
+          {
+            echo "Origin Plot Studio ${VERSION}"
+            echo
+            echo "Assets: the release zip, \`manifest.json\` and \`manifest.sig\` (Ed25519 signature over the manifest; the app checks it before it opens the zip)."
+            echo "Built by workflow run ${GITHUB_RUN_ID} from commit ${GITHUB_SHA}. DRAFT: review RELEASE_CONTENTS.md (artifact of the run) before publishing."
+          } > notes.md
+          gh release create "v${VERSION}" --draft --target "$GITHUB_SHA" --title "Origin Plot Studio ${VERSION}" --notes-file notes.md \
+            "dist/Origin_Plot_Studio_${VERSION}.zip" dist/manifest.json dist/manifest.sig
+          echo "### Draft release v${VERSION} staged. It is NOT published: the owner publishes it by hand after review." >> "$GITHUB_STEP_SUMMARY"

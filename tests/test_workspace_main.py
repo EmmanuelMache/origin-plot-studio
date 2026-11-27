@@ -3,7 +3,8 @@ import ast, json, os, sys, tempfile, time, zipfile
 from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 TMP = Path(tempfile.mkdtemp(prefix="ws_main_"))
-os.environ.update(OPS_SETTINGS_FILE=str(TMP / "settings_modern.json"), OPS_NO_OPEN="1", ORIGIN_PLOT_APP_HOME=str(TMP / "store"), OPS_ASSISTANT_SYNC="1")
+os.environ.update(OPS_SETTINGS_FILE=str(TMP / "settings_modern.json"), OPS_NO_OPEN="1", ORIGIN_PLOT_APP_HOME=str(TMP / "store"), OPS_ASSISTANT_SYNC="1",
+                  OPS_PRIVATE_DIR=str(TMP / "private"))      # the assistant records which AI service it talks to in the privacy settings: kept in TMP
 ROOT = Path(__file__).resolve().parents[1]; A = ROOT / "origin_plot_app"; sys.path.insert(0, str(A))
 from PySide6.QtWidgets import QApplication
 import pandas as pd
@@ -33,7 +34,8 @@ check("File: new, add, open, resume, save, Origin project, convert, workbook, te
                                                      "Convert files to Excel", "Save everything as one workbook", "Workbook template", "Make a gallery graph template",
                                                      "Refresh previews", "Open results folder", "Exit")) and not any("Classic" in t for t in ft), ft)
 ht = [a.text().split("\t")[0] for a in w.menus["help"].actions() if a.text()]
-check("Help: updates (check, zip, undo, source), System Check, problem report, error log, shortcuts, about", len(ht) == 9 and ht[0] == "Check for updates…" and "Open the error log…" in ht, ht)
+check("Help: updates (check, zip, undo, source), System Check, problem report, privacy and connections, learning, error log, shortcuts, about", len(ht) == 11 and ht[0] == "Check for updates…" and "Open the error log…" in ht
+      and "Privacy and connections…" in ht and "Learning (what the app remembers)…" in ht, ht)
 seqs = [a.shortcut().toString() for a in w.findChildren(type(w.menus["file"].actions()[0])) if a.shortcut().toString() and (a.isVisible() or True)]
 acts = {id(a): a for a in list(w.actions()) + [a for m in w.menus.values() for a in m.actions()]}      # the same action in two menus counts once
 win = [a.shortcut().toString() for a in acts.values() if a.shortcut().toString()]

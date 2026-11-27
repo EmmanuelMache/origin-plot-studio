@@ -5,7 +5,16 @@ cited, its whole abstract (when the source has it) and a free PDF when one is kn
 only when no paper is found, or when you ask for them. Links open the same search in Google and Google Scholar in your browser.
 
 Used by the assistant of the modern window: with no AI, the results are listed; with an AI that cannot search by itself the AI
-answers from them. Only your search words are sent (no file, no data, no name). Nothing here needs a key.
+answers from them. Nothing here needs a key.
+
+What is sent: only search words (and the DOI of a paper you open), to the services named above and, for pictures, Wikimedia Commons.
+Never a file, never data. The words are the ones you typed (or the AI wrote from them); the assistant takes the names of your own
+graphs, samples and files out of them unless the privacy level permits labels (workspace_assistant.filter_for_ai, kind "query"), and a
+folder path is never searched for (search(), pictures()).
+
+Every request of this module asks outbound_policy first, at the place where it is sent (_get) and again at each entry (search, papers...,
+pages, details, pictures): in local-only mode, or with the web search switched off, nothing is contacted and outbound_policy.Blocked is
+raised with the reason in plain words. A request that is let through is https only.
 """
 from __future__ import annotations
 
@@ -30,15 +39,38 @@ class SearchError(Exception):
     pass
 
 
+def _allow(url=None):
+    """The policy check of every request of this module (outbound_policy, channel 'web_search'). Without an address: may the web
+    search be used at all? With one: may THIS request be sent (https only; counted in the policy's audit list)? Raises
+    outbound_policy.Blocked - not a SearchError: 'not permitted' must not look like 'one source did not answer'."""
+    import outbound_policy as op
+    if url is None:
+        if not op.allowed("web_search"):
+            op.require("web_search")                  # raises Blocked with the reason in plain words
+        return None
+    return op.require("web_search", url)
+
+
+def _private_free(query):
+    """Search words without folder paths (a path is never a useful search word, and it names your project)."""
+    import outbound_policy as op
+    return re.sub(r"\s+", " ", op.strip_paths(str(query or "")).replace("<folder>", " ")).strip()
+
+
 def _get(url, timeout=25):
+    """THE transport of this module: every request passes here (search services, abstracts, thumbnails)."""
+    _allow(url)                                       # before anything is opened
     import net                                        # trusts this computer's certificates, like the updater
     try:
-        return net.fetch(url, HEADERS, timeout)
+        return net.fetch(url, HEADERS, timeout, channel="web_search")     # net asks the policy again at every hop of a redirect
+    except PermissionError:
+        raise                                         # the transport refused it (policy): said as it is
     except Exception as e:
         raise SearchError(f"{urllib.parse.urlparse(url).netloc}: {e}")
 
 
 def _get_json(url, timeout=25):
+    _allow()
     raw = _get(url, timeout)
     try:
         return json.loads(raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else raw)
@@ -73,6 +105,7 @@ def _paper(title, url, authors, year, venue, abstract, cited, doi, oa, source):
 
 def papers(query, n=5):
     """OpenAlex: articles, reviews, preprints, theses and chapters, most relevant first."""
+    _allow()
     q = urllib.parse.urlencode({"search": query, "per-page": n, "filter": "type:article|review|preprint|book-chapter|dissertation",
                                 "select": "title,doi,publication_year,primary_location,authorships,abstract_inverted_index,cited_by_count,open_access,best_oa_location"})
     j = _get_json(f"{OPENALEX}?{q}")
@@ -89,6 +122,7 @@ def papers(query, n=5):
 
 
 def papers_s2(query, n=4):
+    _allow()
     q = urllib.parse.urlencode({"query": query, "limit": n, "fields": "title,url,year,abstract,venue,authors,citationCount,externalIds,openAccessPdf"})
     j = _get_json(f"{S2}?{q}")
     out = []
@@ -102,6 +136,7 @@ def papers_s2(query, n=4):
 
 
 def papers_crossref(query, n=4):
+    _allow()
     q = urllib.parse.urlencode({"query": query, "rows": n, "select": "DOI,title,author,issued,container-title,is-referenced-by-count,abstract,type"})
     j = _get_json(f"{CROSSREF}?{q}")
     out = []
@@ -118,6 +153,7 @@ def papers_crossref(query, n=4):
 
 
 def papers_arxiv(query, n=3):
+    _allow()
     raw = _get(f"{ARXIV}?" + urllib.parse.urlencode({"search_query": f"all:{query}", "start": 0, "max_results": n}))
     try:
         root = ET.fromstring(raw if isinstance(raw, (bytes, bytearray)) else str(raw).encode("utf-8"))
@@ -134,6 +170,7 @@ def papers_arxiv(query, n=3):
 
 
 def pages(query, n=3):
+    _allow()
     j = _get_json(f"{WIKIPEDIA}?" + urllib.parse.urlencode({"q": query, "limit": n}))
     out = []
     for p in j.get("pages") or []:
@@ -164,7 +201,8 @@ def google_links(query):
 def search(query, n_papers=8, n_pages=3, include_pages=False):
     """Papers first (OpenAlex, Semantic Scholar, Crossref, arXiv; each paper once, the most relevant of each source first);
     Wikipedia only when no paper is found or include_pages. Returns (results, problems)."""
-    query = re.sub(r"\s+", " ", str(query or "")).strip()[:300]
+    _allow()                                          # local-only, or the web search switched off: Blocked, nothing is contacted
+    query = _private_free(query)[:300]
     if not query:
         return [], ["no search words"]
     lists, probs = [], []
@@ -202,6 +240,7 @@ def details(r):
     """Everything known about one paper for the preview; the whole abstract is fetched by its DOI when the list had none."""
     r = dict(r)
     if r.get("kind") == "paper" and r.get("doi") and len(r.get("abstract") or "") < 200:
+        _allow()
         for fetch in (lambda d: _get_json(f"{OPENALEX}/doi:{urllib.parse.quote(d)}"), lambda d: _get_json(f"https://api.semanticscholar.org/graph/v1/paper/DOI:{urllib.parse.quote(d)}?fields=abstract,openAccessPdf,citationCount,authors")):
             try:
                 j = fetch(r["doi"])
@@ -227,6 +266,10 @@ def pictures(query, n=6, folder=None):
     author, licence and page. The thumbnails are downloaded into `folder` so the chat can show them. Returns [dict], problems."""
     import os
     import tempfile
+    _allow()
+    query = _private_free(query)
+    if not query:
+        return [], ["no search words"]
     q = urllib.parse.urlencode({"action": "query", "format": "json", "generator": "search", "gsrsearch": query, "gsrnamespace": 6, "gsrlimit": n * 2,
                                 "prop": "imageinfo", "iiprop": "url|mime|extmetadata", "iiurlwidth": 360})
     j = _get_json(f"{COMMONS}?{q}")
@@ -247,7 +290,7 @@ def pictures(query, n=6, folder=None):
             path = os.path.join(folder, f"ops_web_pic_{abs(hash(thumb)) % 10**10}{ext}")
             with open(path, "wb") as fh:
                 fh.write(raw if isinstance(raw, (bytes, bytearray)) else bytes(raw))
-        except SearchError as e:
+        except (SearchError, PermissionError) as e:   # not reached, or an address the policy does not use (not https): that picture is left out
             probs.append(str(e))
             continue
         out.append({"title": title[:120], "path": path, "page": ii.get("descriptionurl") or "", "author": val("Artist")[:80],

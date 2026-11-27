@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.58.6"
+VERSION = "5.59.0"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -334,18 +334,12 @@ def _excel_tables(path):
     for eng in ("calamine", "xlrd"):
         try: return read(eng)
         except Exception: pass
-    try:                                                         # get the reader (once); needs the internet for a few seconds
-        import subprocess, importlib
-        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "xlrd", "python-calamine"], timeout=240, capture_output=True)
-        importlib.invalidate_caches()
-        for eng in ("xlrd", "calamine"):
-            try: return read(eng)
-            except Exception: pass
-    except Exception: pass
+    # No reader package for this kind of Excel file is installed. The app does NOT fetch one by itself any more: packages
+    # are installed only by Setup, from the tested and hash-checked list (requirements.lock). Excel itself is tried next.
     try: return _excel_com_tables(path)
     except Exception: pass
-    raise ValueError("this is an old-format Excel file (.xls) and the package that reads it ('xlrd') is not installed and could not be installed "
-                     "automatically. Either open the file in Excel and save it as .xlsx, or type in a command window:  py -3 -m pip install xlrd  and add the file again")
+    raise ValueError("this is an old-format Excel file (.xls) and the package that reads it ('xlrd') is not installed. "
+                     "Either open the file in Excel and save it as .xlsx, or run Setup once more (it installs the tested set of packages) and add the file again")
 
 def _excel_com_tables(path):
     """Let Excel itself open the workbook and hand over the cells (Windows with Excel installed)."""

@@ -19,7 +19,7 @@ def origin_available():
     return origin_com()[0] == "ok"
 
 def run():
-    rows = [("Python", "ok" if sys.version_info >= (3, 9) else "warn", sys.version.split()[0])]
+    rows = [("Python", "ok" if sys.version_info >= (3, 12) else "warn", sys.version.split()[0])]          # the tested, locked set of packages needs Python 3.12 or newer
     for n in ("numpy", "pandas", "scipy", "matplotlib", "openpyxl"): s, d = _mod(n); rows.append((n, s, d))
     for n in ("originpro", "win32com"): s, d = _mod(n); rows.append(({"win32com": "pywin32"}.get(n, n), "ok" if s == "ok" else "warn", d if s == "ok" else "optional, not installed"))
     s, d = origin_com(); rows.append(("OriginPro (COM)", s, d))

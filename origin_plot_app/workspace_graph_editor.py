@@ -41,6 +41,12 @@ class GraphEditor(QDialog):
         self.apply_all=QCheckBox('Apply component settings to all graphs in this project')
         self.apply_all.setToolTip('Explicit batch action: otherwise every change stays on this graph')
         right.addWidget(self.apply_all)
+        # personal learning: the look of this graph (or of one panel) can be remembered - presentation only, and only when
+        # you ask for it. Undo and Redo below restore the graph; they never save or count anything.
+        row=QHBoxLayout(); self.save_style_btn=QPushButton('Save style…'); self.save_style_btn.setToolTip('Remember the component settings and the publication style - no titles, ranges or data. You choose what it is for.')
+        self.save_style_btn.clicked.connect(lambda: self.save_style()); row.addWidget(self.save_style_btn)
+        self.use_style_btn=QPushButton('Use saved style'); self.use_style_btn.setToolTip('Put a style you saved on THIS graph (or the panel chosen above). Other graphs are not changed.')
+        self.use_style_btn.clicked.connect(self.use_saved_style); row.addWidget(self.use_style_btn); right.addLayout(row)
         remove=QPushButton('Remove component…'); remove.clicked.connect(self.remove_component); right.addWidget(remove)
         self.message=QLabel('',objectName='soft'); self.message.setWordWrap(True); right.addWidget(self.message)
         row=QHBoxLayout(); undo=QPushButton('Undo'); undo.clicked.connect(self.undo); row.addWidget(undo)
@@ -91,6 +97,7 @@ class GraphEditor(QDialog):
                                                   (self.difference,fit,'Difference row: pattern-and-fit graphs only'),(self.zoom,can_zoom,'Zoom inset: not part of this template')] if not on]
         if not self._applied_once: self.message.setText(('Not available for this graph - ' + '; '.join(self.unsupported) + '.') if self.unsupported else '')
         self._loading=False
+        self.refresh_style_offer()
 
     def apply(self,*_):
         if self._loading: return
@@ -126,6 +133,52 @@ class GraphEditor(QDialog):
         if self.graph.project_id: self.controller._changed.add(self.graph.project_id)
         self._applied_once=True
         self.message.setText('Applied to '+('this graph.' if target=='all' else f'panel {int(target)+1}.'))
+
+    def _learning(self):
+        try:
+            import workspace_learning as WL
+            return WL.controller(self.controller.ws)
+        except Exception: return None
+
+    def _panel(self):
+        t=self.target.currentData()
+        return None if t=='all' else int(t)
+
+    def refresh_style_offer(self):
+        lc=self._learning(); found=[]
+        try: found=lc.style_suggestions(self.graph,self._panel()) if lc is not None else []
+        except Exception: found=[]
+        self._style_offer=found[0] if found else None
+        if hasattr(self,'use_style_btn'): self.use_style_btn.setVisible(bool(found))
+
+    def save_style(self,target=None):
+        """target: 'graph' | 'panel' | 'family' (asked for when not given). Returns the result or None."""
+        lc=self._learning()
+        if lc is None: self.message.setText('The style could not be remembered.'); return None
+        panel=self._panel()
+        if target is None:
+            from PySide6.QtWidgets import QMenu
+            from PySide6.QtGui import QCursor
+            m=QMenu(self); picked=[]
+            if panel is not None: m.addAction(f'For panel {panel+1} of this graph',lambda: picked.append('panel'))
+            m.addAction('For this graph',lambda: picked.append('graph'))
+            m.addAction('For graphs of this kind of data',lambda: picked.append('family'))
+            m.exec(QCursor.pos())
+            if not picked: return None
+            target=picked[0]
+        result,text=lc.save_style(self.graph,target=target,panel=panel if target=='panel' else None)
+        self.message.setText(text); return result
+
+    def use_saved_style(self):
+        lc=self._learning(); offer=getattr(self,'_style_offer',None)
+        if lc is None or offer is None: return False
+        before=copy.deepcopy(self.graph.combo); changed,text=lc.apply_style(self.graph,offer,panel=self._panel())
+        if changed:
+            self.history.append(before); self.future.clear()
+            if not self.redraw(): self.graph.combo=self.history.pop(); return False
+            if self.graph.project_id: self.controller._changed.add(self.graph.project_id)
+            self.load_options()
+        self.message.setText(text); return changed
 
     def redraw(self):
         try:

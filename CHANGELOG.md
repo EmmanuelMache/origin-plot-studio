@@ -2,6 +2,34 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.59.0
+
+Not released: this version is on the branch `integrate/learning-security` for review. Two things in one:
+the app now remembers what you confirm, and it is hardened for giving to other people.
+
+### The app remembers what you confirm
+
+* **Remember this mapping.** When you correct a file's type or its X / Y columns on Start here (or in the Workbook), a small bar shows what would be confirmed - "Use XRD · X: … · Y: …" - with *Remember this mapping* and where it should apply. Confirm it, and the next file of the same layout is offered "Saved XRD mapping available" with the reason and Apply / Dismiss. It is checked against the new file before it is used; a file that does not fit is left alone. Opening, refreshing or cancelling records nothing.
+* **Prefer this graph for such data**, **Save style…** in the graph editor (for one graph, one panel, or graphs of that kind of data - other graphs are not touched), and **Remember the last merge as a workflow…** in the Workbook.
+* **Help ▸ Learning** lists everything remembered, with the before / after of each correction, and lets you edit, switch off, export, import and forget it. Lessons and learned file layouts of earlier versions are taken over once; the original files stay.
+* What is remembered is a setting - structure, roles, units, switches - never your measurements, file names, folders or sample names. It is kept in your own data folder, on this computer. Sharing is off; nothing is uploaded.
+
+### Security and privacy
+
+* **Help ▸ Privacy and connections**: four levels for what may leave the computer - *Local-only*, *Minimal AI context*, *Approved metadata*, *Approved scientific content* - and a switch per connection. Local-only blocks the update check, the assistant, the web search, diagnostics and shared learning where the request would be sent, while files, graphs, projects, learning and Origin work as always.
+* **The assistant sends only what the level permits**, also in its automatic reading steps: at *Minimal* your sample, graph and file names are replaced by stand-ins and no numbers or results are sent. The wording in the panel says what really happens.
+* **Fixed: the update token could be sent to the wrong place** (any address containing a certain word). It now goes only to the exact host and route of the update repository, is dropped on a redirect elsewhere, and never appears on a command line.
+* **Fixed: a remote AI address with plain http was accepted.** Remote services need https; a model on this computer is reached on an approved port only. A key is not reused for another service.
+* **Fixed: keys could be written to disk as plain text** outside Windows. Keys are protected by Windows or the system keyring, or kept for the session only.
+* **Updates can be verified.** A release signed by its publisher is checked before any of it is unpacked or run; an interrupted installation is finished or undone at the next start. In a build made for other people, unsigned updates and the "AI repair" of the program are not available. (Your own copy updates from the repository as before and says that such an update is not verified.)
+* **Project import** has size, count and path limits, unpacks into a staging folder and leaves everything as it was when it fails; a project cannot carry keys, update settings or program paths. **Export** neutralises text cells that a spreadsheet would run as a formula; numbers are untouched.
+* **Packages are pinned** with checksums and installed only by Setup. The tested set needs **Python 3.12 or newer**.
+* **Problem report** is now safe to send: names, folders and keys are removed, and MANIFEST.txt says what is inside.
+
+### For the developer
+
+A 14-day improvement cycle (a daily gate, an evidence bundle, a Claude Code pull request, a separate signed release) and an optional shared-learning backend are in the repository as code and tests. **None of it is active**: see `docs/FORTNIGHTLY_CYCLE.md`, `docs/SHARED_LEARNING_SETUP.md` and `docs/LEARNING_SECURITY_COMPLETION_REPORT.md` for what was tested and what needs you.
+
 ## 5.58.6
 
 XRD graphs are stacked in every case.

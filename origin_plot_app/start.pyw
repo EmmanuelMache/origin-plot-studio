@@ -56,28 +56,73 @@ def _close_splash():
         pass
 
 
+def _ask(title, text):
+    """A yes / no question without a console. No window to ask in means no."""
+    try:
+        import tkinter as _tk
+        from tkinter import messagebox as _mb
+        r = _tk.Tk(); r.withdraw()
+        yes = _mb.askyesno(title, text, parent=r); r.destroy()
+        return bool(yes)
+    except Exception:
+        return False
+
+
 def _ensure_qt():
-    """The window is built with PySide6 (Qt). If it is missing it is installed once, as the other packages are."""
+    """The window is built with PySide6 (Qt). Starting the app installs nothing by itself. When the package is missing
+    this says so and asks: with a yes, the tested set of requirements.lock is installed (exact versions, ready-made
+    packages only, every file checked against its sha256 - the same command Setup uses); with a no, nothing is
+    downloaded and the app does not start. It never installs 'the newest' of anything."""
     import importlib.util
     if importlib.util.find_spec("PySide6") is not None:
         return True
     import subprocess
     _close_splash()
-    _say("Origin Plot Studio", "One more Python package is needed for the window (PySide6, about 200 MB). It is installed now; this takes a minute or two.\n\nPress OK to start.")
+    lock = os.path.join(HERE, "requirements.lock")
+    if not os.path.isfile(lock):
+        _say("Origin Plot Studio could not start", "The Python package for the window (PySide6) is not installed, and requirements.lock - the list of the tested "
+             "package versions - is missing from the folder of the app.\n\nDownload the release again, unpack all of it and run Setup.bat.", True)
+        return False
+    if not _ask("Origin Plot Studio", "The Python packages this app needs are not all installed (PySide6, which draws the window, is missing).\n\n"
+                "Nothing is installed without your yes.\n\nInstall the tested versions now? They are the ones listed in requirements.lock in the folder of the app; "
+                "every downloaded file is checked against the sha256 in that list. Several hundred MB, a few minutes.\n\n"
+                "No: nothing is installed. Run Setup.bat in the folder of the app when you want to install them."):
+        return False
     exe = sys.executable
     if os.path.basename(exe).lower() == "pythonw.exe" and os.path.isfile(os.path.join(os.path.dirname(exe), "python.exe")):
         exe = os.path.join(os.path.dirname(exe), "python.exe")
     try:
-        r = subprocess.run([exe, "-m", "pip", "install", "--quiet", "PySide6"], capture_output=True, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        hashed = "--hash=sha256:" in open(lock, encoding="utf-8").read()
+        cmd = [exe, "-m", "pip", "install", "--disable-pip-version-check", "--no-input", "--only-binary", ":all:"] + (["--require-hashes"] if hashed else ["--no-deps"]) + ["-r", lock]
+        r = subprocess.run(cmd, capture_output=True, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         ok = r.returncode == 0
         why = (r.stderr or r.stdout or "")[-1200:]
     except Exception as e:
         ok, why = False, str(e)
     importlib.invalidate_caches()
     if not ok or importlib.util.find_spec("PySide6") is None:
-        _say("Origin Plot Studio could not start", "PySide6 could not be installed:\n\n" + why + "\n\nInstall it yourself in a command window:  py -m pip install PySide6\nthen start the app again.", True)
+        _say("Origin Plot Studio could not start", "The packages could not be installed:\n\n" + why + "\n\nRun Setup.bat in the folder of the app: it shows each step "
+             "and installs the same tested versions. Is the computer online?", True)
         return False
     return True
+
+
+def _update_store():
+    """Where the windows keep the backups of the program and the journal of an installation (the same folder they use:
+    beside the app's own data, outside the program). Worked out here without importing the program."""
+    v = os.environ.get("ORIGIN_PLOT_APP_HOME") or os.path.join(os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".config"), "OriginPlotApp")
+    return os.path.join(v, "program_backups")
+
+
+def _recover_interrupted_install():
+    """An installation that was cut off (power loss, a crash) is finished or undone BEFORE the program is imported -
+    a half-installed program might not start at all. Only the updater itself is imported for this. Never stops a start."""
+    try:
+        if not os.path.isfile(os.path.join(_update_store(), "install_journal.json")): return
+        import self_update as su
+        su.recover(HERE, _update_store())
+    except Exception:
+        pass
 
 
 def _ask_repair(tb):
@@ -98,9 +143,8 @@ def _ask_repair(tb):
         import self_update as su
         info = su.find_update(su.DEFAULT_SOURCE, "0")            # the newest version, whatever is installed
         work = tempfile.mkdtemp(prefix="ops_repair_")
-        trial = su.fetch_and_unpack(info, work)
-        store = os.path.join(os.path.expanduser("~"), "Origin Plot Studio program backups")
-        su.install(trial, HERE, store, "repair after a start error")
+        trial = su.fetch_and_unpack(info, work, allow_same=True)     # the same version again is what a repair asks for; a build for other people still needs the publisher's signature
+        su.install(trial, HERE, _update_store(), "repair after a start error")
         subprocess.Popen([sys.executable, os.path.join(HERE, "start.pyw")] + _files, cwd=HERE)
         return True
     except Exception as e:
@@ -114,6 +158,7 @@ _files = [a for a in sys.argv[1:] if not a.startswith("--")]
 if not _ensure_qt():
     sys.exit(1)
 _close_splash()
+_recover_interrupted_install()
 try:
     sys.argv = [os.path.join(HERE, "workspace_qt.py")] + _files
     import workspace_qt

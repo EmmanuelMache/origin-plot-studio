@@ -34,17 +34,28 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_analysis_tools.py` | 17 | 0 |  |
 | `tests/test_assistant.py` | 35 | 0 |  |
 | `tests/test_calorimetry.py` | 26 | 0 |  |
+| `tests/test_cycle_due.py` | 105 | 0 |  |
 | `tests/test_drag_labels.py` | 8 | 0 |  |
 | `tests/test_edit_dialog.py` | 10 | 0 |  |
 | `tests/test_edit_graph.py` | 44 | 0 |  |
 | `tests/test_figures_general.py` | 40 | 0 |  |
 | `tests/test_gallery_graphs.py` | 34 | 0 |  |
 | `tests/test_highscore.py` | 50 | 0 |  |
+| `tests/test_learning_core.py` | 181 | 0 |  |
+| `tests/test_learning_sync.py` | 96 | 0 |  |
+| `tests/test_learning_ui.py` | 42 | 0 |  |
+| `tests/test_local_only.py` | 48 | 0 |  |
 | `tests/test_look_progress.py` | 14 | 0 |  |
 | `tests/test_opstudio.py` | 93 | 0 |  |
+| `tests/test_outbound_policy.py` | 32 | 0 |  |
+| `tests/test_packaging.py` | 73 | 0 |  |
 | `tests/test_peak_correct_tab.py` | 18 | 0 |  |
 | `tests/test_related.py` | 86 | 0 | new in 5.58.0: series of files, side-by-side tables, DTG column, columns for all files, peaks and what they may be |
 | `tests/test_ribbon_sketch.py` | 37 | 0 |  |
+| `tests/test_security_ai_disclosure.py` | 82 | 0 |  |
+| `tests/test_security_imports.py` | 172 | 0 |  |
+| `tests/test_security_net.py` | 93 | 0 |  |
+| `tests/test_security_update.py` | 79 | 0 |  |
 | `tests/test_session_basics.py` | 66 | 0 |  |
 | `tests/test_shell_layout.py` | 42 | 0 |  |
 | `tests/test_starthere.py` | 15 | 0 | runs the desktop-workflow suite of `test_workbench_ui.py` (kept as an entry point) |
@@ -57,6 +68,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_workbench_core.py` | 46 | 0 | detection, fit columns, merges, project archives (no Qt) |
 | `tests/test_workbench_ui.py` | 15 | 0 | real widgets: projects, graphs, Workbook, save / reopen, portable projects |
 | `tests/test_workbook_editing.py` | 85 | 0 | new in 5.58.1: delete and hide in the Workbook, files off the list, the Start here selection rule |
+| `tests/test_workflows_static.py` | 113 | 0 |  |
 | `tests/test_workspace_actions.py` | 50 | 0 |  |
 | `tests/test_workspace_main.py` | 83 | 0 |  |
 | `tests/test_workspace_qt.py` | 29 | 0 |  |
@@ -68,7 +80,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **1349** | **1** | 37 files |
+| **Total** | **2465** | **1** | 49 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.56.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

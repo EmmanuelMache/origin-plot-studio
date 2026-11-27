@@ -1,0 +1,6 @@
+{
+  "_what_this_is": "Example of '<learning folder>/remote.json' on a user's computer. Copy it there as remote.json and replace the two placeholders. It holds the PUBLIC client configuration only.",
+  "_never": "Never put a secret key (sb_secret_...) or the service_role key here. The app refuses such a key, and a key of that kind bypasses every access rule of the backend.",
+  "url": "https://YOUR-PROJECT-ID.supabase.co",
+  "anon_key": "YOUR-PUBLISHABLE-OR-ANON-KEY"
+}

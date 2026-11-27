@@ -6,6 +6,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 TMP = Path(tempfile.mkdtemp(prefix="ws_step34_"))
 os.environ["OPS_SETTINGS_FILE"] = str(TMP / "settings_modern.json"); os.environ["OPS_NO_OPEN"] = "1"
 os.environ["ORIGIN_PLOT_APP_HOME"] = str(TMP / "store")                  # the assistant's files go to TMP, not to the user's folder
+os.environ["OPS_PRIVATE_DIR"] = str(TMP / "private")                     # ... and so does the privacy setting (outbound_policy.json) this test changes
 for v in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY"): os.environ.pop(v, None)
 ROOT = Path(__file__).resolve().parents[1]; A = ROOT / "origin_plot_app"; sys.path.insert(0, str(A))
 from PySide6.QtCore import Qt
@@ -153,17 +154,17 @@ ai._http = fake_http; ai.chat = real_chat
 w.assistant.web.setChecked(True); w.assistant.send("how does alite hydrate?"); app.processEvents()
 check("Search the web (Claude): the web search tool is sent, a paused search is continued", calls and calls[0][1]["tools"][0]["name"] == "web_search" and calls[0][1]["tools"][0]["type"] == "web_search_20260209" and len(calls) == 2 and calls[1][1]["messages"][-1]["role"] == "assistant", [c[1]["tools"][0]["type"] for c in calls])
 check("the answer lists the pages it used, as links", "A review of alite hydration" in w.assistant.view.toPlainText() and "https://example.org/review" in w.assistant.view.toHtml())
-# the other services
+# the other services (one made-up key per service: assistant.py sends a key only to the service it was first used with)
 def one(conn, reply):
     ai._http = lambda m, u, h, b=None, timeout=180: (calls.append((u, b)) or reply)
     return ai.chat_web(conn, "m", "sys", [{"role": "user", "content": "q"}])
-calls.clear(); t_, s_ = one({"provider": "openai", "base": "https://api.openai.com/v1", "key": "k", "name": "ChatGPT"},
+calls.clear(); t_, s_ = one({"provider": "openai", "base": "https://api.openai.com/v1", "key": "k-openai", "name": "ChatGPT"},
              {"output": [{"type": "message", "content": [{"type": "output_text", "text": "ok", "annotations": [{"type": "url_citation", "url": "https://a.org", "title": "A"}]}]}]})
 check("ChatGPT: Responses API with web_search, pages listed", calls[0][0].endswith("/responses") and calls[0][1]["tools"] == [{"type": "web_search"}] and s_ == [("A", "https://a.org")])
-calls.clear(); t_, s_ = one({"provider": "gemini", "base": "https://generativelanguage.googleapis.com/v1beta", "key": "k", "name": "Gemini"},
+calls.clear(); t_, s_ = one({"provider": "gemini", "base": "https://generativelanguage.googleapis.com/v1beta", "key": "k-gemini", "name": "Gemini"},
              {"candidates": [{"content": {"parts": [{"text": "ok"}]}, "groundingMetadata": {"groundingChunks": [{"web": {"uri": "https://g.org", "title": "G"}}]}}]})
 check("Gemini: Google Search grounding, pages listed", calls[0][1]["tools"] == [{"google_search": {}}] and s_ == [("G", "https://g.org")])
-calls.clear(); t_, s_ = one({"provider": "other", "base": "https://openrouter.ai/api/v1", "key": "k", "name": "openrouter.ai"},
+calls.clear(); t_, s_ = one({"provider": "other", "base": "https://openrouter.ai/api/v1", "key": "k-openrouter", "name": "openrouter.ai"},
              {"choices": [{"message": {"content": "ok", "annotations": [{"type": "url_citation", "url_citation": {"url": "https://o.org", "title": "O"}}]}}]})
 check("OpenRouter (any model): ':online', pages listed", calls[0][1]["model"] == "m:online" and s_ == [("O", "https://o.org")])
 try: ai.chat_web({"provider": "ollama", "base": "http://localhost:11434/v1", "key": "", "name": "Ollama"}, "m", "s", []); r = "no error"
@@ -294,11 +295,16 @@ made2 = w.tools.thermo_extract("ph", pa, sync=True)
 check("pH and pe as a new graph", list(pd.read_csv(made2[0], encoding="utf-8-sig").columns) == ["time", "pH", "pe"])
 w._tick_only([fs]); r = w.tools.thermo_extract("si", pa, sync=True)
 check("no SI columns: a plain message", isinstance(r, tuple) and "saturation" in r[1])
-# files in the chat
+# files in the chat. Documents and pictures go to the AI only at the privacy level 'Approved scientific content' (SEC-03): chosen here
+# explicitly; at the default level they stay attached and are not sent (tests/test_security_ai_disclosure.py).
+import outbound_policy as OP
+OP.set_level("scientific")
 doc = TMP / "notes.md"; doc.write_text("# Mix design\nThe paste has w/c 0.45 and 10 % filler.", encoding="utf-8")
 n5 = len(w.singles)
 from PySide6.QtGui import QImage as _QI
 _im = _QI(40, 30, _QI.Format_RGB32); _im.fill(0); _im.save(str(TMP / "photo.png"))
+# the service is chosen BEFORE the files are attached (as in the app, where the list above the chat links it): what waits to be sent was chosen for that service
+w.assistant.conn = {"provider": "anthropic", "base": "https://api.anthropic.com", "key": "k", "name": "Claude (Anthropic)"}; w.assistant.set_destination(w.assistant.conn)
 dat, att = w.assistant.attach([str(doc), str(E / "strength.csv"), str(TMP / "photo.png")]); wait(lambda: w.thread is None and len(w.singles) > n5)
 check("+ in the chat: a data file goes to Your graphs (ticked), a document is attached, a picture is shown", len(w.singles) > n5 and att == ["notes.md"] and not w.assistant.attbar.isHidden() and "<img" in w.assistant.view.toHtml() and len(w.assistant.pending_images) == 1)
 w.assistant.pending_images = []; w.assistant.images = []
@@ -337,6 +343,7 @@ check("Ask the assistant about it: title and abstract go with the next message",
 w.assistant.attached = []; w.assistant.show_attachments()
 from PySide6.QtGui import QImage, QColor
 img = QImage(320, 200, QImage.Format_RGB32); img.fill(QColor("white")); img.save(str(TMP / "figure.png"))
+w.assistant.conn = {"provider": "anthropic", "base": "x", "key": "k", "name": "Claude"}; w.assistant.set_destination(w.assistant.conn)      # the service first, then the picture for it
 w.assistant.attach([str(TMP / "figure.png")])
 hh = w.assistant.view.toHtml()
 check("a picture is shown in the chat with 'Draw my data like this' and 'Ask about it'", "<img" in hh and "like:0" in hh and "ask:0" in hh and len(w.assistant.pending_images) == 1)

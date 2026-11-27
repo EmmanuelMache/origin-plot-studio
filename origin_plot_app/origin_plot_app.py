@@ -16,7 +16,7 @@ Version 3.2: no fixed sample list any more - every figure comes from the files y
         fit graphs in a HighScore look (observed red, calculated blue, phase legend with wt%).
 
 Origin is started and driven automatically through its automation (COM) interface with
-ordinary LabTalk commands.  Needs: pip install pywin32 pandas openpyxl numpy matplotlib
+ordinary LabTalk commands.  Needs the Python packages of requirements.lock (Setup.bat installs them, each file checked against its sha256).
 
 Run:   double-click Run_Origin_Plot_App.bat   (you can also drag data files onto it)
 Test without Origin:  python origin_plot_app.py --dry-run <file> [<file> ...]
@@ -994,7 +994,7 @@ def gui():
     def remember():
         try:
             c_ = {"out": out.get(), "project": proj.get(), "dated": dated.get(), "png": png.get(), "pdf": pdf.get(), "keep": keep.get(), "fig_width": fw.get(), "fig_cols": fcols.get(),
-                  "curve": cw.get(), "axis": aw.get(), "tick": tw.get(), "zoom_curve": zw.get(), "zoom_label": zl.get(), "zoom_axis": za.get(), **({"update_source": cfg["update_source"]} if "update_source" in cfg else {}), "update_token": cfg.get("update_token", ""), "layout": lay["name"], "layout_splits": lay["splits"], "dpi_aware": cfg.get("dpi_aware", True), "ui_scale": cfg.get("ui_scale", 0), "paper_open": bool(folds["paper_open"][0]) if "paper_open" in folds else False, "paper_main": pmain.get(), "journal": jour.get(), "pub": pubv.get(), "pub_width": pubw.get(), "peak_labels": maxlab.get(), "labxy": labxy.get(), "mode": mode.get()}
+                  "curve": cw.get(), "axis": aw.get(), "tick": tw.get(), "zoom_curve": zw.get(), "zoom_label": zl.get(), "zoom_axis": za.get(), **({"update_source": cfg["update_source"]} if "update_source" in cfg else {}), "layout": lay["name"], "layout_splits": lay["splits"], "dpi_aware": cfg.get("dpi_aware", True), "ui_scale": cfg.get("ui_scale", 0), "paper_open": bool(folds["paper_open"][0]) if "paper_open" in folds else False, "paper_main": pmain.get(), "journal": jour.get(), "pub": pubv.get(), "pub_width": pubw.get(), "peak_labels": maxlab.get(), "labxy": labxy.get(), "mode": mode.get()}
             c_.update({k: v.get() for k, v in analysis.items()}); json.dump(c_, open(cfgfile, "w", encoding="utf-8"), indent=1)
         except Exception: pass
     def choose_folder():
@@ -1959,9 +1959,12 @@ def gui():
         cfg["update_source"] = v.strip()
         if v.strip().lower().startswith("github:"):
             t_ = simpledialog.askstring("Private repository?", "Only if the repository is PRIVATE: paste a read-only access token of GitHub here.\nFor a public repository leave this empty.", show="\u2022", parent=root)
-            if t_ is not None:
-                try: cfg["update_token"] = ai.protect_key(t_.strip()) if t_.strip() else ""
-                except Exception: cfg["update_token"] = ""
+            if t_ is not None:                               # the token goes into the app's protected store (secure_store), never into settings.json
+                import self_update as su
+                cfg.pop("update_token", None)
+                try:
+                    if su.set_token(t_.strip()) == "session": log("This system has no protected store the app can use: the access token is kept only until the app closes.")
+                except Exception: log("!! The access token could not be kept:\n" + traceback.format_exc())
         remember(); status.set("Updates come from: " + (v.strip() or "nowhere (switched off)")); return v.strip()
     def update_source():
         """Where new versions come from: the app's own repository, unless you set another place (empty = switched off)."""
@@ -2010,7 +2013,10 @@ def gui():
         A version that draws an example differently is not installed by itself: you see what differs and decide."""
         import self_update as su, queue as _queue, shutil
         src = str(source or update_source()).strip()
-        try: su.TOKEN = (ai.reveal_key(cfg.get("update_token", "")) or "") if cfg.get("update_token") else ""
+        try:                                                 # from the protected store; a token an older version left in settings.json is moved there and removed
+            tk_ = su.load_token(cfg.get("update_token"))
+            if tk_.get("drop_legacy"): cfg.pop("update_token", None); remember()
+            if tk_.get("note"): log(tk_["note"])
         except Exception: su.TOKEN = ""
         if quiet:                                            # at the start: only look, and show the badge in the header
             if not src: return
@@ -2049,9 +2055,9 @@ def gui():
                 info = upd_known[0] if (upd_known[0] and not source) else su.find_update(src, sp.VERSION)
                 if not info: q.put(("none",)); return
                 v_ = info.get("version") or "new"; q.put(("found", v_, 12)); shutil.rmtree(work, ignore_errors=True)
-                trial = su.fetch_and_unpack(info, work); v_ = su.version_of(trial) or v_
+                trial = su.fetch_and_unpack(info, work, current=sp.VERSION); v_ = su.version_of(trial) or v_          # the signature is checked here, before anything of the update runs
                 if not su.newer(v_, sp.VERSION): q.put(("none",)); return
-                q.put(("checking", v_, 30))
+                q.put(("checking", v_, 30)); q.put(("line", su.verification_note(trial)))
                 c_ = su.check(trial, here, quick=True, stop=lambda: st["stop"], log=lambda m: q.put(("line", m)), progress=lambda fr: q.put(("bar", 30 + 60 * fr)))
                 if st["stop"]: return
                 q.put(("checked", trial, c_, v_, str(info.get("notes") or "").split("\n")[0][:140]))
@@ -2059,8 +2065,9 @@ def gui():
             except Exception as e: q.put(("fail", su.explain(e)[:480])); log("Update: " + traceback.format_exc())
         def do_install(trial, v_, forced=False):
             try:
-                b_, ch_ = su.install(trial, here, upd_store(), f"update {sp.VERSION} to {v_}"); log(f"Updated {sp.VERSION} to {v_}: {len(ch_)} file(s) changed. Backup: {b_}")
-                bar.configure(value=100); head.set(f"Version {v_} is installed"); sub.set("Restart the app to use it. Help > 'Undo the last update or fix' brings the earlier version back."); line.set(f"{len(ch_)} file(s) changed.")
+                how_ = su.verification_note(trial)
+                b_, ch_ = su.install(trial, here, upd_store(), f"update {sp.VERSION} to {v_}"); log(f"Updated {sp.VERSION} to {v_}: {len(ch_)} file(s) changed. Backup: {b_}. {how_}")
+                bar.configure(value=100); head.set(f"Version {v_} is installed"); sub.set("Restart the app to use it. Help > 'Undo the last update or fix' brings the earlier version back."); line.set(f"{len(ch_)} file(s) changed. {how_}")
                 b_main.configure(text="Restart now", command=lambda: (close(), restart_app())); b_main.pack(side="right", padx=(0, SP2)); b_side.configure(text="Later")
                 try: updpill.pack_forget()
                 except Exception: pass
@@ -2109,6 +2116,7 @@ def gui():
         """Ask the linked AI for a fix of the last problem, try it on a copy, and offer it only when every example still draws the same."""
         import self_update as su
         from tkinter import messagebox
+        if not su.repair_available(): status.set(su.REPAIR_OFF); return          # not in a 'friends' build (the functions of self_update refuse there too)
         if not problems: status.set("There is no problem to repair: nothing has gone wrong in this session."); return
         if aconn[0] is None or not aimodel.get().strip(): status.set("Link an AI first (Focused Copilot > Change AI\u2026); the repair is written by that AI."); return
         prob = problems[-1][1]
@@ -2205,7 +2213,7 @@ def gui():
         mh.add_command(label="Speed report\u2026 (what was slow, to send to whoever looks after the app)", command=lambda: (slow.write("--- speed report opened"), open_folder(os.path.dirname(slow.file()))))
         mh.add_command(label="Check for updates and install", command=lambda: on_update())
         mh.add_command(label="Where updates come from\u2026", command=on_update_source)
-        mh.add_command(label="Repair the last problem with AI\u2026 (tested on a copy first)", command=lambda: on_ai_repair())
+        if __import__("self_update").repair_available(): mh.add_command(label="Repair the last problem with AI\u2026 (tested on a copy first)", command=lambda: on_ai_repair())
         mh.add_command(label="Undo the last update or fix", command=on_undo_update)
         mh.add_separator()
         mh.add_command(label="About", command=on_about)
@@ -3125,21 +3133,28 @@ def gui():
     # ------------------------------------------------------------------ XRD scan generator (XRD tools > Generate XRD scans)
     xgen_win = [None]
     def scipy_install(then, packages=("scipy", "tzdata"), what="SciPy", module=None):
-        """Install SciPy (or PySide6 for the XRD Scan Generator window) once, in the background, then call then()."""
+        """SciPy (or PySide6 for the XRD Scan Generator window) is missing: install the TESTED set of requirements.lock once, in the
+        background, then call then(). Nothing is installed by name and nothing 'newest': the same command Setup uses - exact versions,
+        ready-made packages only, every downloaded file checked against the sha256 in the list (--require-hashes). Without that list,
+        or when it holds no checksums, nothing is installed and Setup.bat is named instead. `packages` only says what was missing."""
         import subprocess, importlib, importlib.util
         exe = sys.executable
         if os.path.basename(exe).lower() == "pythonw.exe" and os.path.isfile(os.path.join(os.path.dirname(exe), "python.exe")): exe = os.path.join(os.path.dirname(exe), "python.exe")
+        lock = os.path.join(here, "requirements.lock")
         def work():
-            r = subprocess.run([exe, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "--no-warn-script-location", *packages], capture_output=True, text=True,
-                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            try: hashed = "--hash=sha256:" in open(lock, encoding="utf-8").read()
+            except OSError: hashed = False
+            if not hashed: raise RuntimeError(f"requirements.lock (the list of the tested package versions with their checksums) is missing from {here} or holds no checksums, so nothing was installed. Run Setup.bat in the folder of the app.")
+            r = subprocess.run([exe, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "--no-warn-script-location", "--no-input", "--only-binary", ":all:", "--require-hashes", "-r", lock],
+                               capture_output=True, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             if r.returncode != 0: raise RuntimeError((r.stderr or r.stdout or "pip failed")[-1500:])
             importlib.invalidate_caches()
             if what != "SciPy": return importlib.util.find_spec(module or packages[0]) is None      # the module name when it differs from the package name
             import xrd_generator as xg_; importlib.reload(xg_); return xg_.SCIPY_MISSING
         def done(res):
-            if res is None or res: messagebox.showerror(what, f"{what} could not be installed. Press Show details to see why, or install it yourself:\n\n    py -m pip install {' '.join(packages)}", parent=root); return
+            if res is None or res: messagebox.showerror(what, f"{what} could not be installed. Press Show details to see why, or run Setup.bat in the folder of the app: it installs the tested versions listed in requirements.lock.", parent=root); return
             status.set(f"{what} is installed."); then()
-        background(work, done, f"Installing {what} for the XRD generator (one-time download) …")
+        background(work, done, f"Installing {what}: the tested package versions of requirements.lock, each file checked (one-time download) …")
     xgen_procs = []                                          # XRD Scan Generator windows opened from here: closed when Origin Plot Studio closes
     def close_xgen():
         for p_ in list(xgen_procs):
@@ -3160,7 +3175,7 @@ def gui():
                                    "Install it now? (one-time download of about 200 MB)\n\nNo: use the simpler generator built into Origin Plot Studio.", parent=root):
                 scipy_install(lambda: qt_generator(template, better, on_chosen), ("PySide6",), "PySide6"); return True
             messagebox.showinfo("XRD Scan Generator", "PySide6 was not installed, so the simpler generator built into Origin Plot Studio opens instead.\n\n"
-                                "You can install it later from XRD tools > XRD Scan Generator (app), or yourself:  py -m pip install PySide6", parent=root)
+                                "You can install it later from XRD tools > XRD Scan Generator (app), or with Setup.bat in the folder of the app.", parent=root)
             return False
         exe = sys.executable
         if os.name == "nt" and os.path.basename(exe).lower() == "python.exe" and os.path.isfile(os.path.join(os.path.dirname(exe), "pythonw.exe")): exe = os.path.join(os.path.dirname(exe), "pythonw.exe")
@@ -3973,6 +3988,11 @@ def gui():
         try: v_.trace_add("write", mark_dirty)
         except Exception: pass
     try: root.protocol("WM_DELETE_WINDOW", on_close)
+    except Exception: pass
+    try:                                                                  # an install that was cut off (power loss, a crash) is finished or undone; keys an older version kept as plain text were moved
+        r_ = __import__("self_update").recover(here, upd_store())
+        if r_: log("!! " + r_); status.set(r_)
+        for n_ in ai.storage_notes(): log(n_)
     except Exception: pass
     try: root.after(4000, lambda: on_update(quiet=True))                 # only tells you that a new version is there; it installs nothing
     except Exception: pass

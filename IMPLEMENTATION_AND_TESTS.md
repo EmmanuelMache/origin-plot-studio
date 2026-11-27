@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 37 test files: 1 349 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
+* All 49 test files: 2 465 checks pass, 1 fails (the old generator fixture check, unrelated and unchanged since 5.51.0). See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -234,6 +234,16 @@ Tested in `tests/test_workbook_editing.py` (76 checks), `tests/test_workspace_ac
 3. Send to PowerPoint / Word through Windows automation into the open presentation or document, with the file route as fall-back. **Not run against PowerPoint or Word** - there is neither here; the calls are checked against stand-ins that record them.
 4. Each graph of a multi-graph figure for itself: Select range, the calculation on a selection, Reset axes. Zoom and Pan already acted on the graph under the mouse; graphs that share an x axis by design (stacked panels) still move together in x.
 5. Analysis: Delete on the file list; Remove carries through the app.
+
+### Learning, updates and security, 5.59.0 (branch `integrate/learning-security`, not released)
+
+Requirements and evidence: `docs/LEARNING_SECURITY_TRACKER.md`; what works, what is a mock and what needs the owner:
+`docs/LEARNING_SECURITY_COMPLETION_REPORT.md`.
+
+1. Security foundations (`outbound_policy.py`, `secure_store.py`) and the fixes of SEC-01 to SEC-08, tested in `tests/test_outbound_policy.py`, `test_security_net.py`, `test_security_update.py`, `test_security_ai_disclosure.py`, `test_local_only.py`, `test_security_imports.py`, `test_packaging.py`.
+2. Personal learning (`opstudio/learning/`, `workspace_learning.py`) with the XRD correct → remember → restart → reuse demonstration, tested in `tests/test_learning_core.py` and `tests/test_learning_ui.py`.
+3. Sharing adapter, backend SQL, the 14-day gate and the workflows: written and tested locally (`tests/test_learning_sync.py`, `test_cycle_due.py`, `test_workflows_static.py`); none of it has run against a live service or on GitHub.
+4. Not run: Windows, live Origin, real AI services, a production signing key.
 
 ### XRD stacked in every case, 5.58.6
 
