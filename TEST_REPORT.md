@@ -34,7 +34,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_analysis_tools.py` | 17 | 0 |  |
 | `tests/test_assistant.py` | 35 | 0 |  |
 | `tests/test_calorimetry.py` | 26 | 0 |  |
-| `tests/test_cycle_due.py` | 105 | 0 |  |
+| `tests/test_cycle_due.py` | 106 | 0 |  |
 | `tests/test_drag_labels.py` | 8 | 0 |  |
 | `tests/test_edit_dialog.py` | 10 | 0 |  |
 | `tests/test_edit_graph.py` | 44 | 0 |  |
@@ -43,7 +43,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_highscore.py` | 50 | 0 |  |
 | `tests/test_learning_core.py` | 181 | 0 |  |
 | `tests/test_learning_sync.py` | 96 | 0 |  |
-| `tests/test_learning_ui.py` | 52 | 0 |  |
+| `tests/test_learning_ui.py` | 63 | 0 |  |
 | `tests/test_local_only.py` | 48 | 0 |  |
 | `tests/test_look_progress.py` | 14 | 0 |  |
 | `tests/test_opstudio.py` | 93 | 0 |  |
@@ -80,7 +80,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **2475** | **0** | 49 files |
+| **Total** | **2487** | **0** | 49 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.56.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

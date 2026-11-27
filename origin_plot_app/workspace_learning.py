@@ -66,6 +66,13 @@ THE FOUR SWITCHES AT THE TOP
     file of exactly the same layout without the Apply click (it says so, and changing the columns undoes it).
   - Keep problem records / Allow shared contributions: off by default; leave them off unless you set those up.
 
+HELPING TO IMPROVE THE APP (optional, off by default)
+  - 'Save the evidence file by itself...' asks once for a folder - choose your Google Drive folder (or another folder
+    that is synced). The app then keeps one small file there up to date: kinds of corrections and failures, never
+    names, folders or measurements. The app itself sends nothing; your Drive program copies the file, and whoever can
+    see that folder can read it. The developer's review reads these files every 14 days.
+  - Untick it to stop: the file of this computer is removed from the folder. Local-only mode pauses it.
+
 WHERE IT IS KEPT
   On this computer, in your own data folder - not in the program, not in a project, and nothing is uploaded.
   Only settings are kept (structure, columns, units, switches): never measurements, file names, folders or sample names.
@@ -103,6 +110,19 @@ class LearningController(QObject):
             self.migration = _lib().migrate_legacy(s, os.path.dirname(os.path.abspath(__file__)), private_store.private_dir())
         except Exception as e: self.migration = {"error": str(e)[:200]}
         return self.migration
+
+    def auto_evidence(self):
+        """Refresh the automatic evidence file (when the user switched that on). A local write; paused in local-only
+        mode. Never raises; returns the ActionResult or None."""
+        s = self.svc
+        if s is None: return None
+        try:
+            from opstudio.learning import evidence as EV
+            try:
+                import outbound_policy; blocked = bool(outbound_policy.local_only())
+            except Exception: blocked = False
+            return EV.auto_write(s, blocked=blocked)
+        except Exception: return None
 
     def _opaque(self, text):
         """An id for a file / project that is stable on this computer and says nothing about its path or name."""
@@ -487,6 +507,10 @@ class HistoryDialog(QDialog):
                                ("sharing", "Allow shared contributions", "Off by default. Needs a configured lab or community service; each contribution is previewed and submitted by you")]:
             b = QCheckBox(text); b.setToolTip(tip); b.toggled.connect(lambda on, k=key: self.set_pref(k, on)); self.boxes[key] = b; row.addWidget(b)
         row.addStretch(1); lay.addLayout(row)
+        arow = QHBoxLayout(); self.auto_box = QCheckBox("Save the evidence file by itself into a folder (to help improve the app)")
+        self.auto_box.setToolTip("Asks once for a folder - choose your Google Drive folder or another synced folder. One small file is kept up to date there: kinds of corrections "
+                                 "and failures only, no names, folders or measurements. The app sends nothing itself; whoever can see that folder can read the file. Untick to stop.")
+        self.auto_box.toggled.connect(self._auto_toggled); arow.addWidget(self.auto_box); self.auto_label = QLabel(""); self.auto_label.setWordWrap(True); arow.addWidget(self.auto_label, 1); lay.addLayout(arow)
         split = QSplitter(Qt.Horizontal); lay.addWidget(split, 1)
         self.table = QTableWidget(0, len(self.COLS)); self.table.setHorizontalHeaderLabels(self.COLS); self.table.setSelectionBehavior(QAbstractItemView.SelectRows); self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents); self.table.horizontalHeader().setStretchLastSection(True)
@@ -507,6 +531,7 @@ class HistoryDialog(QDialog):
         s = self.svc; self._loading = True
         prefs = s.get_settings() if s else {}
         for k, b in self.boxes.items(): b.setChecked(bool(prefs.get(k)))
+        folder = self.auto_folder(); self.auto_box.setChecked(bool(folder)); self.auto_label.setText(folder)
         self._loading = False
         mems = s.memories() if s else []; self.rows = mems; self.table.setRowCount(len(mems))
         for i, m in enumerate(mems):
@@ -619,10 +644,39 @@ class HistoryDialog(QDialog):
         if not path: return None
         try:
             from opstudio.learning import evidence as EV
-            out = EV.export(self.svc, path) if hasattr(EV, "export") else EV.write_export(self.svc, path)
+            out = EV.export(self.svc, path)
+            if not getattr(out, "ok", False):
+                self.note.setText("No evidence file was written: " + (getattr(out, "message", "") or "nothing to export") + ". Tick 'Keep problem records for a diagnostic export' first."); return None
             self.note.setText(f"Evidence file written: {path}. It holds kinds of corrections and problems only - no names, paths or measurements. Read it, then send it yourself if you wish."); return path
         except Exception as e:
             self.note.setText(f"The evidence file could not be written ({str(e)[:160]})."); return None
+
+    # -- the automatic evidence file
+    def auto_folder(self):
+        try:
+            from opstudio.learning import evidence as EV
+            return EV.auto_folder(self.svc) if self.svc else ""
+        except Exception: return ""
+
+    def _auto_toggled(self, on):
+        if getattr(self, "_loading", False): return
+        if not on: self.set_auto_evidence(""); return
+        folder = QFileDialog.getExistingDirectory(self, "Choose your Google Drive folder (or another synced folder)", os.path.expanduser("~"))
+        if folder: self.set_auto_evidence(folder)
+        else: self.reload()
+
+    def set_auto_evidence(self, folder):
+        """Switch the automatic evidence file on (folder) or off (''). Returns the folder in use ('' when off)."""
+        if not self.svc: return ""
+        from opstudio.learning import evidence as EV
+        r = EV.auto_set(self.svc, folder); used = (getattr(r, "detail", None) or {}).get("folder", "") if getattr(r, "ok", False) else ""
+        if not getattr(r, "ok", False): self.after("The automatic evidence file was not switched on: " + (getattr(r, "message", "") or "the setting could not be saved") + "."); return ""
+        if not used: self.after("The automatic evidence file is off. The file of this computer was removed from the folder."); return ""
+        w = self.ctl.auto_evidence() if self.ctl else EV.auto_write(self.svc)
+        paused = bool((getattr(w, "detail", None) or {}).get("paused"))
+        self.after(f"The evidence file is now kept up to date in {used}" + (" - paused while local-only mode is on." if paused else ". Problem records were switched on for it. "
+                   "It holds kinds of corrections and failures only; whoever can see that folder can read it."))
+        return used
 
     def after(self, text):
         self.reload(); self.note.setText(text)

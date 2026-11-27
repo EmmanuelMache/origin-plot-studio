@@ -2,6 +2,12 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.59.2
+
+* **New: the app can keep its evidence file up to date by itself.** *Help ▸ Learning* has a box *Save the evidence file by itself into a folder (to help improve the app)*. Tick it, choose your Google Drive folder once, and the app keeps one small file there (in a sub-folder *Origin Plot Studio evidence*), refreshed when it starts and closes. The file holds kinds of corrections and failures only - no names, folders or measurements. The app itself sends nothing; your Drive program copies the file. Off by default; untick to stop (this computer's file is removed); local-only mode pauses it.
+* **A review every 14 days.** Those files are read every 14 days by a scheduled review, which fixes defects it can reproduce and publishes the fix when the whole test suite passes. You receive it with *Help ▸ Check for updates* as before. Changes to the update, security and privacy parts are never published that way.
+* Fixed: *Evidence file for the developer…* said a file was written when problem records were switched off and nothing could be written. It now says what to tick.
+
 ## 5.59.1
 
 * **New: "Draw my own graph…" in the Workbook**, for when the suggested graph is not the one you want. You choose X, Y and the type, and pick **any graph of Analysis that fits the table** - the ones that do not fit are shown in grey with the reason. The graph is drawn from the Workbook's columns and opens in Workspace.

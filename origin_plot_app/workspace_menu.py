@@ -620,6 +620,11 @@ def startup_checks(self):
     try:                                                          # the lessons and learned file layouts of earlier versions are taken into the structured memory (once; the original files stay)
         import workspace_learning as WL
         WL.controller(self).migrate_once()
+        WL.controller(self).auto_evidence()                       # the automatic evidence file, only when the user switched it on (a local write; paused in local-only mode)
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app is not None and not getattr(self, "_auto_evidence_hooked", False):
+            self._auto_evidence_hooked = True; app.aboutToQuit.connect(lambda ws=self: WL.controller(ws).auto_evidence())
     except Exception:
         pass
     gone = []

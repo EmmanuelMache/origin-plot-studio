@@ -1,6 +1,6 @@
 # Learning, updates and security – implementation tracker
 
-Version 5.59.0 (developed on `integrate/learning-security`, based on 5.58.6; on `main` since 27 November 2026). Two workstreams, tracked separately:
+Version 5.59.2 (5.59.0 developed on `integrate/learning-security`, based on 5.58.6; on `main` since 27 November 2026). Two workstreams, tracked separately:
 **A** learning and the fortnightly update cycle, **B** security and data protection.
 
 States used here:
@@ -65,6 +65,7 @@ deployed service. Test counts are those of the run recorded in `TEST_REPORT.md`.
 | A-14 | Deterministic 14-day gate: time zone, durable state, idempotent cycle ids, one resumed cycle after an outage | `tools/cycle_due.py` | `tests/test_cycle_due.py` | implemented / tested |
 | A-15 | Workflows: daily due check → evidence → Claude Code PR → report; CI; separate signed release | `.github/workflows/`, `automation/` | `tests/test_workflows_static.py` (static checks of the files); the CI workflow ran on GitHub, green | CI: implemented / ran on GitHub. Cycle and release workflows: never executed; awaiting owner setup |
 | A-16 | Authenticated release through the updater | see SEC-02 | `tests/test_security_update.py` | implemented / tested with a test key; production key and a first signed release: awaiting owner setup |
+| A-17 | Automatic evidence and a scheduled review (5.59.2): the app keeps its evidence file in a folder the user picks once; a Claude Code cloud scheduled task reads those files from the owner's Google Drive every 14 days and publishes a tested fix | `opstudio/learning/evidence.py` (`auto_set`, `auto_write`), `workspace_learning.py`, `automation/scheduled_review.md`, `tools/full_suite.sh`, `tools/suite_counts.py`, `tools/update_regression.py`, `tools/cycle_due.py` (`published`) | `tests/test_learning_ui.py`, `tests/test_cycle_due.py` | app side: implemented / tested offscreen. Scheduled task: set up on 27 November 2026 (bound to the owner's Claude Code conversation that holds the Drive connector), Drive search verified from that session; **no cycle has run yet** |
 
 ## Release gates (Appendix B.7)
 

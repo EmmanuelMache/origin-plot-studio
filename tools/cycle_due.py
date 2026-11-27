@@ -40,10 +40,10 @@ from zoneinfo import ZoneInfo
 
 SCHEMA = "opstudio.cycle/1"
 INTERVAL_DAYS = 14
-STATUSES = ("pending", "running", "evidence_processed", "pr_open", "no_change", "no_evidence", "deferred", "failed")
+STATUSES = ("pending", "running", "evidence_processed", "pr_open", "published", "no_change", "no_evidence", "deferred", "failed")
 IN_PROGRESS = ("running", "evidence_processed")                     # somebody is (or was) working on it
-ENDED = ("pr_open", "no_change", "no_evidence", "deferred")         # always final
-WATERMARK_MOVES = ("evidence_processed", "pr_open", "no_change", "no_evidence")   # the evidence was really processed
+ENDED = ("pr_open", "published", "no_change", "no_evidence", "deferred")   # always final ("published": the scheduled review released the change itself)
+WATERMARK_MOVES = ("evidence_processed", "pr_open", "published", "no_change", "no_evidence")   # the evidence was really processed
 PR_STATES = ("open", "merged", "closed")
 DEFAULT_STALE_MINUTES = 180
 DEFAULT_MAX_ATTEMPTS = 3

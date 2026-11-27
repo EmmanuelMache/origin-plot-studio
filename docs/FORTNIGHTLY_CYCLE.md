@@ -1,5 +1,35 @@
 # The fortnightly improvement cycle – owner setup
 
+## In use since 27 November 2026: a Claude Code cloud scheduled task
+
+The owner chose the simpler of the two schedulers this document describes. It needs no API key, no GitHub secret and
+no backend:
+
+| Part | What it is |
+| --- | --- |
+| Evidence | Each installation that switched on *Help ▸ Learning ▸ Save the evidence file by itself* keeps `ops_evidence_<installation>.json` in a folder of the owner's Google Drive (5.59.2). The app sends nothing; the Drive program syncs the file. |
+| Scheduler | A Claude Code cloud scheduled task, **"Origin Plot Studio 14-day review"**, wakes the owner's Claude Code conversation in which it was set up, every Friday at 02:43 (Europe/Stockholm). That conversation holds the owner's Google Drive connector. (A scheduled task that starts a fresh session each time could not be given the connector from here: it would have no Drive access.) |
+| Cadence | `tools/cycle_due.py` and `cycle_state.json` on the branch `automation-state`: first cycle due **11 December 2026**, then every 14 days. On the Fridays in between the session stops after the check. |
+| Instructions | `automation/scheduled_review.md` (and `automation/cycle_prompt.md` for the review itself). |
+| Publishing | By the owner's decision of 27 November 2026 a fix is published by that session itself - to `main`, `upgrade-v2` and `integrate/project-workbench` - when the whole suite is clean on a clean copy (`tools/full_suite.sh`, `tools/suite_counts.py`), the updater's own check passes (`tools/update_regression.py`) and CI is green. Changes to update, security, privacy, learning-privacy, dependency and automation files, and changes of scientific defaults, are **not** published this way: they wait for the owner as a draft pull request. |
+
+What was verified when it was set up: the Drive search from a cloud session works (it found no evidence file yet);
+the gate answers "not due" before 11 December and "due" on it; the app writes and refreshes its file
+(`tests/test_learning_ui.py`). **No cycle has run yet** - the first one will most likely end as `no_evidence`. What a
+cycle did is in the summary written into that conversation and in `cycle_state.json`; this document is not updated
+by a cycle. The review depends on that conversation: if it is archived or deleted, the review stops, and the owner
+sets it up again (a new scheduled task created in the Claude scheduled-tasks page with the Google Drive connector
+and the prompt of `automation/scheduled_review.md`).
+
+To stop it: delete the scheduled task (claude.ai/code ▸ scheduled tasks). To stop one computer from contributing:
+untick the box in *Help ▸ Learning*. The private term list of the maintainer's own machine is not available to the
+scheduled session; it works only with sanitized evidence and fixtures it generates itself.
+
+**Do not also enable the GitHub workflow below** (`FORTNIGHTLY_ENABLED`): two schedulers would compete. The rest of
+this document describes that second route, which stays switched off.
+
+## The GitHub Actions route
+
 **Status: not active.** The cycle has never done anything on GitHub: the Claude Code action was not invoked, no
 evidence source is configured and no release has been signed. The file is on `main` since 5.59.0, so GitHub starts
 it once a day - and every job stops at once, because the variable `FORTNIGHTLY_ENABLED` is not set. What exists is
@@ -75,11 +105,11 @@ Nothing below was done by this work.
    key into `origin_plot_app/update_trust.py` in a reviewed pull request. Test one release and one rollback.
 9. Only then set the repository variable **`FORTNIGHTLY_ENABLED` = `true`**.
 
-Use **one** scheduler for this job. Claude Code's cloud scheduled tasks are an alternative; do not enable them for
-the same cycle as well, or two systems will open competing pull requests.
+Use **one** scheduler for this job. Since 27 November 2026 that is the Claude Code cloud scheduled task described at
+the top; enabling this workflow as well would make two systems work on the same evidence.
 
 ## What a cycle may end as
 
-`no_evidence` (nothing new, or no source), `no_change` (evidence read, no justified or reproducible code change –
+`published` (cloud scheduled task only: the fix was released by the session), `no_evidence` (nothing new, or no source), `no_change` (evidence read, no justified or reproducible code change –
 preferences stay data), `pr_open` (one draft pull request), `deferred` (an earlier cycle's pull request is still
 open on the same files), `failed` (recorded; tried once more the next day). None of these changes the version.

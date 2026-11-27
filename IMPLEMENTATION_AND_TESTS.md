@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 49 test files: 2 475 checks pass, 0 fails. See `VALIDATION_RESULTS.md`.
+* All 49 test files: 2 487 checks pass, 0 fails. See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -234,6 +234,15 @@ Tested in `tests/test_workbook_editing.py` (76 checks), `tests/test_workspace_ac
 3. Send to PowerPoint / Word through Windows automation into the open presentation or document, with the file route as fall-back. **Not run against PowerPoint or Word** - there is neither here; the calls are checked against stand-ins that record them.
 4. Each graph of a multi-graph figure for itself: Select range, the calculation on a selection, Reset axes. Zoom and Pan already acted on the graph under the mouse; graphs that share an x axis by design (stacked panels) still move together in x.
 5. Analysis: Delete on the file list; Remove carries through the app.
+
+### Automatic evidence file and the scheduled review, 5.59.2
+
+Tested in `tests/test_learning_ui.py` (63 checks, 11 of them new) and `tests/test_cycle_due.py` (106, 1 new).
+
+1. `evidence.auto_set` / `auto_write`: off by default; a sub-folder and one file per installation; unchanged content is not rewritten; a missing folder is not recreated; local-only mode pauses it; switching off removes this installation's file only.
+2. The file follows the evidence schema and holds no file name, folder or error message of the session.
+3. `tools/cycle_due.py` has the ending `published` for the scheduled review that releases a fix itself; the gate still never bumps a version.
+4. `tools/full_suite.sh`, `tools/suite_counts.py` and `tools/update_regression.py` are the release checks as tools of the project; `automation/scheduled_review.md` is the procedure of the scheduled session. Not run here: a real cycle.
 
 ### Own graph from the Workbook, learned, 5.59.1
 

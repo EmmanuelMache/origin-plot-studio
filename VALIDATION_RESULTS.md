@@ -27,7 +27,7 @@ data types, a file with no table, the template example cache, the one-parse work
 
 ## Every test file
 
-49 files, **2475 checks passed, 0 failed**. The check of `tests/test_xrd_generator.py` that had failed with the bundled fixture since 5.51.0 was corrected in
+49 files, **2487 checks passed, 0 failed**. The check of `tests/test_xrd_generator.py` that had failed with the bundled fixture since 5.51.0 was corrected in
 5.59.0 (it contradicted the fixture's own name); no failure is known any more. The table of all files is in
 `TEST_REPORT.md`, section 2.
 

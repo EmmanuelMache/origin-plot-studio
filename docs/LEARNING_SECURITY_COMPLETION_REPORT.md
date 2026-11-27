@@ -3,6 +3,9 @@
 Version 5.59.0, developed on the branch `integrate/learning-security` (pull request 3) and based on 5.58.6.
 **Released to `main` on 27 November 2026** after the owner left the decision to the developer. The owner's own
 copy updates as before. **Still not active:** the fortnightly cycle, shared learning, signed releases.
+*(Later, 5.59.2, 27 November 2026: the owner had the fortnightly review set up as a Claude Code cloud scheduled task
+that reads evidence files from their Google Drive - see the top of `docs/FORTNIGHTLY_CYCLE.md`. No cycle has run yet.
+Shared learning and signed releases are unchanged: not active.)*
 Requirement-by-requirement status: `docs/LEARNING_SECURITY_TRACKER.md`.
 
 This report covers both workstreams separately. It distinguishes three things throughout:

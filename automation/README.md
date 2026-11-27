@@ -3,13 +3,19 @@
 This folder holds what the scheduled development job reads. Nothing in it is part of the desktop app, and no
 installed copy of the app needs it, Claude Code or any developer credential.
 
-**Status.** These are definitions and tools. The workflow has never run on GitHub, the coding agent was not invoked,
+**In use since 27 November 2026:** a Claude Code cloud scheduled task (it wakes the owner's Claude Code conversation once a week) follows `scheduled_review.md` - it reads the
+evidence files from the owner's Google Drive every 14 days and publishes a tested fix itself. See the top of
+[docs/FORTNIGHTLY_CYCLE.md](../docs/FORTNIGHTLY_CYCLE.md). No cycle has run yet. The GitHub workflow described
+below is the other route and stays switched off.
+
+**Status of the GitHub workflow.** These are definitions and tools. The workflow has never run on GitHub, the coding agent was not invoked,
 and no evidence source is configured. What was tested, locally, is the ordinary code: the cadence gate and the
 bundle builder (`python3 tests/test_cycle_due.py`) and the text of the workflow files
 (`python3 tests/test_workflows_static.py`). Owner setup, step by step: [docs/FORTNIGHTLY_CYCLE.md](../docs/FORTNIGHTLY_CYCLE.md).
 
 | File | What it is |
 | --- | --- |
+| `scheduled_review.md` | The instructions of the cloud scheduled task (the route in use): gate, evidence from Drive, review, full suite, publishing, state. |
 | `cycle_prompt.md` | The instructions the coding agent gets. Read from the default branch at the start of a run. |
 | `cycle_state.example.json` | What the state file looks like. The real one lives on the branch `automation-state`. |
 | `../tools/cycle_due.py` | The cadence gate: decides whether a cycle is due. Ordinary code, no model. |

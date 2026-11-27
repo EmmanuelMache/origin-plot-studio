@@ -41,3 +41,4 @@ origin_plot_app/error_log.txt
 origin_plot_app/running.flag
 
 dist/
+.cycle/

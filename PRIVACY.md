@@ -84,6 +84,23 @@ were replaced. It holds no measurement data, no project files, no settings and n
 `MANIFEST.txt` inside the zip lists exactly what is in it. Read it, and `log.txt`, before you send the file: a name
 the program had never seen can still be in a log line.
 
+## Evidence file (helping to improve the program)
+
+Off by default. *Help ▸ Learning* can write an **evidence file**: the kinds of corrections you made and the kinds of
+failures that happened - a structure signature, the family of data, the id of a graph of the catalogue, the class of
+an error, counts and dates. It never holds rows, values, header text, file names, folders, sample names, titles or
+notes. Records for it are kept only while *Keep problem records* is switched on.
+
+* **Evidence file for the developer…** writes it once, where you say. Nothing is sent.
+* **Save the evidence file by itself into a folder** (new in 5.59.2) asks once for a folder and then keeps one file
+  there up to date (`ops_evidence_<random id of this installation>.json`, in a sub-folder *Origin Plot Studio
+  evidence*), when the program starts and closes. **The program itself still sends nothing** - but the folder is
+  meant to be one that another program of yours copies elsewhere (Google Drive, OneDrive), so the file does leave
+  the computer that way, and whoever can see that folder can read it. Unticking the box removes this computer's file
+  from the folder. Local-only mode pauses it.
+
+The developer of the program reviews such files every 14 days to find defects (see `docs/FORTNIGHTLY_CYCLE.md`).
+
 ## Portable projects and exports
 
 A project you export (`.opsproject`) contains **copies of its input files** and its saved graph settings - that is
@@ -121,4 +138,4 @@ signature is checked in the same way.
 
 ## Changes to this page
 
-This page describes version 5.58.x. It is changed together with the program when what is stored or sent changes.
+This page describes version 5.59.x. It is changed together with the program when what is stored or sent changes.

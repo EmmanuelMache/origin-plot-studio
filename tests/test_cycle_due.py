@@ -138,6 +138,10 @@ sw, f = run_cycle(s0, "2026-12-10T06:17:00+01:00", "no_change", watermark="2026-
 check("evidence that was processed moves the watermark", sw["evidence_watermark"] == "2026-12-09T22:00:00Z" and sw["cycles"]["cycle-2026-12-10"]["evidence_watermark"] == "2026-12-09T22:00:00Z")
 sw2, _ = run_cycle(s0, "2026-12-10T06:17:00+01:00", "failed", watermark="2026-12-09T22:00:00Z"); sw3, _ = run_cycle(s0, "2026-12-10T06:17:00+01:00", "deferred", watermark="2026-12-09T22:00:00Z")
 check("... a failed or deferred cycle does not: its evidence is looked at again", sw2["evidence_watermark"] is None and sw3["evidence_watermark"] is None)
+spub, fpub = run_cycle(s0, "2026-12-10T06:17:00+01:00", "published", watermark="2026-12-09T22:00:00Z", report="published by the scheduled review")
+check("'published' (the scheduled review released the change itself) is a final ending: the date moves on 14 days, the watermark moves, and the gate itself still never bumps or releases",
+      fpub["terminal"] and fpub["next_due_at"] == "2026-12-24T06:00:00+01:00" and spub["evidence_watermark"] == "2026-12-09T22:00:00Z" and fpub["version_bump"] is False and fpub["release"] is False
+      and spub["cycles"]["cycle-2026-12-10"]["status"] == "published", fpub)
 sp, f = run_cycle(s0, "2026-12-10T06:17:00+01:00", "pr_open", pr=42)
 r = C.check(sp, T("2026-12-24T06:17:00+01:00"))
 check("a cycle whose pull request is open is named by the next check, so the next cycle updates or defers", r["due"] and r["cycle_id"] == "cycle-2026-12-24"

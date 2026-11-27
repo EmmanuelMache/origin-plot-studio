@@ -115,6 +115,13 @@ def build(service):
     return build_with_stats(service)[0]
 
 
+def _write(bundle, path):
+    """Write one bundle to `path` through a temporary file of the same folder. OSError when that is not possible."""
+    tmp = str(path) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f: json.dump(bundle, f, indent=1, ensure_ascii=False, sort_keys=True)
+    os.replace(tmp, path)
+
+
 def export(service, path):
     """Write the bundle to `path` (local file; nothing is uploaded). Returns an ActionResult; detail has 'items',
     'withheld', 'consent' and the counts per kind."""
@@ -123,12 +130,81 @@ def export(service, path):
     if not stats["consent"]: return ActionResult(Outcome.DISABLED, "Diagnostics are switched off; there is nothing to export", detail={"items": 0, "consent": False})
     try:
         os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
-        tmp = str(path) + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f: json.dump(bundle, f, indent=1, ensure_ascii=False, sort_keys=True)
-        os.replace(tmp, path)
+        _write(bundle, path)
     except OSError as e: return ActionResult(Outcome.STORAGE_UNAVAILABLE, f"The file could not be written ({type(e).__name__})")
     kinds = {k: sum(1 for i in bundle["items"] if i["kind"] == k) for k in ITEM_KINDS}
     return ActionResult(Outcome.SAVED, "Evidence exported", detail={"items": len(bundle["items"]), "withheld": stats["withheld"], "consent": True, **kinds})
+
+
+# ------------------------------------------------------------------------------------------------ the automatic file
+# The user may choose a folder ONCE; from then on the same bundle is written there by the app itself, as one file per
+# installation. This is still a local write: the module opens no connection. The folder is meant to be one that another
+# program of the user copies elsewhere (a Google Drive / OneDrive folder), so the texts of the app say plainly that the
+# file leaves the computer that way and that whoever can see the folder can read it. Off by default.
+AUTO_FOLDER = "Origin Plot Studio evidence"
+AUTO_PREFIX = "ops_evidence_"
+_AUTO_KEY = "auto_evidence:folder"
+
+
+def auto_folder(service):
+    """The folder the evidence file is written into by itself; '' while that is off or the database is unavailable."""
+    try: return str(service.store.setting(_AUTO_KEY, "") or "")
+    except StorageUnavailable: return ""
+
+
+def auto_file(service):
+    """The full name of this installation's automatic file ('' while off): <folder>/ops_evidence_<installation>.json."""
+    folder = auto_folder(service); inst = service.installation_id() if folder else ""
+    return os.path.join(folder, AUTO_PREFIX + inst + ".json") if folder and inst else ""
+
+
+def auto_set(service, folder):
+    """Switch the automatic evidence file on or off.
+
+    folder: an existing folder the user chose - the file goes into its sub-folder AUTO_FOLDER (the folder itself when it
+    already has that name). Switching it on also turns the diagnostics preference on: without it there are no records
+    and nothing could be written. An empty folder switches it off and removes this installation's own file (nothing
+    else in that folder is touched). Returns an ActionResult; detail['folder'] is the folder in use ('' when off)."""
+    try:
+        if not folder:
+            old = auto_file(service); service.store.set_setting(_AUTO_KEY, "")
+            removed = False
+            if old and os.path.isfile(old):
+                try: os.remove(old); removed = True
+                except OSError: pass
+            return ActionResult(Outcome.SAVED, "The automatic evidence file is off", detail={"folder": "", "removed": removed})
+        folder = os.path.abspath(str(folder))
+        if not os.path.isdir(folder): return ActionResult(Outcome.NOT_FOUND, "That folder does not exist")
+        target = folder if os.path.basename(folder.rstrip("\\/")) == AUTO_FOLDER else os.path.join(folder, AUTO_FOLDER)
+        try: os.makedirs(target, exist_ok=True)
+        except OSError as e: return ActionResult(Outcome.STORAGE_UNAVAILABLE, f"The folder could not be created ({type(e).__name__})")
+        service.store.set_setting(_AUTO_KEY, target); service.set_setting("diagnostics", True)
+        return ActionResult(Outcome.SAVED, "The automatic evidence file is on", detail={"folder": target})
+    except StorageUnavailable: return ActionResult(Outcome.STORAGE_UNAVAILABLE, "The setting could not be saved")
+
+
+def auto_write(service, *, blocked=False):
+    """Write or refresh the automatic file, when that is switched on. Called by the app when it starts and closes.
+
+    blocked: True in local-only mode - the purpose of this file is to leave the computer through a synced folder, so
+    it is not written then. Returns an ActionResult: SAVED (written), ALREADY_SAVED (the file already says the same),
+    DISABLED (off, paused, or the diagnostics preference is off), NOT_FOUND (the folder is not there right now, for
+    example a drive that is not connected - it is NOT created again), STORAGE_UNAVAILABLE."""
+    path = auto_file(service)
+    if not path: return ActionResult(Outcome.DISABLED, "The automatic evidence file is off", detail={"on": False})
+    if blocked: return ActionResult(Outcome.DISABLED, "Local-only mode: the automatic evidence file is paused", detail={"on": True, "paused": True})
+    if not os.path.isdir(os.path.dirname(path)): return ActionResult(Outcome.NOT_FOUND, "The folder of the automatic evidence file is not there right now", detail={"on": True})
+    bundle, stats = build_with_stats(service)
+    if not stats["storage"]: return ActionResult(Outcome.STORAGE_UNAVAILABLE, "The learning database is not available")
+    if not stats["consent"]: return ActionResult(Outcome.DISABLED, "Problem records are switched off; nothing is written", detail={"on": True, "consent": False})
+    try:
+        with open(path, encoding="utf-8") as f: old = json.load(f)
+        if isinstance(old, dict) and old.get("items") == bundle["items"] and old.get("app_version") == bundle["app_version"] and old.get("installation") == bundle["installation"]:
+            return ActionResult(Outcome.ALREADY_SAVED, "The evidence file is up to date", detail={"on": True, "items": len(bundle["items"]), "path": path})
+    except (OSError, ValueError): pass
+    try: _write(bundle, path)
+    except OSError as e: return ActionResult(Outcome.STORAGE_UNAVAILABLE, f"The file could not be written ({type(e).__name__})")
+    return ActionResult(Outcome.SAVED, "Evidence file written", detail={"on": True, "items": len(bundle["items"]), "withheld": stats["withheld"], "path": path})
 
 
 def problems_of_item(item):

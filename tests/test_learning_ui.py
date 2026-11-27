@@ -263,5 +263,36 @@ w.go(6); pump(timeout=.3)
 
 dlg_g = WL.HistoryDialog(w); g_txt = dlg_g.guide(show=False); dlg_g.close()
 check("Help > Learning has a short 'How it works' guide: what is remembered, what happens next time, how to undo it, where it is kept", all(k in g_txt for k in ("Remember this mapping", "Draw my own graph", "Save style", "Disable", "Forget", "never measurements", "nothing is uploaded")))
+# ---- the automatic evidence file (off by default; a local write into a folder the user picks once)
+import json, outbound_policy as OP
+from opstudio.learning import evidence as EV
+dlg_a = WL.HistoryDialog(w); drive = TMP / "My Drive"; drive.mkdir()
+check("the automatic evidence file is OFF until you switch it on: no folder, the box is not ticked, starting the app writes nothing", not dlg_a.auto_box.isChecked() and dlg_a.auto_folder() == "" and lc.auto_evidence().outcome == L.Outcome.DISABLED
+      and not list(drive.rglob("*.json")))
+lc.svc.set_setting("diagnostics", False); used_a = dlg_a.set_auto_evidence(str(drive)); mine_a = Path(used_a) / (EV.AUTO_PREFIX + lc.svc.installation_id() + ".json") if used_a else None
+check("switching it on with your Drive folder: a sub-folder 'Origin Plot Studio evidence' is made there and ONE file named after this installation appears at once", bool(used_a) and Path(used_a).name == EV.AUTO_FOLDER and Path(used_a).parent == drive
+      and mine_a.is_file() and [f.name for f in Path(used_a).iterdir()] == [mine_a.name] and dlg_a.auto_box.isChecked() and dlg_a.auto_label.text() == used_a, used_a)
+doc_a = json.loads(mine_a.read_text(encoding="utf-8")) if mine_a and mine_a.is_file() else {}; raw_a = mine_a.read_text(encoding="utf-8") if doc_a else ""
+check("... problem records are switched on for it (it says so), and the file follows the evidence schema", lc.svc.get_settings()["diagnostics"] is True and "Problem records were switched on" in dlg_a.note.text()
+      and EV.validate_bundle(doc_a) == [] and doc_a.get("installation") == lc.svc.installation_id(), dlg_a.note.text()[:120])
+check("... it holds no file name, folder or sample name of this session", bool(raw_a) and not any(k in raw_a for k in ("run_one", "run_two", "zeta_scan", "My Drive", str(TMP), os.path.basename(str(TMP)))))
+stamp_a = mine_a.stat().st_mtime_ns; r_same = lc.auto_evidence()
+check("nothing new happened: the file is left alone (no rewriting on every start)", r_same.outcome == L.Outcome.ALREADY_SAVED and mine_a.stat().st_mtime_ns == stamp_a, r_same.outcome)
+lc.record_failure(fo2, "import_failed", ValueError("generated failure of a test"))
+n_before = len(doc_a.get("items", [])); r_new = lc.auto_evidence(); doc_b = json.loads(mine_a.read_text(encoding="utf-8")); raw_b = mine_a.read_text(encoding="utf-8")
+check("after a recorded problem the file is refreshed by the app itself (as it does when it starts and closes): the kind of failure, never its message", r_new.outcome == L.Outcome.SAVED and len(doc_b["items"]) == n_before + 1
+      and any(i["category"] == "parser_failure" and i["error_class"] == "ValueError" for i in doc_b["items"]) and "generated failure" not in raw_b and "zeta_scan" not in raw_b, (r_new.outcome, n_before, len(doc_b["items"])))
+lvl_a = OP.level(); OP.set_level("local_only"); r_lo = lc.auto_evidence(); OP.set_level(lvl_a)
+check("local-only mode pauses it: nothing is written while that mode is on", r_lo.outcome == L.Outcome.DISABLED and r_lo.detail.get("paused") is True, r_lo.message)
+import shutil; hidden = drive.parent / "gone"; shutil.move(str(drive), str(hidden)); r_gone = lc.auto_evidence()
+check("the folder is not there (a drive that is not connected): nothing is written and the folder is NOT created again", r_gone.outcome == L.Outcome.NOT_FOUND and not drive.exists(), r_gone.outcome)
+shutil.move(str(hidden), str(drive)); other = Path(used_a) / "ops_evidence_someone-else.json"; other.write_text("{}", encoding="utf-8")
+off_a = dlg_a.set_auto_evidence("")
+check("unticking it stops it: this computer's file is removed from the folder, another person's file there is not touched, and starting the app writes nothing", off_a == "" and not mine_a.exists() and other.is_file() and not dlg_a.auto_box.isChecked()
+      and lc.auto_evidence().outcome == L.Outcome.DISABLED and not mine_a.exists())
+lc.svc.set_setting("diagnostics", False); note_m = TMP / "manual_evidence.json"; got_m = dlg_a.evidence(str(note_m))
+check("the manual 'Evidence file for the developer' says so when problem records are off, instead of claiming a file was written", got_m is None and not note_m.exists() and "No evidence file was written" in dlg_a.note.text(), dlg_a.note.text()[:100])
+g_txt2 = dlg_a.guide(show=False); dlg_a.close()
+check("the guide explains the automatic evidence file: off by default, what is in it, that the app itself sends nothing, how to stop", all(k in g_txt2 for k in ("Save the evidence file by itself", "never", "sends nothing", "Untick it to stop", "Local-only mode pauses it")))
 w.close()
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)
