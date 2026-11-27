@@ -1,0 +1,11 @@
+{
+  "anchor": "2026-12-11",
+  "cycles": {},
+  "evidence_watermark": null,
+  "interval_days": 14,
+  "last_cycle_id": null,
+  "next_due_at": "2026-12-11T02:00:00+01:00",
+  "schema": "opstudio.cycle/1",
+  "time": "02:00",
+  "timezone": "Europe/Stockholm"
+}
