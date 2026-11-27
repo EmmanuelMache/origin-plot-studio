@@ -280,6 +280,49 @@ class WorkingTableModel(QAbstractTableModel):
         idx=self.index(r,c); self.dataChanged.emit(idx,idx); self.changed()
 
 
+class OwnGraphDialog(QDialog):
+    """Choose X, Y and ANY graph of Analysis that fits the table - for when the suggested graph is not the one you want."""
+    def __init__(self,page):
+        super().__init__(page); self.page=page; self.setWindowTitle('Draw my own graph'); self.resize(640,560)
+        from PySide6.QtWidgets import QCheckBox
+        lay=QVBoxLayout(self)
+        head=QLabel('Choose the columns and the graph yourself. Every graph listed is one of Analysis that fits this table as the columns are chosen; '
+                    'the others are shown in grey with the reason. Nothing changes your data.'); head.setWordWrap(True); lay.addWidget(head)
+        row=QHBoxLayout(); self.x=QComboBox(); self.y=QComboBox(); self.type=QComboBox()
+        for box,src in ((self.x,page.x),(self.y,page.y),(self.type,page.type)):
+            box.addItems([src.itemText(i) for i in range(src.count())]); box.setCurrentText(src.currentText())
+        row.addWidget(QLabel('X')); row.addWidget(self.x,1); row.addWidget(QLabel('Y')); row.addWidget(self.y,1); row.addWidget(QLabel('Type')); row.addWidget(self.type,1); lay.addLayout(row)
+        self.note=QLabel('',objectName='soft'); self.note.setWordWrap(True); lay.addWidget(self.note)
+        self.list=QListWidget(); self.list.setAlternatingRowColors(True); lay.addWidget(self.list,1)
+        row=QHBoxLayout(); self.remember=QCheckBox('Remember this for such data'); self.remember.setChecked(True)
+        self.remember.setToolTip('Adds your choice to what the app has learned (Help > Learning): this graph is offered first for such data, and changed columns are offered for files of this layout. You can forget it there any time')
+        row.addWidget(self.remember); self.scope=QComboBox(); self.scope.addItem('For this kind of data','personal_family'); self.scope.addItem('For exactly this export format','personal_format'); row.addWidget(self.scope); row.addStretch(1); lay.addLayout(row)
+        bb=QDialogButtonBox(QDialogButtonBox.Ok|QDialogButtonBox.Cancel); bb.button(QDialogButtonBox.Ok).setText('Draw this graph'); bb.accepted.connect(self.accept); bb.rejected.connect(self.reject); lay.addWidget(bb); self.ok=bb.button(QDialogButtonBox.Ok)
+        for box in (self.x,self.y,self.type): box.activated.connect(self.columns_changed)
+        self.list.currentRowChanged.connect(lambda *_: self.ok.setEnabled(bool(self.chosen()))); self.list.itemDoubleClicked.connect(lambda *_: self.accept() if self.chosen() else None)
+        self.fill()
+
+    def columns_changed(self,*_):
+        if self.x.currentText()==self.y.currentText(): self.note.setText('X and Y must be different columns.'); return
+        self.page.set_own_mapping(self.x.currentText(),self.y.currentText(),self.type.currentText()); self.fill()
+
+    def fill(self):
+        keep=self.chosen(); self.list.clear(); rows=self.page.graphs_that_fit(); n=0
+        for tid,name,reason,fits in rows:
+            it=QListWidgetItem(name+('' if fits else '  -  does not fit')+('\n    '+reason if reason else '')); it.setData(Qt.UserRole,tid if fits else None)
+            if not fits: it.setFlags(it.flags()&~Qt.ItemIsEnabled&~Qt.ItemIsSelectable)
+            else: n+=1
+            self.list.addItem(it)
+            if fits and tid==keep: self.list.setCurrentItem(it)
+        if self.list.currentRow()<0 and n: self.list.setCurrentRow(0)
+        self.note.setText(f'{n} graph(s) of Analysis fit this table with X = {self.x.currentText()} and Y = {self.y.currentText()}.' if n else 'No graph fits yet: choose other X / Y columns or set the type.')
+        self.ok.setEnabled(bool(self.chosen()))
+
+    def chosen(self):
+        it=self.list.currentItem()
+        return it.data(Qt.UserRole) if it is not None else None
+
+
 class WorkbookPage(QWidget):
     label='Workbook'
     def __init__(self,ws,controller):
@@ -356,6 +399,8 @@ class WorkbookPage(QWidget):
         srow=QHBoxLayout(); self.suggest=QLabel('',objectName='soft'); self.suggest.setWordWrap(True); srow.addWidget(self.suggest,1)
         self.b_suggest=QPushButton('Create this graph \u2192'); self.b_suggest.setObjectName('primary'); self.b_suggest.setVisible(False); self.b_suggest.clicked.connect(self.create_suggested); srow.addWidget(self.b_suggest)
         self.b_suggest.setToolTip('Draw the suggested graph from the columns as they are chosen here (X, Y, the columns left out). It opens in Workspace')
+        b=QPushButton('Draw my own graph\u2026'); b.clicked.connect(lambda: self.own_graph()); srow.addWidget(b); self.b_own=b
+        b.setToolTip('Not the suggested one: choose X and Y and pick ANY graph of Analysis that fits this table. It can be remembered, so it is offered first for such data next time')
         b=QPushButton('Other graphs\u2026'); b.clicked.connect(self.choose_graph); b.setToolTip('All graphs that fit this data, on Start here'); srow.addWidget(b); self.b_other=b
         cv.addLayout(srow); self._suggested=None
         from PySide6.QtWidgets import QCheckBox
@@ -674,10 +719,15 @@ class WorkbookPage(QWidget):
             if not self.path or self.model is None or self.model.locked(): raise LookupError
             group=next((ps for _l,ps,_w in self.series_groups() if self.path in ps),None)
             rows=self.controller.recommendations(group,together=True,series=True) if group else self.controller.recommendations([self.path])
+            if not group:                                  # a graph you chose to remember for such data comes first among the ones that fit
+                try:
+                    import workspace_learning as WL
+                    rows=WL.controller(self.ws).rank(rows,self.path)
+                except Exception: pass
             row=next((r for r in rows if r.get('compatible')),None)
             if row is None: raise LookupError
             self._suggested=(row['id'],list(group) if group else [self.path],bool(group))
-            self.suggest.setText(f"Suggested graph: {row['name']}" + (f" - the {len(group)} files of the series together" if group else '') + f". {row.get('reason','')}")
+            self.suggest.setText(("Your saved preference: " if row.get('preferred') else "Suggested graph: ") + row['name'] + (f" - the {len(group)} files of the series together" if group else '') + f". {row.get('reason','')}")
             self.b_suggest.setVisible(True)
         except Exception:
             self.suggest.setText('' if (self.model is None or self.model.locked()) else 'No graph is suggested yet: choose X and Y (right click a column header), or set the measurement type on the right.')
@@ -687,6 +737,53 @@ class WorkbookPage(QWidget):
         if not self._suggested: return None
         tid,paths,together=self._suggested
         return self.controller.create_graphs(paths,tid,together)
+
+    def graphs_that_fit(self):
+        """Every graph of Analysis for the file on show as its columns are chosen now: [(id, name, reason, fits)], the
+        ones that fit first (a remembered preference before the others). Nothing is listed that Analysis does not have."""
+        if not self.path: return []
+        rows=self.controller.recommendations([self.path])
+        try:
+            import workspace_learning as WL
+            rows=WL.controller(self.ws).rank(rows,self.path)
+        except Exception: pass
+        return [(r['id'],r['name'],str(r.get('reason') or ''),bool(r.get('compatible'))) for r in rows]
+
+    def own_graph(self,tid=None,*,x=None,y=None,measurement=None,remember=None,scope='personal_family'):
+        """'Draw my own graph': you choose X, Y and the graph - any graph of Analysis that fits this table, not only the
+        suggested one. With 'Remember' the choice is added to what the app has learned: the columns as a mapping for
+        files of this layout, the graph as your preferred one for such data. Called without a graph it asks in a dialog;
+        with one (tests, the assistant) it draws at once. Returns the graphs made (or None)."""
+        if not self.path or self.model is None or self.model.locked():
+            self.ws.set_status('Open a file of the list first (not a table made by the app): its columns are what a graph is drawn from.'); return None
+        if tid is None:
+            dlg=OwnGraphDialog(self)
+            if dlg.exec()!=QDialog.Accepted: return None
+            tid,remember,scope=dlg.chosen(),dlg.remember.isChecked(),dlg.scope.currentData()
+            if not tid: return None
+        else:
+            if x or y or measurement: self.set_own_mapping(x,y,measurement)
+        path=self.path; fits={i:ok for i,_n,_r,ok in self.graphs_that_fit()}
+        if not fits.get(tid): self.ws.set_status('This graph does not fit the table as its columns are chosen now. Choose other X / Y columns or another graph.'); return None
+        made=self.controller.create_graphs([path],tid,False)
+        if not made: return None
+        said=[]
+        if remember:
+            try:
+                import workspace_learning as WL
+                lc=WL.controller(self.ws)
+                if lc.pending(path) is not None:               # you changed the type or the columns for this graph: that mapping is confirmed with it
+                    _r,msg=lc.confirm(path,remember=True,scope='personal_format'); said.append(msg)
+                _r,msg=lc.save_template_preference(path,tid,scope=scope or 'personal_family'); said.append(msg)
+            except Exception: said.append('The graph was made; it could not be remembered.')
+        self.ws.set_status(f"Your graph was made from the Workbook ({self.controller.template_name(tid)})." + (' ' + ' '.join(m for m in said if m) if said else ' It was not remembered (tick Remember to have it offered first next time).'))
+        self.update_suggestion(); return made
+
+    def set_own_mapping(self,x=None,y=None,measurement=None):
+        """X, Y and the measurement type as YOU choose them here - the same path as the selectors on the right."""
+        for box,val in ((self.x,x),(self.y,y),(self.type,measurement)):
+            if val and box.findText(str(val))>=0: box.setCurrentText(str(val))
+        self.map_changed()
 
     def remove_files(self,paths=None):
         """Take files off this list. A file that is not selected is nowhere in the app: it is unticked on Start here, and

@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.59.0** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.59.1** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -69,6 +69,8 @@ A table with a column of words in every row is read by the Workspace loader as a
 `office_export.send_live(kind, files)` (pywin32: `GetActiveObject` / `Dispatch` of `PowerPoint.Application` / `Word.Application`), tried first on Windows by `send_to_office`, file route on any exception; tests replace `office_export._office` with stand-ins and set `w._office_live`.
 Workspace: `main_axes()`, `spans` (one SpanSelector per graph), `on_span(a, b, ax)` sets `sel_panel`, `curves(it)` reads that panel, `reset_axes()` returns 'one' / 'all' using `_home_limits` and `_last_ax` (set by `_note_graph` in `workspace_actions.install`).
 Analysis: `remove_files` uses `Workbench.deselect_inputs`; Delete shortcut on `TemplatePage.files`.
+
+5.59.1: Workbook 'Draw my own graph…' (`WorkbookPage.own_graph(tid=None, *, x, y, measurement, remember, scope)`, `graphs_that_fit()`, `set_own_mapping()`, `OwnGraphDialog`): any Analysis template that fits the table as mapped; with Remember the pending mapping is confirmed (`personal_format`) and the template saved as a preference. `update_suggestion` ranks by saved preference for a single file ("Your saved preference: …"). `workspace_learning.GUIDE` / `HistoryDialog.guide()`.
 
 5.59.0 (developed on `integrate/learning-security`, pull request 3; released to `main` on 2026-11-27): learning + security, tracked in `docs/LEARNING_SECURITY_TRACKER.md` and reported in `docs/LEARNING_SECURITY_COMPLETION_REPORT.md`.
 Security foundations: `outbound_policy.py` (levels local_only / minimal / metadata / scientific, channels, `require(channel, url)` at every transport, `check_url`, `token_allowed`, `redact`, `Aliases`, `profile()` = friends | owner from `security_profile.json`), `secure_store.py` (DPAPI / keyring / session only). `net.py` walks redirects itself and keeps credentials off command lines; `self_update.py` routes the token by exact host and route, verifies signed manifests through `update_verify.py` + `update_trust.TRUSTED_KEYS` (empty until the owner adds the production public key), stages installs with a journal and `recover()`, and refuses unsigned updates and AI repair in the friends profile. `workspace_assistant.filter_for_ai` is the one filter for everything sent to an AI service. `workspace_projects.import_project` has streamed limits and staging; `safe_export.py`; `diagnostics.build_bundle`; `tools/build_release.py`, `tools/secret_scan.py`, `tools/sign_release.py`, `tools/dependency_inventory.py`; `requirements.txt` pinned + `requirements.lock` with hashes (needs Python 3.12+).

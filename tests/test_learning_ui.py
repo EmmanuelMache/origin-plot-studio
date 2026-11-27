@@ -228,5 +228,40 @@ appdir = TMP / "legacy_app"; appdir.mkdir(); (appdir / "assistant_lessons.txt").
 m_a = L.migrate_legacy(lc.svc, str(appdir), str(TMP / "p")); n_a = len(lc.svc.memories()); m_b = L.migrate_legacy(lc.svc, str(appdir), str(TMP / "p")); n_b = len(lc.svc.memories())
 legacy = [m for m in lc.svc.memories() if m["kind"] == "legacy_lesson"]
 check("lessons of earlier versions are taken into the structured memory ONCE (run again: nothing lost, nothing doubled), marked as coming from an earlier version, and the original file stays", len(legacy) == 2 and n_a == n_b and all(m["origin"] == "migration" for m in legacy) and (appdir / "assistant_lessons.txt").is_file(), (m_a, m_b))
+# ---- the Workbook: 'Draw my own graph' when the suggested one is not wanted - and it is learned
+import workspace_workbook as WBM
+fo = xrd("own_one.csv", 31, cols=("K", "L")); show(w, sh, c, fo); c.select_inputs([fo]); wbk.set_paths([fo]); w.go(7); pump(timeout=.6); wbk.files.setCurrentRow(wbk.paths.index(fo)); pump(timeout=.3)
+check("the Workbook has 'Draw my own graph…' beside the suggested graph", hasattr(wbk, "b_own") and wbk.b_own.text().startswith("Draw my own graph") and wbk.b_own.isVisibleTo(wbk))
+dlg_o = WBM.OwnGraphDialog(wbk); dlg_o.x.setCurrentText("L"); dlg_o.y.setCurrentText("K"); dlg_o.type.setCurrentText("XRD"); dlg_o.columns_changed(); pump(timeout=.3)
+items_o = [(dlg_o.list.item(i).data(Qt.UserRole), bool(dlg_o.list.item(i).flags() & Qt.ItemIsEnabled)) for i in range(dlg_o.list.count())]
+good_o = [t for t, en in items_o if t and en]
+check("its dialog: you choose X, Y and the type there, and it lists EVERY graph of Analysis that fits the table (enabled) and the others in grey - none that Analysis does not have", len(good_o) >= 2 and any(not en for _t, en in items_o)
+      and all(t in opstudio.REGISTRY or str(t).startswith(("wb:", "user:")) for t in good_o) and dlg_o.remember.isChecked() and "fit this table with X = L and Y = K" in dlg_o.note.text(), (len(good_o), dlg_o.note.text()))
+t_o, *_ = c.table_of(fo)
+check("... choosing the columns there sets them for the file (XRD, X = L, Y = K) and stages the change - nothing is remembered yet", t_o.x == "L" and t_o.ys[:1] == ["K"] and t_o.measurement_type == "XRD" and lc.pending(fo) is not None
+      and not any(m["kind"] == "import_mapping" and m["state"] == "active" and m["revision"] == 1 and m["created_at"] > "9" for m in lc.svc.memories()))
+dlg_o.close(); n_graphs = len(w.singles); n_pref = len([m for m in lc.svc.memories() if m["kind"] == "template_preference"]); n_map = len([m for m in lc.svc.memories() if m["kind"] == "import_mapping"])
+suggested_o = wbk._suggested[0] if wbk._suggested else None; mine = next(t for t in good_o if t != suggested_o and t != second)
+made_o = wbk.own_graph(mine, remember=True, scope="personal_format") or []; pump(timeout=.6)
+check("'Draw this graph' with a graph that is NOT the suggested one: it is drawn from the Workbook's columns and opens in Workspace", len(made_o) == 1 and made_o[0].combo["template"] == mine and made_o[0] in w.singles and len(w.singles) == n_graphs + 1
+      and "Your graph was made from the Workbook" in w.status.text(), w.status.text()[:160])
+mem_o = lc.svc.memories()
+check("... with 'Remember' it is ADDED TO LEARNING: the graph as your preferred one, and the columns you chose as a mapping for files of this layout", len([m for m in mem_o if m["kind"] == "template_preference"]) == n_pref + 1
+      and len([m for m in mem_o if m["kind"] == "import_mapping"]) == n_map + 1 and lc.pending(fo) is None and any(m["kind"] == "template_preference" and m["template_id"] == mine for m in mem_o), [(m["kind"], m.get("template_id")) for m in mem_o])
+bad_o = wbk.own_graph("tga_dtg_single", remember=True)
+check("... a graph that does not fit the table is refused: nothing is drawn and nothing is remembered", not bad_o and len(w.singles) == n_graphs + 1 and len([m for m in lc.svc.memories() if m["kind"] == "template_preference"]) == n_pref + 1 and "does not fit" in w.status.text())
+w.go(6); pump(timeout=.3); fo2 = xrd("zeta_scan.csv", 33, cols=("K", "L")); show(w, sh, c, fo2)
+sg_o = [g for g in lc.suggestions(fo2) if g.kind == "import_mapping"]
+check("the next file of that layout is offered the columns you chose for your own graph", len(sg_o) == 1 and sg_o[0].grade == "exact")
+if sg_o: lc.apply(fo2, sg_o[0])
+pump(timeout=.3); c.select_inputs([fo2]); wbk.set_paths([fo2]); w.go(7); pump(timeout=.6); wbk.files.setCurrentRow(wbk.paths.index(fo2)); pump(timeout=.4)
+fits_o = wbk.graphs_that_fit(); ids_o = [t for t, _n, _r, ok in fits_o if ok]
+check("... and your own graph is now the one the Workbook offers first for it ('Your saved preference'), ahead of the app's suggestion", wbk._suggested is not None and wbk._suggested[0] == mine and wbk.suggest.text().startswith("Your saved preference") and ids_o[0] == mine, (wbk.suggest.text()[:70], ids_o[:3]))
+made_n = wbk.own_graph(ids_o[-1], remember=False) or []; pump(timeout=.5)
+check("without 'Remember' the graph is drawn and nothing is added to learning", len(made_n) == 1 and len([m for m in lc.svc.memories() if m["kind"] == "template_preference"]) == n_pref + 1 and "not remembered" in w.status.text(), w.status.text()[:120])
+w.go(6); pump(timeout=.3)
+
+dlg_g = WL.HistoryDialog(w); g_txt = dlg_g.guide(show=False); dlg_g.close()
+check("Help > Learning has a short 'How it works' guide: what is remembered, what happens next time, how to undo it, where it is kept", all(k in g_txt for k in ("Remember this mapping", "Draw my own graph", "Save style", "Disable", "Forget", "never measurements", "nothing is uploaded")))
 w.close()
 print(f"\n{ok} passed, {fail} failed"); sys.exit(1 if fail else 0)

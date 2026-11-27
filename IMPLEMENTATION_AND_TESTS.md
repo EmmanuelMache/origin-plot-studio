@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 49 test files: 2 465 checks pass, 0 fails. See `VALIDATION_RESULTS.md`.
+* All 49 test files: 2 475 checks pass, 0 fails. See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -234,6 +234,14 @@ Tested in `tests/test_workbook_editing.py` (76 checks), `tests/test_workspace_ac
 3. Send to PowerPoint / Word through Windows automation into the open presentation or document, with the file route as fall-back. **Not run against PowerPoint or Word** - there is neither here; the calls are checked against stand-ins that record them.
 4. Each graph of a multi-graph figure for itself: Select range, the calculation on a selection, Reset axes. Zoom and Pan already acted on the graph under the mouse; graphs that share an x axis by design (stacked panels) still move together in x.
 5. Analysis: Delete on the file list; Remove carries through the app.
+
+### Own graph from the Workbook, learned, 5.59.1
+
+Tested in `tests/test_learning_ui.py` (52 checks, 10 of them new).
+
+1. `WorkbookPage.own_graph` draws any Analysis template that fits the table as mapped; nothing outside the catalogue is offered and an unfit template is refused.
+2. With Remember, the staged mapping is confirmed and the template saved as a preference only after the graph was really generated; without it nothing is stored.
+3. The Workbook's suggestion and Start here rank a saved preference first among the templates that fit.
 
 ### Learning, updates and security, 5.59.0
 

@@ -2,6 +2,12 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.59.1
+
+* **New: "Draw my own graph…" in the Workbook**, for when the suggested graph is not the one you want. You choose X, Y and the type, and pick **any graph of Analysis that fits the table** - the ones that do not fit are shown in grey with the reason. The graph is drawn from the Workbook's columns and opens in Workspace.
+* **It is added to learning.** With *Remember this for such data* ticked (it is, unless you untick it), the graph becomes your preferred one for such data and the columns you chose are remembered for files of that layout. The next such file is offered your columns, and the Workbook and Start here list your graph first, marked *Your saved preference*. Untick it and the graph is drawn without anything being remembered.
+* **Help ▸ Learning ▸ How it works**: a one-page guide - what is remembered and when, what happens next time, how to switch off or forget something that is wrong, what the four switches do, and where it is kept.
+
 ## 5.59.0
 
 Two things in one: the app now remembers what you confirm, and it is hardened for giving to other people.

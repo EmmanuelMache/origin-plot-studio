@@ -41,6 +41,38 @@ def _ctx_dict(ctx):
     return {k: getattr(ctx, k) for k in _lib().Context.ALLOWED if hasattr(ctx, k)}
 
 
+GUIDE = """How learning works - you do not have to manage anything.
+
+WHAT THE APP REMEMBERS (only when you say so)
+  - Columns and type: correct a file's type or its X / Y columns (Start here or Workbook), tick 'Remember this mapping'
+    and press Confirm.
+  - Your own graph: Workbook > 'Draw my own graph...' - choose X, Y and any graph that fits, leave 'Remember this for
+    such data' ticked. Or on Start here, tick 'Prefer this graph for such data' before 'Create graph'.
+  - A look: graph editor > 'Save style...' (this graph, this panel, or graphs of this kind of data).
+  - A merge: Workbook > Table > 'Remember the last merge as a workflow...'.
+
+WHAT HAPPENS NEXT TIME
+  - A file of the same layout shows 'Saved ... mapping available' with Apply and Dismiss. Apply uses it; Dismiss hides it
+    for that file. It is checked against the new file first and never changes your numbers.
+  - Your preferred graph is listed first, marked 'Your saved preference'. The other graphs that fit are still there.
+
+WHEN SOMETHING REMEMBERED IS WRONG
+  - Open Help > Learning, select the line and press Disable (keep it, stop offering it) or Forget (remove it).
+  - Edit changes the settings of one line and keeps the earlier version as a revision.
+
+THE FOUR SWITCHES AT THE TOP
+  - Remember what I confirm: the main switch. Off = nothing new is remembered and nothing saved is offered.
+  - Apply my own exact mappings without asking: off by default. On = a mapping you confirmed yourself is applied to a
+    file of exactly the same layout without the Apply click (it says so, and changing the columns undoes it).
+  - Keep problem records / Allow shared contributions: off by default; leave them off unless you set those up.
+
+WHERE IT IS KEPT
+  On this computer, in your own data folder - not in the program, not in a project, and nothing is uploaded.
+  Only settings are kept (structure, columns, units, switches): never measurements, file names, folders or sample names.
+  Export... writes it to a file (a backup, or to move it to another computer with Import...).
+"""
+
+
 class LearningController(QObject):
     changed = Signal()
 
@@ -466,7 +498,7 @@ class HistoryDialog(QDialog):
             b = QPushButton(text); b.clicked.connect(fn); self.buttons[key] = b; btn.addWidget(b)
         sl.addLayout(btn); split.addWidget(side); split.setStretchFactor(0, 3); split.setStretchFactor(1, 2)
         foot = QHBoxLayout(); self.note = QLabel(""); self.note.setWordWrap(True); foot.addWidget(self.note, 1)
-        for text, fn in [("Export…", self.export), ("Import…", self.import_), ("Evidence file for the developer…", self.evidence), ("Close", self.accept)]:
+        for text, fn in [("How it works", self.guide), ("Export…", self.export), ("Import…", self.import_), ("Evidence file for the developer…", self.evidence), ("Close", self.accept)]:
             b = QPushButton(text); b.clicked.connect(fn); foot.addWidget(b)
         lay.addLayout(foot); self.rows = []; self.reload()
 
@@ -563,6 +595,13 @@ class HistoryDialog(QDialog):
         m = self.current()
         if not m: return
         self.svc.withdraw_contribution(m["id"]); self.after("Contribution withdrawn (a queued one is cancelled; a sent one is marked for removal at the next sync).")
+
+    def guide(self, show=True):
+        """The short guide: what is remembered, what happens next time, how to undo it. Returns the text."""
+        if show:
+            d = QDialog(self); d.setWindowTitle("How learning works"); v = QVBoxLayout(d); t = QPlainTextEdit(GUIDE); t.setReadOnly(True); v.addWidget(t)
+            b = QPushButton("Close"); b.clicked.connect(d.accept); v.addWidget(b); d.resize(760, 560); d.exec()
+        return GUIDE
 
     def export(self, path=None):
         if not path: path, _ = QFileDialog.getSaveFileName(self, "Export what is remembered", "origin_plot_studio_learning.json", "JSON (*.json)")
