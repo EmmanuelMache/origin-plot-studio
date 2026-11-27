@@ -1,6 +1,6 @@
 # Learning, updates and security – implementation tracker
 
-Branch `integrate/learning-security`, based on 5.58.6. Two workstreams, tracked separately:
+Version 5.59.0 (developed on `integrate/learning-security`, based on 5.58.6; on `main` since 27 November 2026). Two workstreams, tracked separately:
 **A** learning and the fortnightly update cycle, **B** security and data protection.
 
 States used here:
@@ -63,7 +63,7 @@ deployed service. Test counts are those of the run recorded in `TEST_REPORT.md`.
 | A-12 | Supabase adapter (REST, public client key only) and SQL migration with row-level security | `supabase_adapter.py`, `backend/supabase/` | fake HTTP transport in `tests/test_learning_sync.py`; SQL tests in `backend/supabase/tests/` | implemented / not validated live; a backend project: awaiting owner setup |
 | A-13 | Sanitized evidence export and the bounded bundle for a cycle | `evidence.py`, `tools/evidence_bundle.py` | `tests/test_learning_core.py`, `tests/test_cycle_due.py` | implemented / tested |
 | A-14 | Deterministic 14-day gate: time zone, durable state, idempotent cycle ids, one resumed cycle after an outage | `tools/cycle_due.py` | `tests/test_cycle_due.py` | implemented / tested |
-| A-15 | Workflows: daily due check → evidence → Claude Code PR → report; CI; separate signed release | `.github/workflows/`, `automation/` | `tests/test_workflows_static.py` (static checks of the files) | implemented / never executed on GitHub; awaiting owner setup |
+| A-15 | Workflows: daily due check → evidence → Claude Code PR → report; CI; separate signed release | `.github/workflows/`, `automation/` | `tests/test_workflows_static.py` (static checks of the files); the CI workflow ran on GitHub, green | CI: implemented / ran on GitHub. Cycle and release workflows: never executed; awaiting owner setup |
 | A-16 | Authenticated release through the updater | see SEC-02 | `tests/test_security_update.py` | implemented / tested with a test key; production key and a first signed release: awaiting owner setup |
 
 ## Release gates (Appendix B.7)
@@ -78,5 +78,5 @@ deployed service. Test counts are those of the run recorded in `TEST_REPORT.md`.
 
 * Native Windows: installer, launchers, DPAPI, `curl.exe` / PowerShell fallbacks, the PySide6 window on Windows.
 * Live Origin.
-* Any real AI service, web search, GitHub Actions run, Claude Code action run, Supabase project.
+* Any real AI service, web search, a run of the fortnightly-cycle or release workflow, Claude Code action run, Supabase project. (The CI workflow did run on GitHub.)
 * A production signing key (verification was proven with a key generated inside the tests).

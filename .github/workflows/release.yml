@@ -93,21 +93,12 @@ jobs:
           set -uo pipefail
           ran=0; failed=()
           for f in $(ls tests/test_*.py | sort); do
-            if [ "$f" = "tests/test_xrd_generator.py" ]; then continue; fi      # one known failing check, reported in the next step
             echo "::group::$f"; timeout 1500 python3 "$f"; rc=$?; echo "::endgroup::"
             ran=$(( ran + 1 ))
             if [ "$rc" -ne 0 ]; then failed+=("$f (exit code $rc)"); echo "::error title=Test failed::$f ended with exit code $rc"; fi
           done
           { echo "### Release checks: $ran test file(s) run, ${#failed[@]} failed"; for f in "${failed[@]}"; do echo "- FAILED: $f"; done; } >> "$GITHUB_STEP_SUMMARY"
           [ "$ran" -gt 0 ] && [ "${#failed[@]}" -eq 0 ]
-      - name: The known failing check, shown and not hidden
-        run: |
-          set -uo pipefail
-          python3 tests/test_xrd_generator.py xrd_scan_generator/tests/fixtures/SAMPLE.xrdml > out.txt 2>&1; rc=$?
-          fails=$(grep -c '^FAIL' out.txt || true); known=$(grep -c '^FAIL  no file is called SAMPLE' out.txt || true)
-          if [ "$rc" -eq 0 ]; then echo "::notice::tests/test_xrd_generator.py passes now."
-          elif [ "$fails" -eq 1 ] && [ "$known" -eq 1 ]; then echo "::warning title=Known failing check::tests/test_xrd_generator.py: 1 check fails ('no file is called SAMPLE'; fixture-related, unchanged since 5.51.0)."
-          else cat out.txt; echo "::error::tests/test_xrd_generator.py: $fails failing check(s); only the known one is accepted."; exit 1; fi
 
   # ------------------------------------------------------------------------------------------------ build (no secrets)
   build:

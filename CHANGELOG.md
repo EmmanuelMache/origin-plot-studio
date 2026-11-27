@@ -4,8 +4,8 @@ What changed for the user, newest first. Versions are those of the app (Help ▸
 
 ## 5.59.0
 
-Not released: this version is on the branch `integrate/learning-security` for review. Two things in one:
-the app now remembers what you confirm, and it is hardened for giving to other people.
+Two things in one: the app now remembers what you confirm, and it is hardened for giving to other people.
+If anything is wrong after this update, *Help ▸ Undo the last update* puts 5.58.6 back.
 
 ### The app remembers what you confirm
 

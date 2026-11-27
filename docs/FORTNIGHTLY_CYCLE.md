@@ -1,8 +1,9 @@
 # The fortnightly improvement cycle – owner setup
 
-**Status: not active.** The workflow `.github/workflows/fortnightly-cycle.yml` has never run on GitHub, the Claude
-Code action was not invoked, no evidence source is configured and no release has been signed. What exists is code
-and its local tests. A workflow file is not proof that a job ran.
+**Status: not active.** The cycle has never done anything on GitHub: the Claude Code action was not invoked, no
+evidence source is configured and no release has been signed. The file is on `main` since 5.59.0, so GitHub starts
+it once a day - and every job stops at once, because the variable `FORTNIGHTLY_ENABLED` is not set. What exists is
+code and its local tests. A workflow file is not proof that a job ran. (Only the separate CI workflow has run.)
 
 What was tested here, on Linux, without network:
 
@@ -47,9 +48,8 @@ or drop it; this is a target rhythm, not a guaranteed time.
 
 Nothing below was done by this work.
 
-1. **Merge the branch** that holds these files into `main` when you have reviewed it. A scheduled workflow runs only
-   from the default branch. After the merge the daily job starts, sees that `FORTNIGHTLY_ENABLED` is not `true`, and
-   stops at once.
+1. **Done with 5.59.0:** the files are on `main`. A scheduled workflow runs only from the default branch; the daily
+   job starts, sees that `FORTNIGHTLY_ENABLED` is not `true`, and stops at once.
 2. **Protect `main`**: require a pull request, the `CI` checks, and your approval. Enable Dependabot alerts, secret
    scanning and push protection (Settings → Code security).
 3. **Install the Claude GitHub app** on the repository: in Claude Code run `/install-github-app` (repository

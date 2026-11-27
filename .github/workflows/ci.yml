@@ -106,8 +106,7 @@ jobs:
       - name: Install the locked dependency set (hashes checked)
         run: "python -m pip install --require-hashes --only-binary :all: -r origin_plot_app/requirements.lock"
       # The tests are plain scripts: each prints PASS / FAIL lines and ends with exit code 1 when a check failed.
-      # They are dealt out to four groups by their position in the sorted list. tests/test_xrd_generator.py is not
-      # in these groups: it has one known failing check and runs, visibly, in the job below.
+      # They are dealt out to four groups by their position in the sorted list. No test is left out.
       - name: Run this group
         env:
           GROUP: ${{ matrix.group }}
@@ -115,7 +114,6 @@ jobs:
           set -uo pipefail
           i=0; ran=0; failed=()
           for f in $(ls tests/test_*.py | sort); do
-            if [ "$f" = "tests/test_xrd_generator.py" ]; then continue; fi
             mine=$(( i % 4 )); i=$(( i + 1 ))
             if [ "$mine" -ne "$GROUP" ]; then continue; fi
             echo "::group::$f"
@@ -130,42 +128,3 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$ran" -eq 0 ]; then echo "::error::no test file was found for this group"; exit 1; fi
           [ "${#failed[@]}" -eq 0 ]
-
-  # One test has a check that has failed since 5.51.0 for a reason that lies in its fixture, not in the app: the
-  # bundled template scan is called SAMPLE, and the check wants a scan with another name (TEST_REPORT.md).
-  # It is run here on its own, where everyone can see it, and it does not block a pull request:
-  #   exactly that one check fails  -> a warning in the run summary
-  #   anything else fails           -> this job is red (and should be looked at), the workflow is not held back
-  #   nothing fails any more        -> a notice to move the test into the normal groups
-  known-failure:
-    name: "Known failing check, not blocking: tests/test_xrd_generator.py"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: origin_plot_app/requirements.lock
-      - name: Install the locked dependency set (hashes checked)
-        run: "python -m pip install --require-hashes --only-binary :all: -r origin_plot_app/requirements.lock"
-      - name: Run it and say plainly what happened
-        run: |
-          set -uo pipefail
-          python3 tests/test_xrd_generator.py xrd_scan_generator/tests/fixtures/SAMPLE.xrdml > out.txt 2>&1; rc=$?
-          cat out.txt
-          fails=$(grep -c '^FAIL' out.txt || true); passes=$(grep -c '^PASS' out.txt || true)
-          known=$(grep -c '^FAIL  no file is called SAMPLE' out.txt || true)
-          echo "### tests/test_xrd_generator.py: $passes passed, $fails failed (exit code $rc)" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$rc" -eq 0 ]; then
-            echo "::notice title=Known failure is gone::tests/test_xrd_generator.py passes now. Remove its special case from .github/workflows/ci.yml so it runs with the other tests."
-          elif [ "$fails" -eq 1 ] && [ "$known" -eq 1 ]; then
-            echo "::warning title=Known failing check (not blocking)::tests/test_xrd_generator.py: 1 check fails, 'no file is called SAMPLE'. It comes from the bundled fixture, is unchanged since 5.51.0 and is not hidden: see TEST_REPORT.md."
-          else
-            echo "::error title=More than the known failure::tests/test_xrd_generator.py: $fails failing check(s), exit code $rc. Only 'no file is called SAMPLE' is expected."
-            exit 1
-          fi

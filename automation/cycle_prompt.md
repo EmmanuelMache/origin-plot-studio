@@ -68,9 +68,8 @@ for headless runs (`QT_QPA_PLATFORM=offscreen`, `MPLBACKEND=Agg`, `OPS_NO_OPEN=1
     python3 -m compileall -q origin_plot_app tools tests
 
 If a private term list is configured (the tool says so itself when it is not), also run
-`python3 tools/check_banned.py --all`. One test is known to fail for a reason that has nothing to do with you:
-`tests/test_xrd_generator.py` (one check, about the bundled fixture's name, unchanged since 5.51.0). Do not "fix" it
-and do not count it. Any other failure is yours to understand: report it, never hide or delete a failing check.
+`python3 tools/check_banned.py --all`. Every test file is expected to pass. A failure is yours to understand:
+report it, never hide or delete a failing check.
 
 ## 6. What you must not do
 

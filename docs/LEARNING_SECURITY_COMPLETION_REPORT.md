@@ -1,6 +1,8 @@
 # Learning, updates and security – completion report
 
-Branch `integrate/learning-security` (version 5.59.0, based on 5.58.6). **Not merged, not released, nothing activated.**
+Version 5.59.0, developed on the branch `integrate/learning-security` (pull request 3) and based on 5.58.6.
+**Released to `main` on 27 November 2026** after the owner left the decision to the developer. The owner's own
+copy updates as before. **Still not active:** the fortnightly cycle, shared learning, signed releases.
 Requirement-by-requirement status: `docs/LEARNING_SECURITY_TRACKER.md`.
 
 This report covers both workstreams separately. It distinguishes three things throughout:
@@ -13,10 +15,10 @@ It is not a security certification.
 
 ## Test results
 
-Full suite, run on a clean copy of the branch (Linux, Python 3.13, offscreen Qt): **49 files, 2465 checks passed, 1 failed.**
-The one failure is `tests/test_xrd_generator.py`, a fixture check that has failed unchanged since 5.51.0 and is unrelated to
-this work. `tests/test_xrd_generator_actions.py` stalled once inside the full run, as it has before, and passed 19 of 19
-when run alone; that result is the one counted.
+Full suite, run on a clean copy of the branch (Linux, Python 3.13, offscreen Qt): **49 files, 2465 checks passed, 0 failed.**
+The one check of `tests/test_xrd_generator.py` that had failed since 5.51.0 was corrected (it contradicted the name of
+the bundled fixture), so no failure is known. `tests/test_xrd_generator_actions.py` stalled once inside the full run, as it
+has before, and passed 19 of 19 when run alone; that result is the one counted.
 
 New test files of this work:
 
@@ -33,7 +35,7 @@ New test files of this work:
 | `tests/test_learning_sync.py` | 96 | contribution flow, worker, retries, tombstones, isolation and review rules (in-memory test server), the Supabase adapter (fake transport) |
 | `tests/test_learning_ui.py` | 42 | the acceptance rows of A.11.13 in the real window (offscreen), incl. the XRD demonstration |
 | `tests/test_cycle_due.py` | 105 | the 14-day gate and the evidence bundle |
-| `tests/test_workflows_static.py` | 113 | static checks of the three workflow files, the prompt, the backend files and the setup documents |
+| `tests/test_workflows_static.py` | 112 | static checks of the three workflow files, the prompt, the backend files and the setup documents |
 
 Also run:
 
@@ -47,9 +49,17 @@ Also run:
   (44 commits). `pip-audit` on the locked set: 0 known vulnerabilities in 36 packages.
 * The pinned commits of the GitHub Actions were compared with their tags on GitHub.
 
+* The **CI workflow has run on GitHub** (two runs on the first pushed commit, 27 November 2026): static checks and
+  secret scan, dependency audit and all four test groups passed.
+* A simulated **"Undo the last update"** from 5.59.0: version 5.58.6 is back, the files 5.59.0 added are removed, the
+  app starts.
+* The published app has needed **Python 3.12 or newer** since at least 5.57.0 (two program files use syntax of
+  3.12); the launchers check that packages are present, not their versions, so an existing installation starts as
+  before.
+
 **Not run:** anything on Windows (installer, launchers, DPAPI, curl.exe / PowerShell fallbacks, the window itself),
-live Origin, any real AI service or web search, any GitHub Actions run, the Claude Code action, a Supabase project,
-a production signing key.
+live Origin, any real AI service or web search, the fortnightly-cycle and release workflows, the Claude Code action,
+a Supabase project, a production signing key.
 
 ---
 
@@ -157,6 +167,8 @@ committed, allowlisted files with a contents inventory; a **secret scan** of tre
 
 ### Release gates
 
+These gates are about a build for OTHER people. Releasing to the owner's own update channel does not pass them.
+
 * **Gate A (private local beta):** code and tests exist for every point. Open: your review of the bundled demo
   files (`RELEASE_CONTENTS.md` from the build), a real build from a commit, and one clean Windows account:
   install, import, plot, save / reopen, export, uninstall without administrator rights. **Not run.**
@@ -168,7 +180,7 @@ committed, allowlisted files with a contents inventory; a **secret scan** of tre
 
 ## What needs you
 
-1. **Review and merge decision.** Merging this branch into `main` is a release: the updater reads `main`.
+1. **Update and look.** 5.59.0 is on `main`. If anything is wrong: *Help ▸ Undo the last update*.
 2. **Windows check** of the installer, the launchers and the window (and Origin). Note the Python 3.12+ requirement
    of the pinned set: an installation on an older Python keeps running, but Setup asks for a newer Python.
 3. **Production signing key**: create it offline, put the public half into `update_trust.py`, the private half into

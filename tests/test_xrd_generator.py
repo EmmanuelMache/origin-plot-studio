@@ -1,4 +1,5 @@
-"""Checks of tools/xrd_generator_v2.py (Part 1.6).  Run:  python tests/test_xrd_generator.py TEMPLATE.xrdml"""
+"""Checks of tools/xrd_generator_v2.py (Part 1.6).  Run:  python tests/test_xrd_generator.py [TEMPLATE.xrdml]
+Without a template the bundled, anonymised fixture is used (xrd_scan_generator/tests/fixtures/SAMPLE.xrdml)."""
 import os, re, sys, glob, shutil, hashlib, subprocess, tempfile
 import numpy as np
 
@@ -33,7 +34,10 @@ def check(template):
         ok("every output <name> equals the template's <name>", all(n == t_name for n in names), f"template {t_name!r}, outputs {sorted(set(names))}")
         ok("every file stem starts with the original sample name", all(os.path.basename(f).startswith(stem + "-") for f in files), f"{stem!r}: {[os.path.basename(f) for f in files][:2]}")
         ok("<id> holds the numbered stem", all(i == os.path.splitext(os.path.basename(f))[0] for i, f in zip(ids, files)), str(ids[:2]))
-        ok("no file is called SAMPLE", not any("SAMPLE-" in os.path.basename(f) for f in files))
+        # The placeholder name 'SAMPLE' must never replace the template's own name. When the template itself is called
+        # SAMPLE (the bundled, anonymised fixture is), 'SAMPLE-001' IS its own name: the check above covers that case.
+        ok("the placeholder name SAMPLE is not used in place of the template's own name", stem.upper() == "SAMPLE" or not any("SAMPLE-" in os.path.basename(f) for f in files),
+           f"template stem {stem!r}")
         mx = [int(np.loadtxt(f.replace(".xrdml", ".csv"), delimiter=",", skiprows=1)[:, 1].max()) for f in files]
         ok("every maximum is within 8000-10000 counts", all(8000 <= m <= 10000 for m in mx), str(mx))
         man = open(os.path.join(a, "manifest.csv")).read().splitlines(); head = man[0].split(",")
@@ -76,6 +80,8 @@ def check(template):
 
 
 if __name__ == "__main__":
-    res, out = check(sys.argv[1]); print(out.strip()[-900:]); print()
+    template = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "xrd_scan_generator", "tests", "fixtures", "SAMPLE.xrdml")
+    res, out = check(template); print(out.strip()[-900:]); print()
     for name, good, detail in res: print(("PASS  " if good else "FAIL  ") + name + (f"   [{detail}]" if detail else ""))
+    n_ok = sum(1 for _, g_, _ in res if g_); print(f"\n{n_ok} passed, {len(res) - n_ok} failed")
     sys.exit(0 if all(g_ for _, g_, _ in res) else 1)

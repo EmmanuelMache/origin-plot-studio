@@ -180,10 +180,7 @@ check("CI runs the tests without a display, with the system libraries Qt needs",
 check("CI has the static check, the secret scan, the pin check and the dependency audit", all(x in IC for x in ("python -m compileall", "python3 tools/secret_scan.py .", "tools/dependency_inventory.py --check", "pip_audit -r origin_plot_app/requirements.lock")))
 check("CI fails when a private or personal file is tracked", "No private or personal file is tracked" in IC and "ops_private" in IC and "examples_your_data" in IC)
 check("the tests run in four groups that together cover every tests/test_*.py, and a group with a failing file fails", "group: [0, 1, 2, 3]" in IC and "i % 4" in IC and "ls tests/test_*.py" in IC and '[ "${#failed[@]}" -eq 0 ]' in IC and "fail-fast: false" in IC)
-kf = IJ.get("known-failure", "")
-check("the known failing test is left out of the groups by name and runs in a job of its own", 'if [ "$f" = "tests/test_xrd_generator.py" ]; then continue; fi' in IC and "tests/test_xrd_generator.py xrd_scan_generator/tests/fixtures/SAMPLE.xrdml" in kf)
-check("... that job does not block, shows a warning for the one known check, and is red when anything else fails", "continue-on-error: true" in kf and "::warning title=Known failing check" in kf and "no file is called SAMPLE" in kf and "exit 1" in kf
-      and len(re.findall(r"continue-on-error:\s*true", IC)) == 1)
+check("no test is left out of the groups and no job is allowed to fail quietly", "then continue; fi" not in IC.replace('if [ "$mine" -ne "$GROUP" ]; then continue; fi', "") and "continue-on-error" not in IC and "known-failure" not in IJ, sorted(IJ))
 check("... the fixture it needs is in the repository", (ROOT / "xrd_scan_generator" / "tests" / "fixtures" / "SAMPLE.xrdml").is_file())
 
 # ================================================================ release

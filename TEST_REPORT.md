@@ -68,19 +68,19 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_workbench_core.py` | 46 | 0 | detection, fit columns, merges, project archives (no Qt) |
 | `tests/test_workbench_ui.py` | 15 | 0 | real widgets: projects, graphs, Workbook, save / reopen, portable projects |
 | `tests/test_workbook_editing.py` | 85 | 0 | new in 5.58.1: delete and hide in the Workbook, files off the list, the Start here selection rule |
-| `tests/test_workflows_static.py` | 113 | 0 |  |
+| `tests/test_workflows_static.py` | 112 | 0 |  |
 | `tests/test_workspace_actions.py` | 50 | 0 |  |
 | `tests/test_workspace_main.py` | 83 | 0 |  |
 | `tests/test_workspace_qt.py` | 29 | 0 |  |
 | `tests/test_workspace_steps34.py` | 89 | 0 |  |
 | `tests/test_xrd_background.py` | 14 | 0 |  |
 | `tests/test_xrd_correction.py` | 19 | 0 |  |
-| `tests/test_xrd_generator.py` | 16 | 1 | 1 check fails only with the bundled fixture, whose internal name is SAMPLE (the check wants a scan with another name); unchanged since 5.51.0, not caused by this work |
+| `tests/test_xrd_generator.py` | 17 | 0 | All pass since 5.59.0: the fixture check now applies only to templates whose own name is not SAMPLE (the bundled fixture is called SAMPLE) |
 | `tests/test_xrd_generator_actions.py` | 19 | 0 |  |
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **2465** | **1** | 49 files |
+| **Total** | **2465** | **0** | 49 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.56.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

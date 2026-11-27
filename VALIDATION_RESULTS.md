@@ -1,6 +1,6 @@
 # Validation results — Origin Plot Studio 5.58.3
 
-Date: 26 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
+Date: 27 November 2026. Run on the final merged code of branch `integrate/project-workbench`.
 
 **Where:** a Linux container, Python 3.13, **PySide6 (the real toolkit of the app)** with `QT_QPA_PLATFORM=offscreen`,
 NumPy, pandas, SciPy, matplotlib, openpyxl. **Not Windows. No Origin.** Everything that needs Origin went through the
@@ -27,8 +27,8 @@ data types, a file with no table, the template example cache, the one-parse work
 
 ## Every test file
 
-49 files, **2465 checks passed, 1 failed**. The one failure is `tests/test_xrd_generator.py`, a check that
-fails only with the bundled fixture and has done so since 5.51.0; nothing here touches it. The table of all files is in
+49 files, **2465 checks passed, 0 failed**. The check of `tests/test_xrd_generator.py` that had failed with the bundled fixture since 5.51.0 was corrected in
+5.59.0 (it contradicted the fixture's own name); no failure is known any more. The table of all files is in
 `TEST_REPORT.md`, section 2.
 
 New in this integration: `tests/test_starthere_parity.py` (54 checks) — everything the Start here page did at 5.56.0
