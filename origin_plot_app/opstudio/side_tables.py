@@ -217,7 +217,40 @@ def rwp_for(name, rwp_map):
 
 
 # ------------------------------------------------------------------------------------------------- draw
+PEAK_LABEL = "ops_peak_label"        # the gid of every artist that is a peak label (text, mark or leader): the 'Peak labels' switch shows or hides exactly these
+
+
+def _artists(ax): return list(ax.texts) + list(ax.lines) + list(ax.collections) + list(ax.patches)
+
+
+def tag_labels(ax, before):
+    """Mark everything drawn on ax since 'before' (a set of ids from _artists) as a peak label."""
+    for a in _artists(ax):
+        if id(a) not in before: a.set_gid(PEAK_LABEL)
+
+
+def show_labels(fig, ax, on):
+    """Show or hide the peak labels of one panel (and of its insets). Returns how many artists it has. Curves stay."""
+    n = 0
+    for a_ in [ax] + list(getattr(ax, "child_axes", [])):
+        for a in _artists(a_):
+            if a.get_gid() == PEAK_LABEL: a.set_visible(bool(on)); n += 1
+    return n
+
+
+def has_labels(fig):
+    return any(a.get_gid() == PEAK_LABEL for ax in fig.axes for a_ in [ax] + list(getattr(ax, "child_axes", [])) for a in _artists(a_))
+
+
 def draw_labels(ax, labels, curves, names=None, size=6.0, color_of=None, leader_color="#8A8A8A"):
+    """draw_labels_untagged, with everything it draws marked as a peak label (see PEAK_LABEL)."""
+    before = {id(a) for a in _artists(ax)}
+    n = draw_labels_untagged(ax, labels, curves, names, size, color_of, leader_color)
+    tag_labels(ax, before)
+    return n
+
+
+def draw_labels_untagged(ax, labels, curves, names=None, size=6.0, color_of=None, leader_color="#8A8A8A"):
     """Labels from the user's list at their own peaks. curves: [(x, y)]; names: the curve names (to match a label's
     Sample value). A label with a height is put there; otherwise just above the highest point of its own curve near x.
     Labels never sit on their own curve or on another label; a moved label gets a thin leader line."""

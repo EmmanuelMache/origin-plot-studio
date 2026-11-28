@@ -4,7 +4,7 @@ Read this file first. It says what exists in the code now, not what is intended.
 
 ## 1. Summary
 
-* App version: **5.59.2** (branch `upgrade-v2`; `main` is the published branch the updater reads).
+* App version: **5.59.3** (branch `upgrade-v2`; `main` is the published branch the updater reads).
 * Built and run on: Linux container, Python 3.12, PySide6 (offscreen), matplotlib, pandas, numpy, scipy, openpyxl.
   **Origin not available. Windows not available.**
 * This round: publishing hygiene (no user data in the repository, private folder, privacy check before every commit);
@@ -69,6 +69,8 @@ A table with a column of words in every row is read by the Workspace loader as a
 `office_export.send_live(kind, files)` (pywin32: `GetActiveObject` / `Dispatch` of `PowerPoint.Application` / `Word.Application`), tried first on Windows by `send_to_office`, file route on any exception; tests replace `office_export._office` with stand-ins and set `w._office_live`.
 Workspace: `main_axes()`, `spans` (one SpanSelector per graph), `on_span(a, b, ax)` sets `sel_panel`, `curves(it)` reads that panel, `reset_axes()` returns 'one' / 'all' using `_home_limits` and `_last_ax` (set by `_note_graph` in `workspace_actions.install`).
 Analysis: `remove_files` uses `Workbench.deselect_inputs`; Delete shortcut on `TemplatePage.files`.
+
+5.59.3: peak labels on or off. `smart_plots.hide_labels(p)` / `show_labels(p)` / `labels_of(p)` / `has_peak_labels(obj)` / `composed_panel_labels(it, key)`; `fmt['peak_labels']` (False = none) and, per panel of a workbook figure, `fmt['panels'][key]['show_labels']`; `paper_figures.label_spec(p, recipe)`, `label_has_rows(sheets, spec)`; ribbon: `set_peak_labels(on, it=None)`, `set_panel_labels(on, key=None)`, `labels_bar()`, `ALL_PANELS`, `w.peak_labels_cb`, `w.panel_labels`; Analysis: `side_tables.PEAK_LABEL`, switch `peak_labels` in `graph_components.apply`, `GraphEditor.peak_labels`.
 
 5.59.2: automatic evidence file (`opstudio.learning.evidence.auto_set(service, folder)`, `auto_write(service, blocked=)`, `auto_folder`, `auto_file`; `LearningController.auto_evidence()` at start-up and on quit; `HistoryDialog.set_auto_evidence(folder)`). The 14-day review runs as a Claude Code cloud scheduled task that follows `automation/scheduled_review.md`; release checks are `tools/full_suite.sh ROOT OUT`, `tools/suite_counts.py ROOT OUT.txt`, `tools/update_regression.py OLD NEW`; state on branch `automation-state`.
 

@@ -28,6 +28,9 @@ def apply(fig, switches):
         opt = dict(switches); opt.update((switches.get('panel_options') or {}).get(str(panel), {}))
         for child in list(ax.child_axes):
             if 'inset' in opt: child.set_visible(bool(opt['inset']))
+        if 'peak_labels' in opt:                                   # the labels on the peaks (bands), with their marks and leaders: shown or not; the curves stay
+            from . import side_tables as SD
+            SD.show_labels(fig, ax, bool(opt['peak_labels']))
         markers = opt.get('markers')
         if markers is not None:
             for line in ax.lines:

@@ -193,6 +193,36 @@ def _series(ax, book, s, phases, drawn, st):
         out.append((d.x.to_numpy(), d.y.to_numpy()))
     return out
 
+def label_spec(p, recipe=None):
+    """Where the peak labels of one panel come from: its own label sheet(s) ('labels'), or - for a fit panel planned
+    without labels - the label sheet the other fit panels of the workbook use, read for THIS panel's sample (its
+    title). None when the workbook has no labels for it. Nothing is invented: only rows of a label sheet are drawn."""
+    own = p.get("labels")
+    if own: return own
+    if p.get("type") != "rietveld" or not p.get("title") or not recipe: return None
+    for f in recipe.get("figures") or []:
+        for q in f.get("panels") or []:
+            l_ = q.get("labels")
+            if q.get("type") == "rietveld" and isinstance(l_, dict) and l_.get("sheet") and l_.get("sample"):
+                return {**l_, "sample": p["title"]}
+    return None
+
+
+def _same_sample(w, v):
+    """A label row belongs to a sample: the same name, or one is the beginning of the other (both normalised)."""
+    return w == v or (len(w) > 1 and (v.startswith(w) or w.startswith(v) and len(v) > 1))
+
+
+def label_has_rows(sheets, spec):
+    """True when the label sheet of 'spec' is in the workbook and has at least one row for its sample."""
+    try:
+        book = Book(sheets); df = book.sheet(spec["sheet"]); csm = book.col(df, "Sample", spec["sheet"], optional=True)
+        if not spec.get("sample") or csm is None: return len(df) > 0
+        want = [norm(w) for w in ([spec["sample"]] if isinstance(spec["sample"], str) else spec["sample"])]
+        return bool(df[csm].map(lambda v: any(_same_sample(w, norm(v)) for w in want)).any())
+    except Exception: return False
+
+
 def _labels(ax, book, spec, curves, st, fig, obstacles=()):
     """Peak labels from a label sheet: text at (2θ, label height), in its own colour, with a thin leader when it is staggered.
     Afterwards no label may sit on a curve or on another label: such a label goes up, step by step, and keeps its colour."""
@@ -205,7 +235,7 @@ def _labels(ax, book, spec, curves, st, fig, obstacles=()):
     rows = df
     if spec.get("sample") and csm is not None:
         want = [norm(w) for w in ([spec["sample"]] if isinstance(spec["sample"], str) else spec["sample"])]
-        keep = df[csm].map(lambda v: any(w == norm(v) or (len(w) > 1 and (norm(v).startswith(w) or w.startswith(norm(v)) and len(norm(v)) > 1)) for w in want)); rows = df[keep]
+        keep = df[csm].map(lambda v: any(_same_sample(w, norm(v)) for w in want)); rows = df[keep]
         if rows.empty: book.note(f"sheet '{sheet}': no rows with Sample = {spec['sample']} (it holds: {', '.join(sorted(set(map(str, df[csm].dropna()))))[:120]})")
     x0, x1 = sorted(ax.get_xlim()); size = spec.get("size", st["label_size"]); placed = []
     for _, r in rows.iterrows():
@@ -306,7 +336,7 @@ def _panel_xy(fig, ax, book, p, recipe, st, drawn):
     _ylim(ax, p, curves)
     if p.get("shade"): ax.axvspan(p["shade"][0], p["shade"][1], color="#000000", alpha=p.get("shade_alpha", 0.13), lw=0, zorder=0)
     obst = _names_left(ax, curves, p.get("names_left"), st) or []
-    for spec in (p.get("labels") if isinstance(p.get("labels"), list) else [p.get("labels")]):
+    for spec in ((p.get("labels") if isinstance(p.get("labels"), list) else [p.get("labels")]) if p.get("show_labels", True) else []):      # 'Peak labels' off for this panel: none drawn
         if not spec: continue
         try: _labels(ax, book, dict(spec, _ylim_fixed=bool(p.get("ylim")), collide_with=spec.get("collide_with", "own" if p.get("names_left") else "all")), curves, st, fig, obst)
         except Missing as e: book.note(f"{p.get('_fig', '')} {p.get('letter', '')}: labels not drawn, {e}")
@@ -540,8 +570,9 @@ def _block_rietveld(fig, cell, book, p, recipe, st, drawn):
         except Exception: pass
         ins.set_yticklabels([]); ins.tick_params(axis="y", labelleft=False)
         ins.text(0.5, 0.97, p.get("zoom_text", "Zoom of shaded region"), transform=ins.transAxes, ha="center", va="top", fontsize=st["tick_label"] - 2)
-    if p.get("labels"):
-        try: _labels(a1, book, dict(p["labels"], _ylim_fixed=bool(p.get("ylim"))), curves, st, fig)
+    lspec = (p.get("labels") or (label_spec(p, recipe) if p.get("show_labels") is True else None)) if p.get("show_labels", True) else None
+    if lspec:                                     # the panel's own labels; or, switched on for a panel planned without them, those of its sample in the workbook's label sheet
+        try: _labels(a1, book, dict(lspec, _ylim_fixed=bool(p.get("ylim"))), curves, st, fig)
         except Missing as e: book.note(f"{tag}: labels not drawn, {e}")
     if p.get("legend_in_panel"):
         h = _handles([d for d in drawn if d["label"] in ("Observed", "Calculated")]); a1.legend(handles=h, loc="upper left", fontsize=st["legend"], frameon=False, handlelength=1.6, borderaxespad=0.6)

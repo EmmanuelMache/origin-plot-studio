@@ -37,7 +37,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_cycle_due.py` | 106 | 0 |  |
 | `tests/test_drag_labels.py` | 8 | 0 |  |
 | `tests/test_edit_dialog.py` | 10 | 0 |  |
-| `tests/test_edit_graph.py` | 44 | 0 |  |
+| `tests/test_edit_graph.py` | 45 | 0 |  |
 | `tests/test_figures_general.py` | 40 | 0 |  |
 | `tests/test_gallery_graphs.py` | 34 | 0 |  |
 | `tests/test_highscore.py` | 50 | 0 |  |
@@ -50,6 +50,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_outbound_policy.py` | 32 | 0 |  |
 | `tests/test_packaging.py` | 73 | 0 |  |
 | `tests/test_peak_correct_tab.py` | 18 | 0 |  |
+| `tests/test_peak_labels.py` | 38 | 0 | new in 5.59.3: peak labels on or off for every graph |
 | `tests/test_related.py` | 86 | 0 | new in 5.58.0: series of files, side-by-side tables, DTG column, columns for all files, peaks and what they may be |
 | `tests/test_ribbon_sketch.py` | 37 | 0 |  |
 | `tests/test_security_ai_disclosure.py` | 82 | 0 |  |
@@ -80,7 +81,7 @@ LabTalk commands and writes the worksheets). What could only be checked in real 
 | `tests/test_xrd_window_origin.py` | 10 | 0 |  |
 | `tests/test_zoom_pen.py` | 24 | 0 |  |
 | `xrd_scan_generator/tests/test_engine.py` | 26 | 0 |  |
-| **Total** | **2487** | **0** | 49 files |
+| **Total** | **2526** | **0** | 50 files |
 
 The updater's own regression (`self_update.check`, the new program against 5.56.0): **the same Origin commands for 10 of 10 example files.**
 `tools/check_banned.py --all`: clean.

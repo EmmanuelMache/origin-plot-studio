@@ -162,7 +162,7 @@ Checked on the merged code. "Test" names the automated check; where there is non
 
 Everything the app did before, on the merged code:
 
-* All 49 test files: 2 487 checks pass, 0 fails. See `VALIDATION_RESULTS.md`.
+* All 50 test files: 2 526 checks pass, 0 fails. See `VALIDATION_RESULTS.md`.
 * **Commands, menus, shortcuts:** an inventory of the merged window against the window of 5.56.0 — no entry of the File, View, Tools or Help menu is missing (30 / 45 / 27 / 9 entries), none of the 33 keyboard shortcuts, and no command of the command search except the five that were buttons of the old Start here page and have a renamed equivalent.
 * **The app's own update check** (`self_update.check`, merged against 5.56.0): the same Origin commands for 10 of 10 example files; no program file of 5.56.0 is missing.
 
@@ -234,6 +234,15 @@ Tested in `tests/test_workbook_editing.py` (76 checks), `tests/test_workspace_ac
 3. Send to PowerPoint / Word through Windows automation into the open presentation or document, with the file route as fall-back. **Not run against PowerPoint or Word** - there is neither here; the calls are checked against stand-ins that record them.
 4. Each graph of a multi-graph figure for itself: Select range, the calculation on a selection, Reset axes. Zoom and Pan already acted on the graph under the mouse; graphs that share an x axis by design (stacked panels) still move together in x.
 5. Analysis: Delete on the file list; Remove carries through the app.
+
+### Peak labels on or off, 5.59.3
+
+Tested in `tests/test_peak_labels.py` (38 checks, new) and `tests/test_edit_graph.py` (45, 1 new).
+
+1. Ordinary graphs: `fmt['peak_labels'] = False` takes the labels off in `smart_plots.finish` before the page is laid out (`hide_labels`; kept aside in the panel's `_hidden`, so Results and `labels_of` still have them); the zoomed part and a second axis follow. A figure made of several graphs is built with its members' labels as ITS switch says, whatever theirs is.
+2. Workbook figures: a panel's `show_labels` (False: none; True on a fit panel planned without labels: `paper_figures.label_spec` reads the workbook's fit label sheet for that panel's sample, only when `label_has_rows`). `composed_panel_labels(it, key)` gives (can, on). The Panel row has *Peak labels* and *All panels* (one undo step).
+3. Analysis graphs: labels drawn by `side_tables.draw_labels`, the single-pattern template and the infrared band marks carry the gid `ops_peak_label`; `graph_components.apply` shows or hides exactly these, per graph or per panel; the Origin reader skips hidden artists.
+4. Not covered: workbook templates of Analysis (`wb:`) draw their labels themselves and have no switch there (the box is greyed out with the reason); behaviour inside OriginPro was not run - the test checks what `opstudio.origin.read_figure` would send.
 
 ### Automatic evidence file and the scheduled review, 5.59.2
 

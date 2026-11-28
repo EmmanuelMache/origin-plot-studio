@@ -21,7 +21,7 @@ old = {}
 for ln in s[a:b].splitlines():
     m = re.match(r"\| `([\w/]+?)(test_\w+)\.py` \| [\d]+ \| \d+ \| (.*) \|$", ln)
     if m: old[m.group(2)] = m.group(3).strip()
-extra = {"test_related": "new in 5.58.0", "test_workbook_editing": "new in 5.58.1: delete and hide in the Workbook, files off the list, the Start here selection rule"}
+extra = {"test_peak_labels": "new in 5.59.3: peak labels on or off for every graph", "test_related": "new in 5.58.0", "test_workbook_editing": "new in 5.58.1: delete and hide in the Workbook, files off the list, the Start here selection rule"}
 path = lambda n: ("xrd_scan_generator/tests/" if n == "test_engine" else "tests/") + n + ".py"
 table = "\n".join(f"| `{path(n)}` | {p} | {f} | {old.get(n, extra.get(n, ''))} |" for n, ex, p, f in rows) + f"\n| **Total** | **{tot_p}** | **{tot_f}** | {len(rows)} files |"
 s = s[:a] + table + s[b:]; open(R + "TEST_REPORT.md", "w", encoding="utf-8").write(s)

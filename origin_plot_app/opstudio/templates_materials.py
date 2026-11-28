@@ -62,7 +62,7 @@ def _draw_xrd_single_v1(d, st, p):
     for lab in [q for q in d.get("labels", []) if s["x"].min() <= q["x"] <= s["x"].max()]:
         i = np.argmin(abs(s["x"] - lab["x"]))
         y0 = np.nanmax(s["y"][max(0, i - 8): i + 8])
-        ax.text(lab["x"], y0 + p["label_offset_frac"] * ymax, lab["text"], ha="center", va="bottom", fontsize=7,
+        ax.text(lab["x"], y0 + p["label_offset_frac"] * ymax, lab["text"], ha="center", va="bottom", fontsize=7, gid=SD.PEAK_LABEL,
                 color=series_color(st, d.get("key", {}).get(lab["text"], ""), 0) if d.get("key") else "k", fontweight="bold")
     ax.set_xlabel(d["x_label"]); ax.set_ylabel(d["y_label"]); ax.set_xlim(s["x"].min(), s["x"].max())
     ax.set_ylim(0, ymax * 1.15)
@@ -1231,9 +1231,9 @@ def draw_ftir(d, st, p):
             if not lab: continue
             if len(drawn) > 4 and k: lab = [(q[0], q[1], "", q[3]) for q in lab]                 # many spectra: the names stand at the top one, the others carry the marks only
             down = lab[0][3]                                                                     # one marker row per spectrum: its bands as symbols without a line
-            ax.plot([q[0] for q in lab], [q[1] for q in lab], marker="v" if down else "^", ms=2.6, color=c, ls="none", zorder=4, label="_nolegend_")
+            ax.plot([q[0] for q in lab], [q[1] for q in lab], marker="v" if down else "^", ms=2.6, color=c, ls="none", zorder=4, label="_nolegend_", gid=SD.PEAK_LABEL)
             for pos, yv, txt, _ in lab:
-                if txt: ax.text(pos, yv - gap if down else yv + gap, txt, rotation=90, ha="center", va="top" if down else "bottom", fontsize=5.2, color=c, zorder=4)
+                if txt: ax.text(pos, yv - gap if down else yv + gap, txt, rotation=90, ha="center", va="top" if down else "bottom", fontsize=5.2, color=c, zorder=4, gid=SD.PEAK_LABEL)
     if d.get("shade"):
         ax.axvspan(*d["shade"], color="#9EC5E8", alpha=0.25, lw=0, zorder=0)
     if p.get("band_lines"):

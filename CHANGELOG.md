@@ -2,6 +2,15 @@
 
 What changed for the user, newest first. Versions are those of the app (Help ▸ About).
 
+## 5.59.3
+
+* **New: every graph with labels on its peaks can be drawn with them or without - a "Peak labels" box.** The picture in the app, the exported files and the drawing in Origin all follow it. Curves, tick rows and data are not changed, and the peaks stay listed in Results.
+  * **A figure of a workbook** (the row *Panel:* under Zoom / Pan): *Peak labels* for the panel you choose, or choose **All panels** and tick or untick it once for the whole figure. A fit panel that the workbook's figure plan drew *without* labels can now have them: the app takes the rows of its sample from the workbook's label sheet for the fits. Where the workbook has no label rows for a sample, the box is greyed out and says so - nothing is invented.
+  * **All panels** also works for the other boxes of that row (zoomed part, observed as dots, difference row, phase tick rows): one click for every fit panel, one step to undo.
+  * **Any other graph** (an XRD pattern, a thermal graph, a stacked figure …): a *Peak labels* box beside Zoom / Pan, shown when the graph has labels. Without them the page is laid out again, so no empty room is left above the curve. Each graph has its own switch; a stacked or combined figure follows its own, not that of its graphs.
+  * **Analysis graphs**: *Edit this graph…* has **Show peak labels**, for the whole graph or one panel.
+  * Right click on a panel of a workbook figure: *Peak labels: hide / show (this panel only)*.
+
 ## 5.59.2
 
 * **New: the app can keep its evidence file up to date by itself.** *Help ▸ Learning* has a box *Save the evidence file by itself into a folder (to help improve the app)*. Tick it, choose your Google Drive folder once, and the app keeps one small file there (in a sub-folder *Origin Plot Studio evidence*), refreshed when it starts and closes. The file holds kinds of corrections and failures only - no names, folders or measurements. The app itself sends nothing; your Drive program copies the file. Off by default; untick to stop (this computer's file is removed); local-only mode pauses it.

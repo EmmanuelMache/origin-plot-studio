@@ -46,7 +46,7 @@ def apply_style():
                                 "axes.unicode_minus": True, "savefig.facecolor": "white", "figure.facecolor": "white", "lines.solid_capstyle": "round", "lines.solid_joinstyle": "round",
                                 "text.color": "black", "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black", "axes.edgecolor": "black"})
 NAVY = (0, 0, 139)
-VERSION = "5.59.2"
+VERSION = "5.59.3"
 PROVENANCE_VERSION = "v5.15.0"          # the version written into the provenance file of every figure
 
 class Cancelled(Exception):
@@ -859,8 +859,62 @@ def _fit_inset(p, ins, lo, hi, y0, y1, ytop, rev=False):
     ins.update(curves=cv, placed=placed, ylim=(i0, max(top + 0.02 * (i1 - i0), i1)), lab_pt=ipt, rect=(fx, fy, fw, fh), vertical=p["vertical"])
     return ytop
 
+def hide_labels(p):
+    """Take the peak labels of one panel off the drawing (your 'Peak labels' switch, off): the labels on the peaks, those
+    of a second axis and of the zoomed part. They are kept aside in p['_hidden'], so the list of peaks in Results and a
+    combined figure made from this graph still have them. Curves, tick rows and names at the curves are not touched."""
+    if p.get("_hidden") is not None: return p
+    h = {k: p[k] for k in ("labels", "code_labels", "placed", "placed_below") if k in p}
+    y2 = p.get("y2"); ins = p.get("inset")
+    if isinstance(y2, dict): h["y2"] = {k: y2[k] for k in ("labels", "placed") if k in y2}; y2["labels"] = []; y2.pop("placed", None)
+    if isinstance(ins, dict) and ins: h["inset"] = {k: ins[k] for k in ("labels", "placed") if k in ins}; ins.pop("labels", None); ins.pop("placed", None)
+    p["_hidden"] = h; p["labels"] = []; p["placed"] = []; p.pop("code_labels", None); p.pop("placed_below", None)
+    return p
+
+
+def show_labels(p):
+    """Undo hide_labels on one panel (the labels as they were read from the data; they are placed again when it is laid out)."""
+    h = p.pop("_hidden", None)
+    if h is None: return p
+    for k in ("labels", "code_labels", "placed", "placed_below"):
+        if k in h: p[k] = h[k]
+        else: p.pop(k, None)
+    for part in ("y2", "inset"):
+        q = p.get(part)
+        if isinstance(q, dict) and part in h:
+            for k in ("labels", "placed"):
+                if k in h[part]: q[k] = h[part][k]
+                else: q.pop(k, None)
+    return p
+
+
+def labels_of(p):
+    """The peak labels a panel has from its data, shown or not: (position, text, height) each."""
+    h = p.get("_hidden") or {}
+    return list(p.get("labels") or h.get("labels") or [])
+
+
+def has_peak_labels(obj):
+    """True when this graph has peak labels to show or hide: on a peak, a band or a step - in any of its panels."""
+    spec = getattr(obj, "spec", None) or {}
+    if spec.get("composed"):
+        try:
+            import paper_figures as pf
+            _p, rec, f = spec["composed"]; return any(composed_panel_labels(obj, composed_panel_key(pn))[0] for pn in f.get("panels") or [])
+        except Exception: return False
+    try: pans = all_panels(spec)
+    except Exception: return False
+    for p_ in pans:
+        h = p_.get("_hidden")
+        if h is not None and (h.get("labels") or h.get("placed") or h.get("placed_below") or (h.get("y2") or {}).get("labels") or (h.get("inset") or {}).get("labels")): return True
+        if p_.get("labels") or p_.get("placed") or p_.get("placed_below") or (p_.get("y2") or {}).get("labels") or (p_.get("y2") or {}).get("placed"): return True
+    return False
+
+
 def finish(spec):
     """Axis limits, label positions and leader lines for every panel."""
+    if (_BUILD_FMT or {}).get("peak_labels") is False:          # this graph without its peak labels: taken off before the page is laid out, so no room is kept for them
+        for p in spec["panels"]: hide_labels(p)
     xs = np.concatenate([c["x"] for p in spec["panels"] for c in p["curves"]]); xs = xs[np.isfinite(xs)]
     lo, hi = float(xs.min()), float(xs.max())
     if spec.get("xlog"): lo = float(xs[xs > 0].min())
@@ -1767,7 +1821,8 @@ def analyze_tga_steps(item, intervals=None, opt=None):
     if getattr(item, "kind", None) != "TGA": raise ValueError("this graph is not a TGA table")
     o = dict(opt or {}); o["tga_ranges"] = ", ".join(f"{a:g}-{b:g}" for a, b in iv); item.build(o, "TGA")
     if item.results is None: raise ValueError("the TGA table gave no result for these intervals")
-    r = item.results; lab = (item.spec["panels"][0].get("y2") or {}).get("labels") or item.spec["panels"][0].get("labels") or []; rows = []
+    r = item.results; p0_ = item.spec["panels"][0]; h0_ = p0_.get("_hidden") or {}      # labels switched off on the graph are still the peaks of the analysis
+    lab = (p0_.get("y2") or {}).get("labels") or (h0_.get("y2") or {}).get("labels") or labels_of(p0_); rows = []
     for a, b in iv:
         m = r[(r["From (\u00b0C)"].astype(float).round(6) == round(a, 6)) & (r["To (\u00b0C)"].astype(float).round(6) == round(b, 6))]
         peak = next((float(x_) for x_, _t, _y in lab if a <= float(x_) <= b), None)
@@ -2795,6 +2850,7 @@ def composed_panel_fmt(f, fmt):
     if 'markers' in fmt: defaults['obs_style'] = 'dots' if fmt['markers'] else 'line'
     if 'show_difference' in fmt: defaults['show_diff'] = fmt['show_difference']
     if 'show_bragg' in fmt: defaults['show_ticks'] = fmt['show_bragg']
+    if 'peak_labels' in fmt: defaults['show_labels'] = bool(fmt['peak_labels'])
     if fmt.get('zoom_off'): defaults['zoom'] = False
     if fmt.get('zoom'): defaults['zoom_xlim'] = list(fmt['zoom'])
     if not po and not defaults: return f
@@ -2812,6 +2868,21 @@ def composed_panel_value(it, key, field, default):
     pn = next((p for p in f.get("panels") or [] if composed_panel_key(p) == key), {})
     ov = ((getattr(it, "fmt", None) or {}).get("panels") or {}).get(key) or {}
     return ov[field] if field in ov else pn.get(field, default)
+
+
+def composed_panel_labels(it, key):
+    """(can, on) for one panel of a workbook figure: can it carry peak labels (its own label sheet, or - a fit panel planned
+    without - the label sheet the workbook's other fits use, for its sample), and are they drawn right now."""
+    import paper_figures as pf
+    _p, rec, f = it.det.get("_composed", (None, None, {})) if getattr(it, "det", None) else (None, None, {})
+    pn = next((p for p in f.get("panels") or [] if composed_panel_key(p) == key), None)
+    if pn is None: return False, False
+    pe = next((p for p in composed_panel_fmt(f, getattr(it, "fmt", None) or {}).get("panels") or [] if composed_panel_key(p) == key), pn)
+    spec_ = pf.label_spec(pn, rec); can = bool(spec_)
+    if can and not pn.get("labels"):                       # labels taken from the workbook's fit label sheet: only when it has rows for this panel's sample
+        try: can = pf.label_has_rows(getattr(it, "_working_sheets", None) or pf.load_sheets(_p), spec_)
+        except Exception: can = False
+    return can, bool(can and pe.get("show_labels", bool(pn.get("labels"))))
 
 
 _COMPOSED_KEEP = collections.OrderedDict()      # id(spec) -> [spec, figure drawn when it was built, its picture for the window]
@@ -3701,14 +3772,24 @@ def _with_fmt(build):
             if a: a[0] = o_
             else: a = [o_]
         _BUILD_FMT = fmt
-        swapped = []
+        swapped = []; relabel = []
         if isinstance(self, Combined):                          # figures of several fits: drawn from the whole fit of each
             for m_ in getattr(self, "members", []):
                 if getattr(m_, "spec_fit", None) is not None:
                     swapped.append((m_, m_.spec)); m_.spec = m_.spec_fit
+            off_ = fmt.get("peak_labels") is False               # 'Peak labels' is each graph's own switch: a figure made of several graphs follows ITS switch, not theirs
+            for m_ in getattr(self, "members", []):
+                for sp_m in {id(q_): q_ for q_ in (getattr(m_, "spec", None), getattr(m_, "spec_fit", None)) if isinstance(q_, dict)}.values():
+                    try: pans_ = all_panels(sp_m)
+                    except Exception: pans_ = []
+                    for p_ in pans_:
+                        was = p_.get("_hidden") is not None
+                        if was != off_:
+                            relabel.append((p_, was)); (hide_labels if off_ else show_labels)(p_)
         try: r = build(self, *a, **k)
         finally:
             _BUILD_FMT = None
+            for p_, was in relabel: (hide_labels if was else show_labels)(p_)
             for m_, s_ in swapped: m_.spec = s_
         o_ = a[0] if a else k.get("opt")
         apply_fmt(self, o_ if isinstance(o_, dict) else getattr(self, "opt", None)); return r
@@ -4065,7 +4146,7 @@ def write_figure_provenance(base, it, settings=None, confirmed=None):
     labels, ivs, phases = [], [], []
     for m in members:
         for pn in ((getattr(m, "spec", None) or {}).get("panels") or []):
-            for x_, t_, _y in list(pn.get("labels") or []) + list((pn.get("y2") or {}).get("labels") or []):
+            for x_, t_, _y in labels_of(pn) + list((pn.get("y2") or {}).get("labels") or ((pn.get("_hidden") or {}).get("y2") or {}).get("labels") or []):
                 try: labels.append({"x": float(x_), "text": str(t_)})
                 except (TypeError, ValueError): pass
         r = getattr(m, "results", None)

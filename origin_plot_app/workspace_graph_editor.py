@@ -26,7 +26,8 @@ class GraphEditor(QDialog):
         self.markers=QCheckBox('Show point markers on other curves'); self.observed_markers=QCheckBox('Show markers on measured data'); self.fitted_markers=QCheckBox('Show markers on fitted curves'); self.zoom=QCheckBox('Show zoom inset')
         self.difference=QCheckBox('Show difference / residual row'); self.bragg=QCheckBox('Show Bragg reflection rows')
         self.background=QCheckBox('Show background / baseline curve')
-        for box in [self.observed_markers,self.fitted_markers,self.markers,self.zoom,self.difference,self.bragg,self.background]:
+        self.peak_labels=QCheckBox('Show peak labels')
+        for box in [self.observed_markers,self.fitted_markers,self.markers,self.zoom,self.difference,self.bragg,self.background,self.peak_labels]:
             box.toggled.connect(self.apply); right.addWidget(box)
         self.xmin=QLineEdit(); self.xmax=QLineEdit(); self.xmin.setPlaceholderText('From'); self.xmax.setPlaceholderText('To')
         row=QHBoxLayout(); row.addWidget(self.xmin); row.addWidget(self.xmax); right.addWidget(QLabel('Inset X range')); right.addLayout(row)
@@ -77,6 +78,9 @@ class GraphEditor(QDialog):
         drawn_background=any('background' in l or 'baseline' in l for l in lines)
         fit_background='background' in mapping                     # a pattern-and-fit file that names its background column
         self.background.setChecked(bool(options.get('show_background',drawn_background and not fit_background)))
+        from opstudio import side_tables as SD_
+        has_labels=SD_.has_labels(self.graph.fig)
+        self.peak_labels.setChecked(bool(has_labels and options.get('peak_labels',True)))
         zoom=options.get('zoom') or params.get('zoom') or []
         self.xmin.setText(str(zoom[0]) if len(zoom)>1 else ''); self.xmax.setText(str(zoom[1]) if len(zoom)>1 else '')
         ov=combo.get('overrides') or {}
@@ -91,7 +95,8 @@ class GraphEditor(QDialog):
         for box,on,why in [(self.difference,fit,'Only a pattern-and-fit graph (observed and calculated curves) has a difference row'),
                            (self.bragg,fit and has_ticks,'No reflection (tick) list is ticked with this fit: tick the list beside the data, the app does not invent reflections' if fit else 'Only a pattern-and-fit graph has Bragg reflection rows'),
                            (self.background,drawn_background or fit_background,'This graph\'s data has no background or baseline curve; the app does not make one up'),
-                           (self.zoom,can_zoom,'This template has no zoom inset')]:
+                           (self.zoom,can_zoom,'This template has no zoom inset'),
+                           (self.peak_labels,has_labels,'This graph has no labels on its peaks: tick a label list beside the data, the app does not invent labels')]:
             box.setEnabled(bool(on)); box.setToolTip('' if on else why)
         self.unsupported=[why for box,on,why in [(self.bragg,fit and has_ticks,'Bragg rows: no reflection list with this graph'),(self.background,drawn_background or fit_background,'Background: none in this graph\'s data'),
                                                   (self.difference,fit,'Difference row: pattern-and-fit graphs only'),(self.zoom,can_zoom,'Zoom inset: not part of this template')] if not on]
@@ -106,9 +111,12 @@ class GraphEditor(QDialog):
         options.update(markers=self.markers.isChecked(),observed_markers=self.observed_markers.isChecked(),fitted_markers=self.fitted_markers.isChecked(),inset=self.zoom.isChecked(),show_difference=self.difference.isChecked(),
                        show_bragg=self.bragg.isChecked())
         if self.background.isEnabled(): options['show_background']=self.background.isChecked()
+        if self.peak_labels.isEnabled():
+            if self.peak_labels.isChecked(): options.pop('peak_labels',None)          # on is how the template draws it: nothing to store
+            else: options['peak_labels']=False
         if target=='all':
             for value in switches.get('panel_options',{}).values():
-                for key in ('markers','observed_markers','fitted_markers','inset','show_difference','show_bragg','show_background'): value.pop(key,None)
+                for key in ('markers','observed_markers','fitted_markers','inset','show_difference','show_bragg','show_background','peak_labels'): value.pop(key,None)
         if self.xmin.text().strip() or self.xmax.text().strip():
             try:
                 lo,hi=float(self.xmin.text()),float(self.xmax.text())

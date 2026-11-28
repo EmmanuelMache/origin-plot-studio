@@ -99,6 +99,8 @@ def _group(title, *widgets, launcher=None):
     return f
 
 
+ALL_PANELS = "All panels"          # the Panel row of a workbook figure: the entry that changes every panel at once
+
 class Ribbon(QWidget):
     """The ribbon: its tabs (self.head) sit in the top bar of the window, beside the buttons there; the buttons of the chosen tab below."""
     MODES = ["Always show the ribbon", "Show tabs only", "Hide the ribbon (Ctrl+F1 shows it)"]
@@ -901,6 +903,9 @@ class Ribbon(QWidget):
         show_ticks = sp.composed_panel_value(it, key, 'show_ticks', True)
         m.addAction('Phase tick rows (Bragg marks): hide (this panel only)' if show_ticks else 'Phase tick rows (Bragg marks): show (this panel only)',
                     lambda: self.set_panel_fmt(key, show_ticks=False if show_ticks else None))
+        can_lab, lab_on = sp.composed_panel_labels(it, key)
+        if can_lab:
+            m.addAction('Peak labels: hide (this panel only)' if lab_on else 'Peak labels: show (this panel only)', lambda: self.set_panel_labels(not lab_on, key))
 
     def set_panel_fmt(self, key, **changes):
         """One panel's own change (right click on it), kept beside the whole-graph fmt; set a field to None to go back to
@@ -909,16 +914,22 @@ class Ribbon(QWidget):
         if it is None:
             return self._say("Show a graph first.")
         old = copy.deepcopy(getattr(it, "fmt", None) or {}); new = copy.deepcopy(old)
-        panels = dict(new.get("panels") or {}); cur = dict(panels.get(key) or {})
-        for k, v in changes.items():
-            if v is None:
-                cur.pop(k, None)
+        panels = dict(new.get("panels") or {})
+        per_key = changes.pop("_per_key", None)                       # {panel: {field: value}}: a change that differs from panel to panel
+        if per_key is None:
+            fit_keys = self.composed_panel_keys()
+            per_key = {k_: dict(changes) for k_ in (fit_keys if key == ALL_PANELS else [key])}      # 'All panels': the fit settings go to every fit panel - still one step to undo
+        for key, ch in per_key.items():
+            cur = dict(panels.get(key) or {})
+            for k, v in ch.items():
+                if v is None:
+                    cur.pop(k, None)
+                else:
+                    cur[k] = v
+            if cur:
+                panels[key] = cur
             else:
-                cur[k] = v
-        if cur:
-            panels[key] = cur
-        else:
-            panels.pop(key, None)
+                panels.pop(key, None)
         if panels:
             new["panels"] = panels
         else:
@@ -952,6 +963,79 @@ class Ribbon(QWidget):
         self.xrd_bar()
         return r
 
+    # ---- peak labels: every graph that has them can be drawn with or without (the preview, the files and Origin alike)
+    def labels_bar(self):
+        """'Peak labels' beside Zoom / Pan: shown for a graph that has labels on its peaks, bands or steps (a figure of a
+        workbook has the same switch per panel, in its Panel row)."""
+        w = self.w; cb = getattr(w, "peak_labels_cb", None)
+        if cb is None:
+            return
+        it = self.item()
+        own = it is not None and getattr(it, "kind", "") != sp.COMPOSED_KIND and not hasattr(it, "combo") and not (getattr(it, "spec", None) or {}).get("figtype")
+        show = bool(own and sp.has_peak_labels(it))
+        cb.setVisible(show)
+        if show:
+            cb.blockSignals(True); cb.setChecked((getattr(it, "fmt", None) or {}).get("peak_labels") is not False); cb.blockSignals(False)
+
+    def set_peak_labels(self, on, it=None):
+        """This graph with its peak labels (on) or without (off). Its curves, tick rows and data are not changed; the list of
+        peaks in Results stays. A figure of a workbook: every panel that can carry labels."""
+        it = it or self.item()
+        if it is None:
+            return self._say("Show a graph first.")
+        if getattr(it, "kind", "") == sp.COMPOSED_KIND:
+            return self.set_panel_labels(on, ALL_PANELS)
+        r = self.set_fmt(it, peak_labels=None if on else False)
+        self.labels_bar()
+        return r
+
+    def composed_label_keys(self):
+        """The panels of the workbook figure on show that can carry peak labels, in order."""
+        it = self.item()
+        if it is None or getattr(it, "kind", "") != sp.COMPOSED_KIND:
+            return []
+        _p, _r, f = it.det.get("_composed", (None, None, {}))
+        return [k for k in (sp.composed_panel_key(pn) for pn in f.get("panels") or []) if sp.composed_panel_labels(it, k)[0]]
+
+    def composed_bar_keys(self):
+        """The panels offered in the Panel row: the fits (their zoom, dots, difference, tick rows) and every panel with labels."""
+        it = self.item()
+        if it is None or getattr(it, "kind", "") != sp.COMPOSED_KIND:
+            return []
+        fit = set(self.composed_panel_keys()); lab = set(self.composed_label_keys())
+        _p, _r, f = it.det.get("_composed", (None, None, {}))
+        return [k for k in (sp.composed_panel_key(pn) for pn in f.get("panels") or []) if k in fit or k in lab]
+
+    def panel_key(self):
+        return self.w.panel_combo.currentText()
+
+    def set_panel_labels(self, on, key=None):
+        """Peak labels of one panel of a workbook figure (or of all its panels) on or off. A fit panel planned without labels
+        takes those of its sample from the workbook's label sheet; nothing is invented."""
+        it = self.item()
+        if it is None or getattr(it, "kind", "") != sp.COMPOSED_KIND:
+            return self._say("Show a figure of a workbook first.")
+        key = key or self.panel_key()
+        keys = self.composed_label_keys() if key == ALL_PANELS else [key]
+        _p, _r, f = it.det.get("_composed", (None, None, {})); per = {}
+        for k_ in keys:
+            pn = next((q for q in f.get("panels") or [] if sp.composed_panel_key(q) == k_), None)
+            if pn is None or not sp.composed_panel_labels(it, k_)[0]:
+                continue
+            per[k_] = {"show_labels": None if bool(on) == bool(pn.get("labels")) else bool(on)}     # None: as the figure plan of the workbook says
+        if not per:
+            return self._say("This panel has no peak labels in the workbook (no label sheet with rows for its sample).")
+        fmt0 = getattr(it, "fmt", None) or {}
+        if "peak_labels" in fmt0:                                     # a whole-figure choice made earlier: the per-panel choice replaces it
+            it.fmt = {k: v for k, v in fmt0.items() if k != "peak_labels"}
+            for k_ in self.composed_label_keys():
+                if k_ not in per:
+                    pn = next((q for q in f.get("panels") or [] if sp.composed_panel_key(q) == k_), {})
+                    per[k_] = {"show_labels": None if bool(fmt0["peak_labels"]) == bool(pn.get("labels")) else bool(fmt0["peak_labels"])}
+        r = self.set_panel_fmt(key, _per_key=per)
+        self.composed_bar()
+        return r
+
     def composed_panel_keys(self):
         """The rietveld panels of the figure on show (Fig_C, Fig_D ...), in order - empty when it has none or just one."""
         it = self.item()
@@ -963,18 +1047,48 @@ class Ribbon(QWidget):
     def composed_bar(self):
         """A figure with several panels (Fig_C, Fig_D ...): pick one and change it alone - the zoomed part, the observed
         curve as dots or a line, the difference row - without touching the others."""
-        it = self.item(); w = self.w; keys = self.composed_panel_keys()
-        show = len(keys) > 1
-        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
+        it = self.item(); w = self.w; fit_keys = self.composed_panel_keys(); lab_keys = self.composed_label_keys()
+        keys = self.composed_bar_keys() if lab_keys else list(fit_keys)
+        show = len(fit_keys) > 1 or bool(lab_keys)
+        fit_row = len(fit_keys) > 1 or (bool(fit_keys) and bool(lab_keys))
+        for wd in (w.panel_lab, w.panel_combo):
             wd.setVisible(show)
+        for wd in (w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
+            wd.setVisible(show and fit_row)
+        w.panel_labels.setVisible(show and bool(lab_keys))
         if not show:
             return
+        entries = keys + ([ALL_PANELS] if len(keys) > 1 else [])
         cur = w.panel_combo.currentText()
-        w.panel_combo.blockSignals(True); w.panel_combo.clear(); w.panel_combo.addItems(keys)
-        if cur in keys:
+        w.panel_combo.blockSignals(True); w.panel_combo.clear(); w.panel_combo.addItems(entries)
+        if cur in entries:
             w.panel_combo.setCurrentText(cur)
         w.panel_combo.blockSignals(False)
         key = w.panel_combo.currentText() or keys[0]
+        every = key == ALL_PANELS
+        lk = lab_keys if every else [key]
+        states = [sp.composed_panel_labels(it, k_) for k_ in lk]
+        can_lab = any(c_ for c_, _o in states)
+        w.panel_labels.setEnabled(can_lab)
+        w.panel_labels.setToolTip(("The labels on the peaks of this panel (from the label sheet of the workbook), on or off. The curves, the tick rows and the data stay as they are; the "
+                                   "picture, the files and the drawing in Origin all follow this switch") if can_lab else "The workbook has no peak labels for this panel (no label sheet with rows for its sample)")
+        w.panel_labels.blockSignals(True); w.panel_labels.setChecked(can_lab and all(o_ for c_, o_ in states if c_)); w.panel_labels.blockSignals(False)
+        is_fit = every or key in fit_keys
+        for wd in (w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
+            wd.setEnabled(is_fit)
+        if not is_fit:                                                # a panel that is not a fit (a pattern, a stack): only its labels can be switched here
+            for wd in (w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
+                wd.setToolTip("Only a fit panel (observed and calculated curves) has this part")
+            return
+        if every:                                                     # every fit panel at once: a box is ticked when all of them have that part on
+            pf_ = __import__("paper_figures")
+            zs = [sp.composed_panel_value(it, k_, "zoom", None) for k_ in fit_keys]; ts = [bool(sp.composed_panel_value(it, k_, "ticks", None)) for k_ in fit_keys]
+            for wd, on_, en_, tip in ((w.panel_zoom_cb, all(bool(z_) for z_ in zs if z_ is not None), any(z_ is not None for z_ in zs), "The zoomed part (inset) of every fit panel - on or off"),
+                                      (w.panel_dots, all(sp.composed_panel_value(it, k_, "obs_style", pf_.OBS_STYLE) != "line" for k_ in fit_keys), True, "The observed curve of every fit panel as dots, or as a line"),
+                                      (w.panel_diff, all(bool(sp.composed_panel_value(it, k_, "show_diff", True)) for k_ in fit_keys), True, "The difference row of every fit panel - on or off"),
+                                      (w.panel_ticks, any(ts) and all(bool(sp.composed_panel_value(it, k_, "show_ticks", True)) for k_, t_ in zip(fit_keys, ts) if t_), any(ts), "The phase tick rows of every fit panel - on or off")):
+                wd.setEnabled(bool(en_)); wd.setToolTip(tip); wd.blockSignals(True); wd.setChecked(bool(en_ and on_)); wd.blockSignals(False)
+            return
         has_zoom = sp.composed_panel_value(it, key, "zoom", None)
         w.panel_zoom_cb.setEnabled(has_zoom is not None)
         w.panel_zoom_cb.setToolTip("This panel's zoomed part (inset) - on or off" if has_zoom is not None else "This panel has no zoomed part to switch")
@@ -1215,7 +1329,10 @@ def install(w):
     if gt is not None:                                           # XRD only: a row of its own under Zoom / Pan / Select range (nothing is squeezed)
         from PySide6.QtWidgets import QHBoxLayout as _HB
         xr = _HB(); xr.setSpacing(6)
-        for wd in (w.xrd_zoom, w.xrd_zoom_rng, w.xrd_view, w.xrd_mid_lab, w.xrd_mid):
+        w.peak_labels_cb = QCheckBox("Peak labels")
+        w.peak_labels_cb.setToolTip("This graph with the labels on its peaks (bands, steps) or without them. The curves and the data stay as they are; the picture, the files and the drawing in Origin all follow this switch")
+        w.peak_labels_cb.toggled.connect(lambda on: rb.set_peak_labels(on)); w.peak_labels_cb.setVisible(False)
+        for wd in (w.xrd_zoom, w.xrd_zoom_rng, w.peak_labels_cb, w.xrd_view, w.xrd_mid_lab, w.xrd_mid):
             xr.addWidget(wd)
         xr.addStretch(1)
         host = gt.parentWidget().layout() if gt.parentWidget() is not None else None
@@ -1235,16 +1352,18 @@ def install(w):
     w.panel_diff.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), show_diff=None if on else False))
     w.panel_ticks = QCheckBox("Phase tick rows"); w.panel_ticks.setToolTip("The rows of small vertical marks under the fit: one row per phase, a mark at each of its reflections (Bragg positions). Off: they are left out, for this panel only")
     w.panel_ticks.toggled.connect(lambda on: rb.set_panel_fmt(w.panel_combo.currentText(), show_ticks=None if on else False))
+    w.panel_labels = QCheckBox("Peak labels"); w.panel_labels.setToolTip("The labels on the peaks of this panel, on or off")
+    w.panel_labels.toggled.connect(lambda on: rb.set_panel_labels(on))
     if gt is not None and host is not None:
         pr = _HB(); pr.setSpacing(6)
-        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks, w.panel_labels):
             pr.addWidget(wd)
         pr.addStretch(1)
         k2 = next((i for i in range(host.count()) if host.itemAt(i).layout() is xr), k + 1)
         host.insertLayout(k2 + 1, pr)
         w.panel_row = pr
-        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks):
+        for wd in (w.panel_lab, w.panel_combo, w.panel_zoom_cb, w.panel_dots, w.panel_diff, w.panel_ticks, w.panel_labels):
             wd.setVisible(False)
-    w.list.currentRowChanged.connect(lambda *_: (rb.show_state(), rb.xrd_bar(), rb.composed_bar()))
-    rb.show_state(); rb.xrd_bar(); rb.composed_bar()
+    w.list.currentRowChanged.connect(lambda *_: (rb.show_state(), rb.xrd_bar(), rb.composed_bar(), rb.labels_bar()))
+    rb.show_state(); rb.xrd_bar(); rb.composed_bar(); rb.labels_bar()
     return rb
